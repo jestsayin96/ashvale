@@ -2,8 +2,8 @@
 
 Artifact: https://claude.ai/artifact/X37GpEyLFrXV7wwn9wzkQr
 Project:  /home/claude/ashvale   (the single file at /home/claude/town/town.html is RETIRED)
-Repo:     jestsayin96/ashvale  -- user must create it; then add_repo and push
-Pages:    https://jestsayin96.github.io/ashvale/ once Pages is switched on
+Repo:     https://github.com/jestsayin96/ashvale  (origin/main)
+Pages:    https://jestsayin96.github.io/ashvale/  LIVE, redeploys on every push to main
 
 Edit src/game.js, src/style.css, src/body.html. Never edit dist/ by hand.
   node --check src/game.js && node tools/build.mjs && python3 -I tools/shot.py
@@ -19,6 +19,9 @@ Other artifacts (do not break): colony https://claude.ai/artifact/BbRBE9rRHmqwS5
 5. Keep the reply to the user short — they asked for updates on request, not narration.
 
 ## Shipped
+- c4 3D: three.js view as a third tab - heightmap terrain, pitched roofs, lit windows,
+  roof-off interiors with hearth/lamp point lights, instanced trees, orbit camera,
+  day/night sun and sky, click-to-select by raycast, rail camera row drives it too
 - c3.5 repo: split into a project, build to a single-file bundle, smoke test, Pages workflow
 - c0 town: 22 families, kin, trades, magic, 5 shops, nobles, guild, altar, Rosehouse, guard, bank, school
 - c0 keep: 100-floor ledger, abstract delves, deaths, levels
@@ -30,7 +33,7 @@ Other artifacts (do not break): colony https://claude.ai/artifact/BbRBE9rRHmqwS5
 1. ECONOMY — gold actually moves: shop tills, wages, tax to the vault, deposits, prices. DONE c3
 2. BOSSES + RELICS — every 10th floor a named boss; relics as permanent party upgrades. DONE c3
 3. THREE.JS — real 3D renderer as an alternate view. Big. Needs its own cycle, maybe two. <- c4
-4. EFFECTS LAYER — lighting, particles, hit feedback, damage numbers, loot beams, depth fog.
+4. EFFECTS LAYER  <- c5 — lighting, particles, hit feedback, damage numbers, loot beams, depth fog.
    The user asked for Diablo 3 as the visual bar. Needs the 3D view first. (agreed c4.5)
 5. ROT.JS + TONE.JS — swap the hand-rolled dungeon generator for rot.js (five algorithms, real
    FOV), and add procedural audio with tone.js. Both MIT, both on cdnjs, no asset files.
@@ -48,6 +51,14 @@ Other artifacts (do not break): colony https://claude.ai/artifact/BbRBE9rRHmqwS5
   before spending a cycle on it; do not assume.
 
 ## Known rough edges
+- SHADOWS ARE UNVERIFIED. Shadow maps are configured per the docs (PCFSoft, 2048 map,
+  a 64-unit ortho frustum), but this sandbox renders through swiftshader, which produces
+  no shadows even for a textbook box-on-a-plane control case. Check on real hardware
+  before touching the shadow settings - they are probably fine.
+- three.js 0.150.1 is vendored and INLINED into the bundle (714 KB). The UMD build is
+  deprecated at r150+ and gone at r160, so do not bump past 0.159 without porting to modules.
+- The 3D view renders the town only. Pressing Town/Keep leaves 3D; 3 toggles it.
+- The Keep in 3D, and the effects layer, are the next visual steps.
 - Treasury runs tight: civic wages roughly match tax income, so the town leans on Keep loot.
   Deliberate for now, but watch it if wages grow.
 - Rail/console repaint cadence is coarse; fine but could be event-driven.

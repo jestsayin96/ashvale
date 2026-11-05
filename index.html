@@ -21,6 +21,7 @@
     <div class="seg">
       <button class="segb on" id="scTown">Town</button>
       <button class="segb" id="scKeep">The Keep</button>
+      <button class="segb" id="sc3D">3D</button>
     </div>
     <div class="right">
       <button class="sbtn keep" id="keepBtn">Ledger</button>
@@ -34,6 +35,7 @@
   <div id="stage">
     <div id="rail"></div>
     <canvas id="view"></canvas>
+    <canvas id="view3d"></canvas>
     <div class="float" id="hint"><b>Click anyone</b> for their life: family, trade, gift, gear and coin. Click a building for who works there. Drag to pan, scroll to zoom.</div>
     <div class="float" id="log"><h4 id="logHead">The Ashvale Chronicle<span>hide</span></h4>
       <div id="logList"></div></div>
@@ -72,6 +74,7 @@
     </div>
   </div>
 </div>
+<script src="vendor/three.min.js"></script>
 <script src="src/game.js"></script>
 </body>
 </html>

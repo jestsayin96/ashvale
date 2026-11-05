@@ -45,6 +45,9 @@ h1 em{font-style:normal;color:var(--gold)}
   background:radial-gradient(130% 100% at 50% -12%,#2a2440 0%,#15121f 62%,#0d0c12 100%)}
 #view{display:block;width:100%;height:100%;touch-action:none;cursor:pointer}
 #view.grab{cursor:grabbing}
+#view3d{display:none;position:absolute;inset:0;width:100%;height:100%;touch-action:none;
+  cursor:grab;z-index:0}
+#rail{z-index:2}
 .float{position:absolute;background:#120f1dEE;border:1px solid var(--edge);border-radius:10px;
   padding:9px 12px;font-size:12.5px;line-height:1.5;color:var(--muted)}
 #hint{left:max(12px,env(safe-area-inset-left,0px));top:12px;max-width:min(300px,62vw);pointer-events:none}
@@ -111,7 +114,8 @@ aside.panel.open{transform:none}
   #rail{position:static;width:auto;flex-direction:row;overflow-x:auto;border-right:0;
     border-bottom:1px solid var(--edge);padding:8px 10px;gap:14px}
   .grp{min-width:150px}
-  #stage{display:flex;flex-direction:column} #view{flex:1;min-height:0}
+  #stage{display:flex;flex-direction:column} #view,#view3d{flex:1;min-height:0}
+  #view3d{position:static;inset:auto}
   #log,#hint{display:none}
   #console{grid-template-columns:1fr}
 }

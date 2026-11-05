@@ -8,7 +8,7 @@ secs = int(sys.argv[2]) if len(sys.argv) > 2 else 20
 errs = []
 
 with sync_playwright() as p:
-    b = p.chromium.launch()
+    b = p.chromium.launch(args=["--use-gl=swiftshader", "--enable-unsafe-swiftshader"])
     pg = b.new_page(viewport={"width": 1340, "height": 860})
     pg.on("pageerror", lambda e: errs.append("pageerror: " + str(e)))
     pg.on("console", lambda m: errs.append("console: " + m.text)
@@ -16,7 +16,11 @@ with sync_playwright() as p:
     pg.goto((root / target).as_uri()); pg.wait_for_timeout(1500)
     (root / "dist").mkdir(exist_ok=True)
     pg.screenshot(path=str(root / "dist/shot-town.png"))
-    pg.click("[data-sp='8']"); pg.wait_for_timeout(secs * 1000)
+    pg.click("[data-sp='8']")
+    pg.wait_for_timeout(3000)                      # ~09:00, people out and about
+    pg.click("#sc3D"); pg.wait_for_timeout(2000)   # 3D in daylight
+    pg.screenshot(path=str(root / "dist/shot-3d.png"))
+    pg.click("#sc3D"); pg.wait_for_timeout(secs * 1000)
     pg.screenshot(path=str(root / "dist/shot-run.png"))
     stats = {k: pg.inner_text("#" + k) for k in ["sPop", "sGold", "sFloor", "sClock"]}
     pg.click("#scKeep"); pg.wait_for_timeout(3000)
