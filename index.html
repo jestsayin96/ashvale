@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dragon's Keep</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Nunito+Sans:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Ashvale &amp; <em>Dragon's Keep</em></h1>
+    <div class="stat"><i style="background:#6fae5a"></i><span id="sPop">0</span><small>souls</small></div>
+    <div class="stat"><i style="background:#e3b64a"></i><span id="sGold">0</span><small>gold in the vault</small></div>
+    <div class="stat"><i style="background:#8f6fe0"></i><span id="sMagic">0</span><small>gifted</small></div>
+    <div class="stat"><i style="background:#c1483f"></i><span id="sFloor">0</span><small>deepest floor</small></div>
+    <div class="stat"><span id="sClock">Day 1 &middot; 06:00</span></div>
+    <div class="seg">
+      <button class="segb on" id="scTown">Town</button>
+      <button class="segb" id="scKeep">The Keep</button>
+    </div>
+    <div class="right">
+      <button class="sbtn keep" id="keepBtn">Ledger</button>
+      <button class="sbtn" data-sp="0">&#10073;&#10073;</button>
+      <button class="sbtn on" data-sp="1">1&times;</button>
+      <button class="sbtn" data-sp="3">3&times;</button>
+      <button class="sbtn" data-sp="8">8&times;</button>
+    </div>
+  </header>
+
+  <div id="stage">
+    <div id="rail"></div>
+    <canvas id="view"></canvas>
+    <div class="float" id="hint"><b>Click anyone</b> for their life: family, trade, gift, gear and coin. Click a building for who works there. Drag to pan, scroll to zoom.</div>
+    <div class="float" id="log"><h4 id="logHead">The Ashvale Chronicle<span>hide</span></h4>
+      <div id="logList"></div></div>
+
+    <aside class="panel" id="who">
+      <div class="phead">
+        <canvas id="bigPortrait" width="120" height="120"
+          style="width:52px;height:52px;border-radius:9px;border:1px solid var(--edge2);flex:none"></canvas>
+        <div style="min-width:0"><h2 id="wName">&mdash;</h2><p id="wSub">&mdash;</p></div>
+        <button class="pclose" data-close="who">&times;</button>
+      </div>
+      <div class="pbody" id="wBody"></div>
+    </aside>
+
+    <aside class="panel" id="keep">
+      <div class="phead">
+        <div style="min-width:0"><h2>Dragon's Keep</h2><p id="kSub">One hundred floors beneath the ridge.</p></div>
+        <button class="pclose" data-close="keep">&times;</button>
+      </div>
+      <div class="pbody" id="kBody"></div>
+    </aside>
+  </div>
+
+  <div id="console">
+    <div class="who">
+      <canvas id="portrait" width="120" height="120"></canvas>
+      <div style="min-width:0">
+        <h3 id="selName">Ashvale</h3>
+        <p id="selSub">A town of twenty-odd families, and the hole in the ground that feeds it.</p>
+      </div>
+    </div>
+    <div id="mid"><div class="sum" id="summary"></div></div>
+    <div class="cbtns">
+      <button id="sheetBtn" hidden class="gold">Open their sheet</button>
+      <button id="followBtn" hidden>Follow them</button>
+    </div>
+  </div>
+</div>
+<script src="src/game.js"></script>
+</body>
+</html>

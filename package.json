@@ -1,0 +1,13 @@
+{
+  "name": "ashvale",
+  "private": true,
+  "version": "0.4.0",
+  "type": "module",
+  "description": "Ashvale & Dragon's Keep - a living fantasy town and a hundred-floor dungeon",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "check": "node --check src/game.js",
+    "test": "node --check src/game.js && node tools/build.mjs && python3 tools/shot.py",
+    "serve": "python3 -m http.server 8080"
+  }
+}
