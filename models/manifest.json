@@ -1,0 +1,18 @@
+{
+  "_comment": "PLACEHOLDER CAST. Soldier and Xbot come from the three.js examples (MIT) and are here to prove the pipeline, not to stay. Xbot is Mixamo's own base rig, so the medieval cast drops straight in: replace these files, keep the keys. See README.md.",
+  "cap": 20,
+  "buildings": {},
+  "characters": {
+    "man": "Soldier.glb",
+    "woman": "Xbot.glb"
+  },
+  "roles": {
+    "guard": "man",
+    "adventurer": "man",
+    "nobleman": "man",
+    "noblewoman": "woman",
+    "child": "woman"
+  },
+  "animations": null,
+  "clips": {}
+}

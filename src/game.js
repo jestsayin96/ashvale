@@ -1877,6 +1877,7 @@ function mkFolk3(p3){
   G.userData={person:p3,body,s}; return G;
 }
 function rebuildFolk(S){
+  if(typeof SKINS!=='undefined') SKINS.clear();
   while(S.pG.children.length) S.pG.remove(S.pG.children[0]);
   people.forEach(p3=>{ if(p3.dead) return; const m=mkFolk3(p3); p3.m3=m; S.pG.add(m); });
   S.folk=people.length;
@@ -1922,7 +1923,7 @@ function init3D(){
   keepGlow.position.set(46,2.6,21); S3.add(keepGlow);
   R3={renderer,scene:S3,cam,sun,hemi,water,bG,pG,keepGlow,
       th:-2.25,ph:0.78,dist:40,tx:26,ty:0.6,tz:23,folk:0};
-  rebuildFolk(R3); resize3D(); return R3;
+  rebuildFolk(R3); resize3D(); loadAssets(R3); return R3;
 }
 function resize3D(){ if(!R3||!cv3) return;
   const r=cv3.getBoundingClientRect();
@@ -1955,6 +1956,8 @@ function render3D(){
     const bob=p3.moving?Math.abs(Math.sin((p3.f||0)*9))*0.045:0;
     m.userData.body.position.y=(0.34+bob)*m.userData.s;
     m.rotation.y=p3===selected?tnow*1.6:0; });
+  const d3t=Math.max(0,Math.min(0.1,tnow-(S.last||tnow))); S.last=tnow;
+  updateSkins(S,d3t);
   S.keepGlow.intensity=1.5+Math.sin(tnow*1.8)*0.55;
   const cx=S.tx+Math.cos(S.th)*Math.cos(S.ph)*S.dist;
   const cy=S.ty+Math.sin(S.ph)*S.dist;
@@ -2014,6 +2017,161 @@ function wire3D(){
   c2.addEventListener('pointercancel',()=>{d3=null;});
   c2.addEventListener('wheel',e=>{ e.preventDefault(); if(!R3) return;
     R3.dist=Math.max(8,Math.min(120,R3.dist*(e.deltaY<0?1/1.12:1.12))); },{passive:false});
+}
+
+/* ===================== optional assets =====================
+   Everything here is additive. With no models/manifest.json the game stays exactly
+   as it was: procedural boxes and cones, no errors, no console noise. The artifact
+   bundle has no models/ to fetch, so it simply never leaves the procedural path. */
+const ASSETS={ base:'models/', on:false, buildings:{}, chars:{}, shared:[],
+  named:null, roles:{}, cap:20, tried:false };
+function roleOf(p){
+  if(p.age<ADULT) return 'child';
+  if(p.adventurer) return 'adventurer';
+  if(p.guard) return 'guard';
+  if(p.noble) return p.sex==='f'?'noblewoman':'nobleman';
+  return p.sex==='f'?'woman':'man';
+}
+function charFor(p){
+  const chain=[ASSETS.roles[roleOf(p)], roleOf(p),
+    p.sex==='f'?'woman':'man', 'default'];
+  for(const k of chain) if(k&&ASSETS.chars[k]) return ASSETS.chars[k];
+  return null;
+}
+const CLIPWORDS={ idle:['idle','breathing','stand'], walk:['walk'],
+  run:['run','jog'], attack:['slash','attack','punch','swing','shoot','stab'],
+  die:['death','dying','die','fall'] };
+function pickClip(list,slot,named){
+  if(!list||!list.length) return null;
+  if(named&&named[slot]){ const x=list.find(a=>a.name===named[slot]); if(x) return x; }
+  for(const w of (CLIPWORDS[slot]||[slot])){
+    const x=list.find(a=>a.name.toLowerCase().indexOf(w)>=0); if(x) return x; }
+  return null;
+}
+function rigSpan(root){
+  root.updateMatrixWorld(true);
+  let lo=Infinity, hi=-Infinity, n=0; const v=new THREE.Vector3();
+  root.traverse(o=>{ if(o.isBone){ v.setFromMatrixPosition(o.matrixWorld);
+    if(v.y<lo) lo=v.y; if(v.y>hi) hi=v.y; n++; } });
+  if(n<4||!isFinite(lo)||!isFinite(hi)||hi-lo<=0) return null;
+  return {lo, hi, h:(hi-lo)*1.05};                 // bones stop short of the crown
+}
+function fitModel(root,wantW,wantD,originAtFeet){
+  const box=new THREE.Box3().setFromObject(root), sz=new THREE.Vector3();
+  box.getSize(sz);
+  let s=1;
+  if(wantW){ s=Math.min(wantW/(sz.x||1), wantD/(sz.z||1)); root.scale.setScalar(s); }
+  const b2=new THREE.Box3().setFromObject(root), c=new THREE.Vector3();
+  b2.getCenter(c);
+  root.position.x-=c.x; root.position.z-=c.z;
+  root.position.y-= originAtFeet ? b2.min.y : b2.min.y;
+  root.traverse(o=>{ if(o.isMesh||o.isSkinnedMesh){ o.castShadow=true; o.receiveShadow=true; } });
+  return s;
+}
+function loadAssets(S){
+  if(ASSETS.tried||typeof THREE==='undefined'||!THREE.GLTFLoader) return;
+  // no models to fetch from a file:// page, and the artifact bundle ships without them
+  if(location.protocol==='file:'||window.__ASHVALE_NO_ASSETS) { ASSETS.tried=true; return; }
+  ASSETS.tried=true;
+  let man=null;
+  fetch(ASSETS.base+'manifest.json',{cache:'no-cache'})
+    .then(r=>r.ok?r.json():null)
+    .then(m=>{
+      if(!m) return;
+      man=m; ASSETS.roles=m.roles||{}; ASSETS.named=m.clips||null;
+      if(typeof m.cap==='number') ASSETS.cap=m.cap;
+      const L=new THREE.GLTFLoader();
+      const get=f=>new Promise(res=>L.load(ASSETS.base+f,g=>res(g),undefined,()=>res(null)));
+      const jobs=[];
+      Object.entries(m.buildings||{}).forEach(([kind,file])=>
+        jobs.push(get(file).then(g=>{ if(g) swapBuilding(S,kind,g.scene); })));
+      Object.entries(m.characters||{}).forEach(([role,file])=>
+        jobs.push(get(file).then(g=>{
+          if(g) ASSETS.chars[role]={scene:g.scene, clips:g.animations||[]}; })));
+      if(m.animations) jobs.push(get(m.animations).then(g=>{
+        if(g) ASSETS.shared=g.animations||[]; }));
+      return Promise.all(jobs);
+    })
+    .then(()=>{
+      if(!man) return;
+      ASSETS.on = Object.keys(ASSETS.chars).length>0 || Object.keys(ASSETS.buildings).length>0;
+      if(ASSETS.on){ rebuildFolk(S);
+        logMsg('Models loaded: the town is wearing its proper face.','good'); }
+    })
+    .catch(()=>{});                                  // no manifest, no models, no fuss
+}
+function swapBuilding(S,kind,proto){
+  ASSETS.buildings[kind]=proto;
+  buildings.filter(b=>b.kind===kind).forEach(b=>{
+    const u=b.m3&&b.m3.userData; if(!u||u.model) return;
+    const m=proto.clone(true);
+    fitModel(m,b.w-0.1,b.d-0.1,true);
+    m.position.x+=b.x+b.w/2; m.position.z+=b.y+b.d/2; m.position.y+=u.base;
+    b.m3.add(m); u.model=m;
+    u.walls.visible=false; u.roof.visible=false; u.sill.visible=false;
+  });
+}
+/* --- animated characters, capped to the nearest few so the frame rate survives --- */
+const SKINS=new Map();                                // person -> {grp,mixer,actions,cur}
+let skinTick=0;
+function makeSkin(p){
+  const C=charFor(p); if(!C) return null;
+  const inner=THREE.skeletonClone(C.scene);
+  inner.traverse(o=>{ if(o.isMesh||o.isSkinnedMesh){ o.castShadow=true; o.receiveShadow=true;
+    o.frustumCulled=false; } });
+  const want=p.age<ADULT?1.2:1.7;
+  const span=rigSpan(inner);
+  let h=span?span.h:0, foot=span?span.lo:0;
+  if(!h){ const b=new THREE.Box3().setFromObject(inner);
+    const sz=b.getSize(new THREE.Vector3());
+    if(isFinite(sz.y)&&sz.y>0){ h=sz.y; foot=b.min.y; } }
+  let sc = h>0.0005 ? want/h : 1;
+  sc = Math.max(0.02, Math.min(60, sc));           // never let a bad measure make a giant
+  inner.scale.setScalar(sc);
+  inner.position.y = -foot*sc;                     // stand them on the ground
+  const grp=new THREE.Group(); grp.add(inner);
+  const mixer=new THREE.AnimationMixer(inner), actions={};
+  ['idle','walk','run','attack','die'].forEach(k=>{
+    const c=pickClip(C.clips,k,ASSETS.named)||pickClip(ASSETS.shared,k,ASSETS.named);
+    if(c) actions[k]=mixer.clipAction(c); });
+  if(actions.die){ actions.die.loop=THREE.LoopOnce; actions.die.clampWhenFinished=true; }
+  return {grp,mixer,actions,cur:null};
+}
+function playClip(sk,name){
+  if(sk.cur===name||!sk.actions[name]) return;
+  const nxt=sk.actions[name];
+  if(sk.cur&&sk.actions[sk.cur]) sk.actions[sk.cur].fadeOut(0.25);
+  nxt.reset().fadeIn(0.25).play(); sk.cur=name;
+}
+function updateSkins(S,dt){
+  if(!ASSETS.on||!Object.keys(ASSETS.chars).length) return;
+  skinTick-=dt;
+  if(skinTick<=0){
+    skinTick=0.4;
+    const cam=S.cam.position;
+    const near=people.filter(p=>p.m3&&p.m3.visible&&charFor(p))
+      .map(p=>[p,(p.x-cam.x)*(p.x-cam.x)+(p.y-cam.z)*(p.y-cam.z)])
+      .sort((a,b)=>a[1]-b[1]).slice(0,ASSETS.cap).map(a=>a[0]);
+    const want=new Set(near);
+    SKINS.forEach((sk,p)=>{ if(!want.has(p)){ S.pG.remove(sk.grp); SKINS.delete(p);
+      if(p.m3) p.m3.visible=true; } });
+    near.forEach(p=>{ if(SKINS.has(p)) return;
+      const sk=makeSkin(p); if(!sk) return;
+      S.pG.add(sk.grp); SKINS.set(p,sk); });
+  }
+  SKINS.forEach((sk,p)=>{
+    const vis=p.m3&&p.m3.visible!==false&&!p.away&&!p.dead&&
+      !(p.inside&&!isOpen(p.inside));
+    sk.grp.visible=!!vis;
+    if(p.m3) p.m3.visible=false;                     // the box stands in only when unskinned
+    if(!vis) return;
+    sk.grp.position.set(p.x,H(p.x|0,p.y|0)*HU,p.y);
+    if(p.fx!==undefined){ const a=Math.atan2(p.x-p.fx,p.y-p.fy);
+      if(Math.abs(p.x-p.fx)+Math.abs(p.y-p.fy)>0.004) sk.grp.rotation.y=a; }
+    p.fx=p.x; p.fy=p.y;
+    playClip(sk, p.dead?'die':(p.moving?'walk':'idle'));
+    sk.mixer.update(dt);
+  });
 }
 
 function setScene(sc){

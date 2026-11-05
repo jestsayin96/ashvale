@@ -19,7 +19,7 @@ const js = read('src/game.js');
   const inIndex = /<div id="app">[\s\S]*<\/div>\s*(?=<script)/.exec(index);
   if (!inIndex || !norm(inIndex[0]).startsWith(norm(body).slice(0, 400)))
     throw new Error('index.html body has drifted from src/body.html - keep them in sync'); }
-const three = read('vendor/three.min.js');
+const three = read('vendor/three.bundle.js');
 
 const esc = s => [...s].map(c => (c.codePointAt(0) < 128 ? c : '\\u' + c.codePointAt(0).toString(16).padStart(4, '0'))).join('');
 
@@ -34,6 +34,7 @@ ${css}
 </style>
 
 ${body}
+<script>window.__ASHVALE_NO_ASSETS=1;</script>
 <script>
 ${three}
 </script>

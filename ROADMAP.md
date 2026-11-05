@@ -19,6 +19,11 @@ Other artifacts (do not break): colony https://claude.ai/artifact/BbRBE9rRHmqwS5
 5. Keep the reply to the user short — they asked for updates on request, not narration.
 
 ## Shipped
+- c5 assets: optional .glb pipeline. three rebundled with esbuild (three + GLTFLoader +
+  SkeletonUtils, one global, 651 KB) replacing the deprecated UMD build. models/manifest.json
+  drives building and character models; absent or empty -> fully procedural, silently.
+  Rigged characters with AnimationMixer, fuzzy clip matching (idle/walk/run/attack/die),
+  nearest-N cap with a 0.4s reassign. Placeholder cast: Soldier + Xbot from three's examples.
 - c4 3D: three.js view as a third tab - heightmap terrain, pitched roofs, lit windows,
   roof-off interiors with hearth/lamp point lights, instanced trees, orbit camera,
   day/night sun and sky, click-to-select by raycast, rail camera row drives it too
@@ -33,7 +38,7 @@ Other artifacts (do not break): colony https://claude.ai/artifact/BbRBE9rRHmqwS5
 1. ECONOMY — gold actually moves: shop tills, wages, tax to the vault, deposits, prices. DONE c3
 2. BOSSES + RELICS — every 10th floor a named boss; relics as permanent party upgrades. DONE c3
 3. THREE.JS — real 3D renderer as an alternate view. Big. Needs its own cycle, maybe two. <- c4
-4. EFFECTS LAYER  <- c5 — lighting, particles, hit feedback, damage numbers, loot beams, depth fog.
+4. EFFECTS LAYER  <- c6 — lighting, particles, hit feedback, damage numbers, loot beams, depth fog.
    The user asked for Diablo 3 as the visual bar. Needs the 3D view first. (agreed c4.5)
 5. ROT.JS + TONE.JS — swap the hand-rolled dungeon generator for rot.js (five algorithms, real
    FOV), and add procedural audio with tone.js. Both MIT, both on cdnjs, no asset files.
@@ -50,7 +55,20 @@ Other artifacts (do not break): colony https://claude.ai/artifact/BbRBE9rRHmqwS5
   sprite sheets -> inline as data URIs, which costs page weight. Raise it with the user
   before spending a cycle on it; do not assume.
 
+## Assets
+- Pages serves models/; the artifact bundle sets window.__ASHVALE_NO_ASSETS and never fetches.
+- The sandbox can reach GitHub and npm but NOTHING else, so models can be curled straight
+  from raw.githubusercontent.com. Mixamo and Tripo cannot: they are blocked AND need the
+  user's login, so those files come via his connected folder C:\ashvale-assests.
+- Xbot.glb IS the Mixamo base rig, so the placeholder cast validates the exact skeleton his
+  Mixamo downloads will have. Swap the files, keep the manifest keys.
+- TERRAIN TEXTURES NOT DONE. The terrain is one vertex-coloured mesh with no UVs; texturing
+  it properly needs either per-type meshes or an atlas. Deliberately deferred, not forgotten.
+- Buildings: the swap path is written but untested - no building .glb exists yet.
+
 ## Known rough edges
+- Placeholder characters render dark red at night; could be Soldier's texture failing to
+  decode rather than just dim light. Check in daylight when the real cast lands.
 - SHADOWS ARE UNVERIFIED. Shadow maps are configured per the docs (PCFSoft, 2048 map,
   a 64-unit ortho frustum), but this sandbox renders through swiftshader, which produces
   no shadows even for a textbook box-on-a-plane control case. Check on real hardware

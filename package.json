@@ -7,7 +7,11 @@
   "scripts": {
     "build": "node tools/build.mjs",
     "check": "node --check src/game.js",
-    "test": "node --check src/game.js && node tools/build.mjs && python3 tools/shot.py",
+    "test": "node --check src/game.js && node tools/build.mjs && python3 -I tools/shot.py && python3 -I tools/shot3d.py",
     "serve": "python3 -m http.server 8080"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "three": "^0.150.1"
   }
 }
