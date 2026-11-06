@@ -3787,14 +3787,29 @@ function walk(x,y){ if(!inB(x,y)) return false;
   const t=ty[I(x,y)]; if(t===WATER||t===ROCK) return false;
   return !occ[I(x,y)]; }
 const fieldCache=new Map();
+/* Four kingdoms means four towns' worth of destinations against one cache of
+   whole-grid fields. Count what it actually does before deciding how to pay for it. */
+const FSTAT={hit:0, build:0, wipe:0, cells:0, ms:0};
+/* How far a flow field reaches, in steps. Uncapped, a field floods every walkable
+   cell connected to its target, so its cost is the size of the landmass: measured
+   at 2,246 cells in today's mostly-unwalkable world and 23,526 in a scratch build
+   where the whole grid was walkable. A bounded four-kingdom map is the second case,
+   and a larger grid makes it worse in proportion. Capped, the cost is bounded by
+   the cap instead - about 2*FMAX^2 cells - and stops depending on how big the world
+   is. 130 covers a 52-wide kingdom corner to corner with room for its approaches;
+   anything further is a journey, and journeys want waypoints, not one giant flood. */
+const FMAX=130;
 function fieldTo(tx,ty_){
-  const key=tx+','+ty_; let f=fieldCache.get(key); if(f) return f;
-  if(fieldCache.size>240) fieldCache.clear();
+  const key=tx+','+ty_; let f=fieldCache.get(key); if(f){ FSTAT.hit++; return f; }
+  if(fieldCache.size>240){ fieldCache.clear(); FSTAT.wipe++; }
+  const t0=performance.now();
+  FSTAT.build++;
   f=new Int16Array(N*N).fill(-1);
-  if(!walk(tx,ty_)){ fieldCache.set(key,f); return f; }
+  if(!walk(tx,ty_)){ FSTAT.ms+=performance.now()-t0; fieldCache.set(key,f); return f; }
   const q=[I(tx,ty_)]; f[q[0]]=0;
   for(let qi=0;qi<q.length;qi++){
     const c=q[qi], cx=c%N, cy=(c/N)|0, d=f[c];
+    if(d>=FMAX) continue;
     for(let k=0;k<4;k++){
       const nx=cx+[1,-1,0,0][k], ny=cy+[0,0,1,-1][k];
       if(!inB(nx,ny)) continue; const ni=I(nx,ny);
@@ -3802,6 +3817,7 @@ function fieldTo(tx,ty_){
       f[ni]=d+1; q.push(ni);
     }
   }
+  FSTAT.cells+=q.length; FSTAT.ms+=performance.now()-t0;
   fieldCache.set(key,f); return f;
 }
 
@@ -7889,6 +7905,7 @@ window.__ash={
     return {town:inn, wild:out}; },
   errands(){ return Object.assign({},ERR); },
   speed(){ return speed; },
+  fields(){ return Object.assign({size:fieldCache.size, bytes:fieldCache.size*N*N*2},FSTAT); },
   season(){ seasonI=(seasonI+1)%4; applySeason(); return seasonI; },
   /* The same rule as chunkWalk, but one pass over the whole grid with no chunks
      in it. If the per-chunk meshes agree with this they cover every made cell

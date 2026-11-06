@@ -1315,3 +1315,81 @@ still hold.
   change. Raising `N` again should still be cheap.
 - Four towns of models is four times the scene graph. c40 cut it from 3,884 meshes to
   1,071; do not give that back without noticing.
+
+## Cycle 41 — the four-kingdom layout, decided with numbers
+
+c36's habit: measure the blast radius, write the decision, then code. The binding
+constraint turned out to be pathing, and **the reason I had written down for it was
+wrong**.
+
+### What the flow-field cache actually does today
+```
+over 60s: hit 2554  build 129  wipe 0
+cache  size=18   0.9 MB   N=156
+rate   129 builds/min   95.2% hit   0.24 ms/build   2,246 cells/build
+```
+The revised north star warned that the 240-entry cache would thrash and that each
+field is a 24,336-entry flood. **Neither is true.** The cache sits at **18** entries
+and never fills — c37 clears it whenever a chunk is made, and there are only about
+eighteen live destinations. And a flood touches **2,246** cells, not 24,336, because
+a BFS only reaches walkable ground and most of today's grid is unwalkable rock.
+
+So today pathing costs 31 ms per minute. 0.05%. Nothing.
+
+### Why that is exactly the wrong thing to be reassured by
+A flood's cost is **the size of the walkable landmass**, and a bounded four-kingdom
+world is walkable nearly everywhere. Measured in a scratch build with the whole grid
+turned to walkable grass:
+
+| world | cells per flood | ms per build |
+|---|---|---|
+| N=156, today (mostly rock) | 2,246 | 0.24 |
+| N=156, all walkable | 23,526 | 0.91 |
+| N=364, all walkable | **131,686** | **3.28** |
+
+Ten times the cost from making the land walkable, and another six from making it big
+enough for four kingdoms. At 332 builds/min that is 1.1 s per minute of wall time in
+3.3 ms hitches — and with four times the people it would be about four times that.
+
+### The fix, measured rather than assumed
+Cap how far a field floods. `FMAX=130` steps covers a 52-wide kingdom corner to
+corner with room for its approaches; beyond that is a journey, and a journey wants
+waypoints rather than one enormous flood.
+
+```
+N=364 all walkable, uncapped   131,686 cells   3.28 ms/build
+N=364 all walkable, capped     31,005 cells    1.14 ms/build
+```
+**4.2x less flooding, 2.9x less time** — and, the point of it, the cost is now bounded
+by the cap instead of by the map, so the world can grow without pathing getting worse.
+The cap is already in; the cache, at 22 entries and 5.8 MB even at N=364, needs
+nothing.
+
+A destination past the cap yields no path, which is correct and already handled:
+`wildSpot` checks the field reaches the walker before committing, and the unstick
+branch drops a goal it cannot serve.
+
+### The layout
+Travel speed, measured in c37: 1.7 tiles per dt-unit on grass, 2.6 on road; a dt-unit
+is 22 game-minutes; daylight is 6am to 8pm. So **65 tiles a day on foot, 99 by road**.
+Stating the journey first and deriving the distance from it:
+
+- A dungeon should be **about two days' walk** from the nearest kingdom → ~130 tiles.
+- Kingdoms stay **52x52**, the size Ashvale is authored at. Rebuilding `PLAN` at a new
+  size buys nothing and risks the whole town layout.
+- Four kingdoms on the corners of a square 260 tiles on a side, centred on the map;
+  four dungeons out near the edge midpoints, each roughly 130-140 tiles from its two
+  nearest kingdoms and further from the others.
+- That needs **N = 364**: 260 + 52 for the kingdoms + 52 of margin. 364/13 = 28, so
+  `CSZ` still divides it and no chunk straddles a region border.
+
+Costs at N=364, all of them small: 132,496 cells x 6 bytes = **795 KB** of terrain
+arrays; a flow field is 265 KB and the cache holds about 22 of them, **5.8 MB**.
+
+### Still to do, in order
+1. Raise `N`, place Ashvale as kingdom 0 at its corner. `tx0`/`ty0` already centralise
+   every landmark offset — that is what c36 bought, and it should make this cheap.
+2. `GEN` becomes `SEEN`: author the whole map at boot, reveal it by walking.
+3. The other three kingdoms: terrain, then plans, then people.
+4. The four dungeons, placed far out.
+5. Travel as a first-class state, then trade, diplomacy, war.
