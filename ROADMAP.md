@@ -19,6 +19,13 @@ their local files under /home/claude/colony and /home/claude/village are the onl
 5. Keep the reply to the user short — they asked for updates on request, not narration.
 
 ## Shipped
+- c11 all KayKit, all CC0: every building kind now maps to a KayKit model (castle for the
+  hall, church for the altar, blacksmith, archery range for the fletcher, market, barracks,
+  towers for the guild and the vault), and the trees and rocks are KayKit too. The Babylon
+  props were dropped, so the repo has NO attribution obligation left - everything is CC0.
+  BUG WORTH REMEMBERING: render3D's per-frame loop reset roof/wall visibility every frame
+  and overrode swapBuilding, so real models were buried under their procedural stand-ins.
+  A building with a model now takes a different branch entirely.
 - c10 LICENCE FIX + KayKit. Mixamo forbids REDISTRIBUTION, and committing converted .glb
   files to a public repo is redistribution. Every Mixamo-derived file was removed and
   purged from git history. The cast is now KayKit (CC0, no attribution): Knight, Mage,

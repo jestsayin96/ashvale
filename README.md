@@ -51,19 +51,22 @@ ROADMAP.md        what has shipped and what is next
 `src/game.js` is still one file. It is being split into modules a system at a time, as each
 one gets worked on — see the roadmap.
 
-## Asset credits and licensing
+## Assets and licensing
 
-**No Mixamo asset is committed to this repository.** Mixamo permits use of its
-characters and animations in a project, but **not redistribution** — and a public
-git repo is redistribution. Early versions of this project did commit converted
-Mixamo files; they have been removed from the working tree *and purged from git
-history*, and replaced with CC0 equivalents.
+**Everything in this repository is CC0.** No attribution is required, commercial
+use is fine, and redistribution is permitted.
 
-| Set | Source | Licence | Attribution |
-|---|---|---|---|
-| `models/kay/` — characters, monsters, weapons | [KayKit](https://github.com/KayKit-Game-Assets) by Kay Lousberg | CC0 1.0 | not required |
-| `models/props/` — buildings, trees, props | [BabylonJS/Assets](https://github.com/BabylonJS/Assets) | CC BY 4.0 | **required** |
+| Set | Source | Licence |
+|---|---|---|
+| `models/kay/` — characters, monsters, weapons, buildings, trees | [KayKit](https://github.com/KayKit-Game-Assets) by Kay Lousberg | CC0 1.0 |
 
-The two sets live in separate folders so their terms never get muddled. If this
-is ever sold or redistributed, the Babylon credit must travel with it; KayKit
-carries no obligation at all.
+Two rules this project learned the hard way:
+
+**No Mixamo asset is ever committed here.** Mixamo permits using its characters
+and animations in a project but **not redistributing them**, and a public git repo
+is redistribution. Earlier versions of this project did commit converted Mixamo
+files; they were removed and purged from git history.
+
+**Props from [BabylonJS/Assets](https://github.com/BabylonJS/Assets) (CC BY 4.0)**
+were used for a time and appear in earlier commits. They were replaced with KayKit
+equivalents so the project carries no attribution obligation at all.

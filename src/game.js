@@ -2000,6 +2000,16 @@ function render3D(){
   const lamps=(hour>=18||hour<6);
   buildings.forEach(b=>{ const u=b.m3&&b.m3.userData; if(!u) return;
     const op=isOpen(b);
+    if(u.model){
+      // a real model stands in for the whole building; opening it puts the model away
+      // and shows the furniture, the same gesture as lifting a procedural roof
+      u.model.visible=!op;
+      u.roof.visible=false; u.walls.visible=op; u.sill.visible=false;
+      u.inner.visible=op;
+      u.walls.scale.y=op?0.3:1;
+      u.walls.position.y=u.base+(op?u.wh*0.15:u.wh/2);
+      return;
+    }
     u.roof.visible=!op; u.inner.visible=op; u.sill.visible=lamps&&!op;
     u.walls.scale.y=op?0.3:1;
     u.walls.position.y=u.base+(op?u.wh*0.15:u.wh/2); });

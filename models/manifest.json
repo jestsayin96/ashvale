@@ -1,9 +1,22 @@
 {
-  "_comment": "ALL CC0 or CC BY. No Mixamo asset is committed to this repo - Mixamo permits use but NOT redistribution, and a public repo is redistribution. Characters, weapons and monsters are KayKit (CC0, no attribution required). Props under models/props/ are BabylonJS/Assets (CC BY 4.0, attribution required - see README).",
+  "_comment": "100% CC0. Everything under models/kay/ is KayKit by Kay Lousberg - characters, monsters, weapons, buildings and trees. No attribution required, redistribution permitted. No Mixamo asset is committed here: Mixamo allows use but not redistribution, and a public repo is redistribution.",
   "cap": 20,
   "buildings": {
-    "house": "props/cottage.glb",
-    "tavern": "props/inn.glb"
+    "hall": "kay/build/castle.glb",
+    "guild": "kay/build/tower_A.glb",
+    "school": "kay/build/home_B.glb",
+    "bank": "kay/build/tower_B.glb",
+    "guard": "kay/build/barracks.glb",
+    "altar": "kay/build/church.glb",
+    "smith": "kay/build/blacksmith.glb",
+    "fletch": "kay/build/archeryrange.glb",
+    "apoth": "kay/build/home_A.glb",
+    "store": "kay/build/market.glb",
+    "tailor": "kay/build/home_B.glb",
+    "tavern": "kay/build/tavern.glb",
+    "rose": "kay/build/home_A.glb",
+    "manor": "kay/build/castle.glb",
+    "house": "kay/build/home_A.glb"
   },
   "characters": {
     "man": "kay/rogue.glb",
@@ -31,15 +44,12 @@
     "bow": "kay/weapons/crossbow_2handed.glb"
   },
   "props": {
-    "tree": "props/tree1.glb",
-    "tree2": "props/tree2.glb",
-    "tree3": "props/tree3.glb",
-    "rock": "props/rocks1.glb",
-    "well": "props/waterwell.glb",
-    "lamp": "props/lightPost1.glb",
-    "barrel": "props/barrel.glb",
-    "crate": "props/crate1.glb",
-    "wagon": "props/wagon.glb"
+    "tree": "kay/nature/tree_single_A.glb",
+    "tree2": "kay/nature/tree_single_B.glb",
+    "tree3": "kay/nature/trees_B_medium.glb",
+    "rock": "kay/nature/rock_single_A.glb",
+    "well": "kay/build/well.glb",
+    "mill": "kay/build/windmill.glb"
   },
   "animations": null,
   "clips": {
