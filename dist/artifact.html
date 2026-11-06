@@ -3992,6 +3992,12 @@ let day=1, hour=6, minute=0, speed=1;
 function schedule(p){
   const h=hour;
   if(p.away) return null;
+  // Something is through the gate: the guard and any adventurer in town go to meet it,
+  // whatever the hour says. Everyone else gets off the street.
+  if(foe){
+    if(p.guard||p.adventurer) return theGate;
+    if(p.age>=ADULT||p.child) return p.home;
+  }
   if(h<6||h>=22) return p.home;
   if(h<8) return p.home;
   if(h<12) return p.work||p.home;

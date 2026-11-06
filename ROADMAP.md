@@ -742,3 +742,24 @@ because Standard plus bloom is a real cost on a laptop.
 **Diablo 3 is not reachable** and should not be promised: native engine, large art team,
 gigabytes of authored assets. The reachable target is the difference between a flat-shaded
 toy and a lit scene. Say that plainly rather than implying otherwise.
+
+## Cycle 31 — the breach verified, and the town answers it (shipped)
+
+The breach shipped unverified in c8465aa. Verified now, and the verification itself taught
+something: forcing `breachOdds()` to 1 was **not enough**, because the event table only
+fires one event every four or more days and a breach is one weighted option among many —
+over a ninety-second run, no breach came up. Forcing the *odds* only widened a gate that
+was rarely reached. Calling `openBreach()` directly from `newDay()` on day 2 settled it:
+`kobold diggers came up the stairs and out the east gate` then `put down at the gate.
+66 gold in bounty.` **Force the thing itself, not the probability in front of it.**
+
+Looking at that first screenshot then showed the real flaw: `fight` bubbles appeared over
+defenders standing in their own kitchens across the far side of town, because `foeStep`
+resolves combat abstractly and nothing moved anybody. Fixed in `schedule(p)`: while a foe
+stands outside the gate, guards and adventurers go to the gate whatever the hour says, and
+everyone else goes home and stays there. The town now visibly answers a breach.
+
+**Still abstract:** the blows are traded on a timer regardless of who has actually arrived,
+so a guard still fighting from two streets away is possible in the first seconds. Proper
+proximity-gated defence belongs with the minds work, where someone deciding to fight is
+part of what they decide.
