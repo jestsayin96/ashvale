@@ -126,13 +126,19 @@ try:
             if dist==7:
                 a.save(root/"dist"/"shot-seen.png")
 
-        # --- the assertions, on figures derived in this run alone ---
+        # --- the assertions, on figures this cycle derived and nothing older ---
+        # Measured at folkScale 1.6: dist 20 gave 21736 px / 18 figures, dist 7 gave
+        # 70972 px / tallest 283 px.  The floors sit well under those, because where
+        # the probe parks varies by a few tiles from run to run and the point is to
+        # catch the town emptying out, not to pin a number.
         close=shots[7]
-        assert close[0] > 2000, ("almost nothing on screen is a person at dist 7", close[0])
-        assert len(close[1]) >= 3, ("fewer than three readable figures close in", close[1])
+        assert close[0] > 20000, ("almost nothing on screen is a person at dist 7", close[0])
+        assert len(close[1]) >= 4, ("fewer than four readable figures close in", close[1])
         tall=max((t[2] for t in close[1]), default=0)
-        assert tall >= 24, ("the biggest figure is under 24px tall at dist 7", tall)
-        assert shots[20][0] > 300, ("nobody survives pulling back to dist 20", shots[20][0])
+        assert tall >= 60, ("the biggest figure is under 60px tall at dist 7", tall)
+        far=shots[20]
+        assert far[0] > 6000, ("nobody survives pulling back to dist 20", far[0])
+        assert len(far[1]) >= 8, ("under eight figures readable at dist 20", far[1])
 finally:
     srv.terminate()
 print("errors:", "clean" if not err else err[:4])
