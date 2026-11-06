@@ -52,7 +52,9 @@ try:
         pg.wait_for_timeout(500)
         tgt = pg.evaluate("()=>window.__ash.busiest()")
         assert tgt, "nobody is inside anything"
-        pg.evaluate("t=>window.__ash.look(t.x,t.y,16)", tgt)
+        # inside the auto-open range, whatever that currently is
+        near = pg.evaluate("()=>window.__ash.folkSeen().autoAt") - 3
+        pg.evaluate("a=>window.__ash.look(a[0],a[1],a[2])", [tgt["x"], tgt["y"], near])
         pg.wait_for_timeout(600)
         after = pg.evaluate("()=>window.__ash.folkSeen()")
         print("busiest %s holds %d; seen far %d -> seen close %d (auto %d)"

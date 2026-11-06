@@ -5822,6 +5822,10 @@ let xray=false;
    to see that the town is alive without pressing anything: at 09:25 nearly everyone
    is indoors, and with solid models that is an empty street and a few specks. */
 const autoOpen=new Set();
+/* Below this the camera is leaning into a street rather than following somebody.
+   Named and exposed because a probe that hardcodes it goes stale the moment it
+   moves - which it did, the same day the rule about that was written down. */
+const AUTOD=15;
 const isOpen=b=>xray||opened.has(b.id)||autoOpen.has(b.id);
 function drawFurn(b,it){
   const F=FURN[it.f];
@@ -6563,11 +6567,15 @@ function paintRail(){
       '<button class="cbtn" data-cam="r" title="Rotate right (])">&#8631;</button>'+
       '<button class="cbtn" data-cam="out">&minus;</button>'+
       '<button class="cbtn" data-cam="in">+</button></div>'+
+    '<div class="camrow"><button class="cbtn wide" data-cam="plaza">Plaza</button>'+
+      '<button class="cbtn wide" data-cam="market">Market</button></div>'+
+    '<div class="camrow"><button class="cbtn wide" data-cam="mouth">The mouth</button>'+
+      '<button class="cbtn wide" data-cam="follow">Follow</button></div>'+
     '<div class="camrow"><button class="cbtn wide" data-cam="c">Re-centre</button>'+
       ((scene==='town'||v3d)?'<button class="cbtn wide" data-cam="keep">East gate</button>':'')+'</div>'+
     (v3d
-      ? '<div class="tiny">3D \u00b7 drag to orbit, shift-drag or right-drag to pan,'+
-        ' scroll to zoom</div>'
+      ? '<div class="tiny">Click anyone to follow \u00b7 WASD or arrows to move \u00b7 '+
+        'drag to orbit, scroll to zoom \u00b7 P plaza, M market, K the mouth</div>'
       : '<div class="tiny">Facing '+['north','east','south','west'][rot]+
         ' \u00b7 drag to pan, scroll to zoom</div>');
   if(scene==='keep'){
@@ -6641,6 +6649,8 @@ function paintRail(){
     const id=h.parentElement.dataset.grp; railShut[id]=!railShut[id]; paintRail(); });
   railEl.querySelectorAll('[data-cam]').forEach(b=>b.onclick=()=>{
     const a=b.dataset.cam;
+    if(CAMSPOT[a]){ camJump(a); paintRail(); return; }
+    if(a==='follow'){ startFollow(follow?null:selected); paintRail(); return; }
     const V=v3d&&(scene==='keep'?K3:R3);
     if(V){
       if(a==='l') V.th-=Math.PI/6; else if(a==='r') V.th+=Math.PI/6;
@@ -7015,8 +7025,7 @@ document.getElementById('logHead').onclick=()=>{
   const l=document.getElementById('log'); l.classList.toggle('shut');
   l.querySelector('span').textContent=l.classList.contains('shut')?'show':'hide'; };
 document.getElementById('sheetBtn').onclick=()=>{ if(selected) showPerson(selected); };
-document.getElementById('followBtn').onclick=()=>{ follow=follow?null:selected;
-  document.getElementById('followBtn').classList.toggle('gold',!!follow); };
+document.getElementById('followBtn').onclick=()=>startFollow(follow?null:selected);
 function setSpeed(v){ speed=v;
   document.querySelectorAll('[data-sp]').forEach(x=>x.classList.toggle('on',+x.dataset.sp===speed));
   document.getElementById('stage').classList.toggle('paused',speed===0); }
@@ -7409,7 +7418,7 @@ function render3D(){
      at the distance you actually watch from is not a rendering problem: 96% of the
      population is indoors at every hour of the day. That is the sim's to fix. */
   autoOpen.clear();
-  const aR=S.dist<24 ? 10 : 0;
+  const aR=S.dist<AUTOD ? 10 : 0;   // leaning right in, not merely following
   if(aR>1){ const r2=aR*aR;
     for(const b of buildings){
       const dx=b.x+b.w/2-S.tx, dz=b.y+b.d/2-S.tz;
@@ -7478,6 +7487,16 @@ function render3D(){
     fxBurst(theAltar.x+theAltar.w/2, theAltar.y+theAltar.d/2, '#d6c7ff', 2, 0.35, 0.9,
       H(theAltar.x,theAltar.y)*HU+1.4); }
   S.keepGlow.intensity=1.5+Math.sin(tnow*1.8)*0.55;
+  /* Following, then driving - in that order, so a key press takes the camera off
+     whoever it was watching rather than fighting them for it. */
+  if(follow&&(follow.dead||follow.away)) follow=null;
+  if(follow&&scene!=='keep'){
+    const k=Math.min(1,d3t*3.4);
+    S.tx+=(follow.x-S.tx)*k;
+    S.tz+=(follow.y-S.tz)*k;
+    S.ty+=(H(follow.x|0,follow.y|0)*HU+0.6-S.ty)*k;
+  }
+  camDrive(S,d3t);
   const cx=S.tx+Math.cos(S.th)*Math.cos(S.ph)*S.dist;
   const cy=S.ty+Math.sin(S.ph)*S.dist;
   const cz=S.tz+Math.sin(S.th)*Math.cos(S.ph)*S.dist;
@@ -7533,11 +7552,21 @@ function wire3D(){
       V.ph=Math.max(lo,Math.min(1.48,d3.ph+dy*0.005)); } });
   const up=e=>{ if(d3&&m3<5&&!d3.pan&&scene!=='keep'){ const r=c2.getBoundingClientRect();
       const h=pick3D(e.clientX-r.left,e.clientY-r.top);
-      if(h&&h.person) showPerson(h.person);
+      if(h&&h.person){ showPerson(h.person); startFollow(h.person); }
       else if(h&&h.building){ if(opened.has(h.building.id)) opened.delete(h.building.id);
         else opened.add(h.building.id); showBuilding(h.building); }
       else { selected=null; paintConsole(); } }
     d3=null; };
+  /* Edge pan. A band at the border of the view, ignored while dragging so an
+     orbit that reaches the edge does not also shove the camera sideways. */
+  c2.addEventListener('pointermove',e=>{
+    if(d3){ edgeX=edgeZ=0; return; }
+    const r=c2.getBoundingClientRect(), B=38;
+    const x=e.clientX-r.left, y=e.clientY-r.top;
+    edgeX = x<B ? -(B-x)/B : (x>r.width-B ? (x-(r.width-B))/B : 0);
+    edgeZ = y<B ? -(B-y)/B : (y>r.height-B ? (y-(r.height-B))/B : 0);
+  });
+  c2.addEventListener('pointerleave',()=>{ edgeX=edgeZ=0; });
   c2.addEventListener('pointerup',up);
   c2.addEventListener('pointercancel',()=>{d3=null;});
   c2.addEventListener('wheel',e=>{ e.preventDefault(); const V=cur3D(); if(!V) return;
@@ -8377,7 +8406,41 @@ cv.addEventListener('pointerup',e=>{
 });
 cv.addEventListener('wheel',e=>{ e.preventDefault();
   zoom=Math.max(0.4,Math.min(2.6,zoom*(e.deltaY<0?1.12:1/1.12))); },{passive:false});
+/* ===================== driving the camera =====================
+   A watcher's main verb is following somebody, and until now there was no way to
+   do it in 3D and no keyboard at all. Keys are held, not tapped, so panning is
+   read once a frame rather than on each repeat event. */
+const KEYS=new Set();
+let edgeX=0, edgeZ=0;
+addEventListener('keyup',e=>KEYS.delete(e.key.toLowerCase()));
+addEventListener('blur',()=>KEYS.clear());
+const PANKEY={w:[0,-1],s:[0,1],a:[-1,0],d:[1,0],
+  arrowup:[0,-1],arrowdown:[0,1],arrowleft:[-1,0],arrowright:[1,0]};
+function panWish(){
+  let x=edgeX, z=edgeZ;
+  KEYS.forEach(k=>{ const v=PANKEY[k]; if(v){ x+=v[0]; z+=v[1]; } });
+  return [Math.max(-1,Math.min(1,x)), Math.max(-1,Math.min(1,z))];
+}
+/* Screen-relative, so W is always "away from the camera" however it is turned,
+   and faster when pulled back because a tile is worth less of the screen there. */
+function camDrive(S,raw){
+  const [px,pz]=panWish(); if(!px&&!pz) return false;
+  follow=null; userPanned=true;
+  const sp=Math.max(6,S.dist)*1.15*Math.min(0.05,raw);
+  const fx=-Math.cos(S.th), fz=-Math.sin(S.th);
+  const rx= Math.sin(S.th), rz=-Math.cos(S.th);
+  S.tx=Math.max(2,Math.min(N-2, S.tx + (fx*-pz + rx*px)*sp));
+  S.tz=Math.max(2,Math.min(N-2, S.tz + (fz*-pz + rz*px)*sp));
+  return true;
+}
 addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  if(PANKEY[k]){ KEYS.add(k); if(k.startsWith('arrow')) e.preventDefault(); }
+  if(k==='f'&&selected) startFollow(follow===selected?null:selected);
+  if(k==='p') camJump('plaza');
+  if(k==='m') camJump('market');
+  if(k==='k') camJump('mouth');
+  if(k==='h') camJump('home');
   if(e.key==='[') rot=(rot+3)%4; if(e.key===']') rot=(rot+1)%4;
   if(e.key==='Escape'){ closePanel('who'); closePanel('keep'); selected=null; paintConsole(); }
   if(e.key===' '){ e.preventDefault(); setSpeed(speed?0:1); }
@@ -8385,6 +8448,32 @@ addEventListener('keydown',e=>{
   if(e.key==='2') setScene('keep');
   if(e.key==='3') set3D(!v3d);
 });
+/* Places worth looking at, by name. The flat view and the 3D view both answer
+   to these, which is why they are coordinates rather than camera states. */
+const CAMSPOT={ home:[26,23,34], plaza:[24,19,20], market:[25,25,20],
+  mouth:[47,19,22], gate:[43,19,24] };
+/* Taking up with somebody also pulls the camera in. Following from across the
+   town leaves them a speck at the edge of the frame, which is not following. */
+function startFollow(p){
+  follow=p||null; userPanned=false;
+  const V=v3d&&cur3D();
+  /* Just outside the roof-lifting range. Pulling closer than that turns every
+     building nearby into a roofless stub, which is the look c44 measured well and
+     rejected on sight - a person walking among whole houses reads far better. */
+  if(follow&&V&&scene!=='keep') V.dist=Math.min(V.dist,26);
+  const fb=document.getElementById('followBtn');
+  if(fb) fb.classList.toggle('gold',!!follow);
+}
+function camJump(key){
+  const c=CAMSPOT[key]; if(!c) return;
+  follow=null; userPanned=false;
+  const wx=tx0(c[0]), wy=ty0(c[1]);
+  const V=v3d&&cur3D();
+  if(V&&scene!=='keep'){ V.tx=wx; V.tz=wy; V.dist=c[2]; }
+  const v=vpt(wx,wy), f=flat(v[0],v[1],H(wx,wy));
+  camX=f[0]; camY=f[1];
+  const fb=document.getElementById('followBtn'); if(fb) fb.classList.remove('gold');
+}
 setTimeout(()=>{const h2=document.getElementById('hint');
   if(h2){h2.style.transition='opacity .6s';h2.style.opacity='0';setTimeout(()=>h2.remove(),700);}},16000);
 wire3D();
@@ -8466,6 +8555,16 @@ window.__ash={
      130-second day under software rendering. Test plumbing only; nothing in the
      game calls it and the UI still offers 0/1/3/8. */
   fast(n){ setSpeed(n); return speed; },
+  cam(){ const S=R3; return S?{tx:+S.tx.toFixed(2),tz:+S.tz.toFixed(2),
+    dist:+S.dist.toFixed(1),th:+S.th.toFixed(3),follow:follow?follow.id:null}:null; },
+  jump(k){ camJump(k); return this.cam(); },
+  /* Somebody currently on their feet, so "does the camera keep up" is a question
+     about a moving target rather than a stationary one. */
+  walker(){ const p=people.find(q=>!q.dead&&!q.away&&q.moving&&!q.inside);
+    return p?{id:p.id,name:p.name,x:+p.x.toFixed(2),y:+p.y.toFixed(2)}:null; },
+  followId(id){ startFollow(people.find(q=>q.id===id)||null); return !!follow; },
+  followGap(){ const S=R3; if(!S||!follow) return null;
+    return Math.hypot(follow.x-S.tx, follow.y-S.tz); },
   /* How many of the town's people a viewer can actually see. Effective visibility,
      walking the parent chain - `o.visible` on a person's own mesh says nothing
      about whether the group holding it is shown. */
@@ -8487,7 +8586,7 @@ window.__ash={
       while(v&&q){ if(!q.visible) v=false; q=q.parent; }
       if(v) shown++;
     }
-    return {alive, indoors, outdoors:alive-indoors, shown, hour,
+    return {alive, indoors, outdoors:alive-indoors, shown, hour, autoAt:AUTOD,
       dist:Math.round(S.dist), opened:opened.size, auto:autoOpen.size, xray}; },
   /* `tnow` is simulated seconds, the sum of every frame's clamped delta. Wall time
      is the wrong denominator here: `raw` is capped at 50 ms a frame, so under

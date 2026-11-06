@@ -1722,3 +1722,56 @@ of wall seconds, with the wall clock kept only as a backstop. It passes in 50 s 
 Second time this week an assertion has quietly stopped meaning what it meant because
 the thing underneath it changed. **When behaviour changes, re-read the assertions that
 depended on the old behaviour** — they do not announce themselves.
+
+## Cycle 47 — the camera, which is the watcher's main verb
+
+Three things the owner chose himself, none of which existed.
+
+**Follow.** `follow` has been a variable since early on, but only the flat view ever
+obeyed it; in 3D it did nothing. Now the camera target eases to whoever is followed
+every frame, and clicking anybody in the 3D view starts following them — for a watcher
+that is the way in, not a convenience. `startFollow` also pulls the camera to distance
+26. Following from across the town leaves a person a speck at the edge of the frame,
+which is not following.
+
+**26 and not closer, for a reason.** The first attempt pulled in to 17, which is inside
+the roof-lifting range, and the shot came back as the field of roofless stubs that c44
+measured well and rejected on sight. Auto-open now needs `dist < 15` — leaning right
+in, rather than merely following somebody. A person walking among whole houses reads
+far better than one among slabs.
+
+**Keyboard and edge pan.** There was no keyboard at all. WASD and the arrows pan,
+screen-relative, so W is always away from the camera however it is turned, and faster
+when pulled back because a tile is worth less of the screen there. Keys are held and
+read once a frame rather than fired on repeat. A band 38px wide at the edge of the
+view pans too, ignored while dragging so an orbit that reaches the edge does not also
+shove the camera sideways. Any of it drops the follow, rather than fighting it.
+
+**Jump-to.** `CAMSPOT` names places rather than camera states, so the flat and 3D views
+both answer to them: the plaza, the market, the Keep's mouth, home, the gate — with
+P, M, K, H as hotkeys and buttons in the rail. F follows the selected person.
+
+### Measured
+```
+jump   tx 52,49 dist 40  ->  tx 73,45 dist 22
+key W  tx 52,49          ->  tx 54.46,52.04      moved 5.50
+follow gaps 8.12 → 6.79 → 5.48 → 4.39 → 3.49 → 2.72
+```
+
+The follow assertion is about **convergence, not distance**. The easing is per frame,
+and software rendering runs at about 1.3 of them a second — what closes in under a
+second at 60fps takes many seconds here. An absolute threshold would have been another
+measurement of the renderer rather than the camera.
+
+`tools/cam.py` is in `npm test`.
+
+### c47 addendum — the rule bit the same day it was written
+`folk.py` failed with `close in opened nothing`: it looked from distance 16 and
+asserted roofs had lifted, but this cycle moved the auto-open threshold from 24 to 15
+so that following somebody would not turn the town to stubs. The assertion had been
+written against the old number.
+
+That is the third time this week, and the second time in one day, that an assertion
+quietly stopped meaning what it meant. The threshold is a named constant now (`AUTOD`)
+and `folkSeen()` reports it, so the probe derives its camera distance from the game
+rather than from a figure typed in when the game behaved differently.
