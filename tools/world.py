@@ -14,9 +14,13 @@ with sync_playwright() as p:
     pg.goto((root / "index.html").as_uri()); pg.wait_for_timeout(1500)
     w = lambda: pg.evaluate("()=>window.__ash.world()")
     extra = lambda: pg.evaluate("()=>({out:window.__ash.out(),outside:window.__ash.outside()})")
-    boot = w(); print("boot   ", json.dumps(boot))
-    assert boot["chunks"] == 16, boot
-    assert boot["made"] == 52*52, boot
+    boot = w(); T = boot["town"]
+    print("boot   ", json.dumps({k: boot[k] for k in ("N", "made", "chunks", "bounds")}),
+          "town", json.dumps(T))
+    # derived from where the town actually is, never from a figure typed in here
+    side = T["x1"] - T["x0"] + 1
+    assert boot["made"] == side * side, ("the town is not the made world at boot", boot)
+    assert boot["chunks"] == (side // 13) ** 2, ("chunk count disagrees with the town", boot)
 
     # --- A: paused. Nobody moves, so nothing may be made. ---
     pg.click("[data-sp='0']")
@@ -39,7 +43,8 @@ with sync_playwright() as p:
     assert bb["chunks"] > boot["chunks"], ("nobody made any country", bb)
     assert bb["made"] > boot["made"], bb
     bx = bb["bounds"]
-    assert bx["x0"] < 52 or bx["y0"] < 52 or bx["x1"] > 103 or bx["y1"] > 103, bx
+    assert (bx["x0"] < T["x0"] or bx["y0"] < T["y0"]
+            or bx["x1"] > T["x1"] or bx["y1"] > T["y1"]), ("bounds never left the town", bx, T)
     # and it grew because somebody walked, not because anything enlarged the world
     assert e["started"] > 0 and e["done"] > 0, ("no one went out", e)
     assert e["far"] > 0, ("nobody actually left the town rectangle", e)

@@ -3578,7 +3578,21 @@ var MUSIC=(()=>{var se=Object.defineProperty;var Ve=Object.getOwnPropertyDescrip
    places it at the centre of N so there is land in every direction to walk into. Every
    call site of I(x,y) and inB(x,y) is untouched by this \u2014 that was the whole point of
    choosing a larger fixed grid over a coordinate-keyed chunk map (see ROADMAP c36). */
-const TOWN=52, N=156, OFF=((N-TOWN)/2)|0, TW=32, TH=16, HZ=10;
+/* Four kingdoms on the corners of a 260-tile square centred on the map, each the
+   52x52 that Ashvale's PLAN is authored at. 130 tiles between a kingdom and the
+   dungeons out near the edges is about two days' walk at the 65 tiles/day measured
+   in c37. N=364 holds that with 26 tiles of margin, and 13 still divides it so a
+   CSZ chunk never straddles a region border. See ROADMAP c41 for the arithmetic. */
+const TOWN=52, KSQ=260, N=364, TW=32, TH=16, HZ=10;
+const KINGDOM=[
+  {k:0, x0:(N-KSQ)/2-TOWN/2|0,       y0:(N-KSQ)/2-TOWN/2|0      },
+  {k:1, x0:(N+KSQ)/2-TOWN/2|0,       y0:(N-KSQ)/2-TOWN/2|0      },
+  {k:2, x0:(N-KSQ)/2-TOWN/2|0,       y0:(N+KSQ)/2-TOWN/2|0      },
+  {k:3, x0:(N+KSQ)/2-TOWN/2|0,       y0:(N+KSQ)/2-TOWN/2|0      }
+];
+/* Ashvale is kingdom 0. Everything authored in town coordinates goes through
+   tx0/ty0, which is what made c36's move cheap and makes this one cheap too. */
+const OFF=KINGDOM[0].x0;
 const tx0=x=>x+OFF, ty0=y=>y+OFF;        // town coords -> world coords
 const GRASS=0,ROAD=1,PLAZA=2,WATER=3,DIRT=4,FIELD=5,ROCK=6;
 const ty=new Uint8Array(N*N), hh=new Int8Array(N*N), occ=new Int16Array(N*N), tree=new Uint8Array(N*N);
@@ -7866,7 +7880,9 @@ try{ set3D(true); }catch(e){ v3d=false; cv.style.display=''; }
    build that can be forgotten to revert. Nothing in the game reads any of it. */
 window.__ash={
   world(){ let made=0; for(let i=0;i<N*N;i++) if(GEN[i]) made++;
-    return {N,cells:N*N,made,chunks:chunksMade,bounds:genBounds()}; },
+    return {N,cells:N*N,made,chunks:chunksMade,bounds:genBounds(),
+      town:{x0:OFF,y0:OFF,x1:OFF+TOWN-1,y1:OFF+TOWN-1},
+      kingdoms:KINGDOM.map(k=>({k:k.k,x0:k.x0,y0:k.y0,x1:k.x0+TOWN-1,y1:k.y0+TOWN-1}))}; },
   out(){ return people.filter(p=>!p.away&&p.errandTo).length; },
   /* What the generator actually lays down, counted inside the town and beyond it
      separately. Guessing at a screenshot four times is what this replaces. */

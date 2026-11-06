@@ -1393,3 +1393,93 @@ arrays; a flow field is 265 KB and the cache holds about 22 of them, **5.8 MB**.
 3. The other three kingdoms: terrain, then plans, then people.
 4. The four dungeons, placed far out.
 5. Travel as a first-class state, then trade, diplomacy, war.
+
+## Cycle 42 — the grid is four kingdoms wide, and the terrain rules will not scale
+
+### Step 1, landed
+`N` is 364. `KINGDOM` holds four 52x52 corners derived from `KSQ=260`, not typed in:
+`[26,26] [286,26] [26,286] [286,286]`, each spanning to 77 or 337, with 26 tiles of
+margin at every edge. `OFF` is now simply `KINGDOM[0].x0` — Ashvale is kingdom 0 and
+everything authored in town coordinates still goes through `tx0`/`ty0`.
+
+Checked rather than assumed: `364/13 = 28`, `26/13 = 2`, `78/13 = 6`. `CSZ` divides
+the grid and the town's corner exactly, so Ashvale occupies chunks 2..5 on both axes
+and no chunk straddles a region border. 776 KB of terrain arrays, 259 KB a field.
+
+**Nothing was left behind this time.** c36 and c37 each moved the world and each left
+one hardcoded coordinate that `npm test` was green over. This move is pixel-identical
+in the flat view — Keep plate, glow, river, ridge all in place — and correct in 3D.
+`tx0`/`ty0` did the work, which is the whole return on c36's decision.
+
+The two probes that had the old grid typed into them now derive it. `__ash.world()`
+reports the town rect and the four kingdom rects, and `world.py`/`ground.py` compute
+`side*side` and `(side/13)^2` from it. **Never assert against a figure from an earlier
+cycle** — these were two of them.
+
+### What step 2 runs into, measured before writing it
+Authoring the whole map with the terrain rules as they stand does not work, and the
+numbers say so plainly. Replaying `genChunk`'s rules over all 364x364 cells:
+
+```
+rock  108,451  81.9%
+water   2,186   1.6%
+grass  21,859  16.5%
+```
+
+**81.9% of the world becomes an impassable mountain wall.** The cause is that every
+rule in `genChunk` is written relative to Ashvale: the ridge is `u >= 46` where
+`u = x - OFF`, which is not a ridge at world scale but a half-plane. Kingdom 1 sits at
+`u = 260`. All three of the other kingdom sites fall inside the rock.
+
+So step 2 is not "call `genChunk` for every chunk at boot". The terrain rules have to
+become **world-scale**: each kingdom gets its own local river and ridge authored
+relative to *its* corner, and the wilderness between needs a generator of its own —
+rolling country, forest, and mountain ranges that are ranges rather than half-planes.
+That is a cycle's work and it is the next one.
+
+`GEN` should also split in two while that happens: **MADE** (terrain authored — all of
+it, at boot) and **SEEN** (revealed by walking — what drives `genBounds`, the meshes
+and the flat view). `walk()` reads `ty`/`occ` and never `GEN`, so once terrain exists
+everywhere people can path across the whole landmass — which is exactly the case
+`FMAX=130` was measured and built for in c41.
+
+## The owner's verdict on the build, 6 Nov — feel, not plumbing
+
+He looked at the 3D town and said three things. All three are fair and all three are
+about whether the thing is enjoyable to watch, which no probe in this repo measures.
+
+> "this looks a lot better i dont see any sims tho"
+
+Not a missing-people bug. That shot is 09:25, when nearly everyone is at work or at
+home, and the KayKit buildings are solid models with no way to see in. **A town sim
+where you cannot see anyone at nine in the morning has failed at the thing it is
+for.** "Lift every roof" exists but nobody should have to press it. Options: make
+roofs lift automatically at a close camera distance, cut away walls facing the camera,
+or give people more reason to be in the street.
+
+> "THE GUI and the UI still look terrible, and the way i look around is not so good
+> either"
+
+Asked what specifically: **"Looks dated and plain"** and **"needs to feel more alive"**.
+For the camera he chose **click a villager to follow them**, **WASD and edge pan**, and
+**preset angles / jump-to**. Today it is drag-to-orbit and scroll-to-zoom with no
+keyboard at all, which is why it feels poor.
+
+> "they days go by pretty fast for 1x too"
+
+Measured rather than guessed. `minute += dt*22` with `dt = raw*speed`, so:
+```
+1x   65 real seconds per game-day   (a game-hour every 2.7 s)
+3x   22 s/day
+8x    8 s/day
+```
+**1x is a whole day in just over a minute.** That is not a speed setting, it is a bug
+wearing one. 1x should be a day you can sit and watch — four or five minutes — with
+3x and 8x for skipping ahead. Changing the 22 affects every rate tuned against it
+(`needsTick`, errand budgets, bond ticks are all per dt-unit), so **scale the clock,
+not the dt**, or retune everything and measure it.
+
+### Where this leaves the four-kingdom work
+Not abandoned — but a bigger world that is still unpleasant to look at is worth less
+than a small one that is a joy. Feel first: time, camera, seeing the people, UI. Then
+the other three kingdoms.

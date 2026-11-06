@@ -17,8 +17,9 @@ with sync_playwright() as p:
 
     m0 = mesh()
     print("boot   ", {k: m0[k] for k in ("meshes", "verts", "builds", "recolours")})
-    assert m0 and m0["meshes"] == 16, ("the town should be sixteen chunk meshes", m0)
-    assert m0["builds"] == 16, ("boot should build each chunk once", m0)
+    T = world()["town"]; side = T["x1"] - T["x0"] + 1; want_n = (side // 13) ** 2
+    assert m0 and m0["meshes"] == want_n, ("the town's chunk meshes", m0, want_n)
+    assert m0["builds"] == want_n, ("boot should build each chunk once", m0, want_n)
     # Not a figure copied from an older cycle - c36's 11436 was already stale, because
     # c37 gave the made world a lip and the town's south border gained 46 quads. The
     # parts must add up to what one unchunked pass over the grid says they should.
