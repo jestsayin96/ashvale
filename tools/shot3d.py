@@ -21,7 +21,13 @@ try:
                   if m.type == "error" and "TUNNEL" not in m.text and "ERR_" not in m.text else None)
         pg.goto("http://127.0.0.1:8123/index.html"); pg.wait_for_timeout(1500)
         pg.click("[data-sp='8']"); pg.wait_for_timeout(3000)
-        pg.click("#sc3D"); pg.wait_for_timeout(9000)      # models load, skins spawn
+        # The page boots in 3D, so clicking the toggle blind turned it OFF - these
+        # "3D" shots have been pictures of the flat canvas. Check, then assert.
+        if not pg.evaluate("()=>document.getElementById('view3d').style.display==='block'"):
+            pg.click("#sc3D")
+        pg.wait_for_timeout(9000)                         # models load, skins spawn
+        assert pg.evaluate("()=>document.getElementById('view3d').style.display==='block'"), \
+            "the 3D view is not the one on screen"
         pg.screenshot(path=str(root / "dist/shot-3d-models.png"))
         # the rail repaints on a cadence, so a located element can detach mid-click.
         # go through the DOM instead of Playwright's actionability checks.

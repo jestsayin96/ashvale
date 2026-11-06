@@ -1116,3 +1116,84 @@ twice at a border, or none — and a magic constant would never have caught it.
 - **Item 2 is closed.** Item 3, the renderer, is next: the census is still
   `16 MeshLambertMaterial, 7 MeshBasicMaterial, 0 MeshStandardMaterial`, and Lambert
   ignores envMap entirely, which is why the HDRI cannot help yet.
+
+## Cycle 39 — item 3 begins: the pipeline was wrong, and the art was built on it
+
+### First, two claims checked rather than carried forward
+The loop prompt said to confirm "the PBR ground textures and the HDRI actually reach
+the shader". **There is no HDRI in this repo.** `spruit_sunrise_2k.hdr` is in the
+owner's asset library on his machine; only four albedo WebPs were ever vendored, and
+the normal maps c26 called "already staged" are not here either. And the census had
+to be redone: a grep over the source says `16 Lambert / 7 Basic / 0 Standard`, but
+the **live scene** says `406 / 51 / 113` — a grep cannot see what the KayKit models
+bring with them. `__ash.materials()` now walks the real scene graph.
+
+### What was actually wrong
+`renderer.outputEncoding` was `LinearEncoding` and `ColorManagement` was off. Every
+hex in this file was picked by eye, so every one of them is sRGB, and three was
+handing those numbers to the shader as linear light and writing the result straight
+out. That is why the roofs read as poster paint and the ground as washed-out olive.
+
+Fixed: `ColorManagement.enabled=true`, `outputEncoding=sRGBEncoding`, ACES filmic
+tone mapping, `encoding=sRGBEncoding` on the albedo textures, and — because colour
+management converts a `THREE.Color` but cannot reach numbers pushed straight into a
+buffer attribute — an explicit sRGB-to-linear on the terrain's hand-built vertex
+colours. Then every town surface from Lambert to `MeshStandardMaterial` with a
+roughness that means something: 0.97 ground, 0.93 plaster, 0.74 tile, 0.72 skin.
+
+### Correct looked worse, and that is the interesting part
+With the pipeline fixed and the old lights, the town came out **milky** — paler and
+flatter than the version that was technically wrong. The art had been authored
+against the broken pipeline, and the old look was getting its punch from a bug.
+A correct pipeline that ships looking worse is not an improvement, so the lights had
+to be rebalanced: a strong key against a quiet fill, exposure 0.85.
+
+### The knob that was not connected to anything
+The first tuning run reported `sun: 3.2` and I believed the light had changed. It had
+not. `render3D` rewrites `sun.intensity` and `hemi.intensity` **every frame** from the
+clock, so the constructor values and anything set between frames are gone by the next
+tick. I had read the value back in the same tick I set it. That comparison varied
+exposure and nothing else. The real knobs are now `LIT.sun`/`LIT.hemi` multipliers
+inside the per-frame formula, and `__ash.lit()` reads intensities back **after** a
+frame: `sun:1.9` shows up as an effective 2.42, which is how you know it arrived.
+
+Settled on exposure 0.85, `LIT.sun` 1.9, `LIT.hemi` 0.55, ambient 0.06, chosen by
+comparing four looks in one browser run. Night was checked separately and is better
+than before — the lit windows carry it now that the ambient is not washing it flat.
+
+### Measured
+```
+baseline  406 Lambert / 51 Basic / 113 Standard   tone=None  enc=Linear   1.3 fps
+after       0 Lambert / 51 Basic / 517 Standard   tone=ACES  enc=sRGB     1.3 fps
+```
+The four Lambert left in the source are the Keep's, deliberately untouched: the wall
+material carries an `onBeforeCompile` patch and is not something to convert at the
+end of a cycle. `tools/render.py` is in `npm test` and fails if a Lambert returns to
+the town scene, or if the renderer stops writing sRGB.
+
+**On the frame cost: no difference measured, and that is weak evidence.** This is
+swiftshader software rendering, where fill rate and the 2048 shadow map dominate; it
+says the change added no runaway cost, not that a laptop GPU will not feel 517
+Standard materials. Worth re-measuring on real hardware before adding bloom.
+
+### A test that had been lying for many cycles
+`shot3d.py` clicked `#sc3D` blind to "switch to 3D". The page already boots in 3D, so
+that click turned it **off**, and every `shot-3d-models.png` and `shot-3d-inside.png`
+since has been a picture of the flat canvas. The asset assertions still passed, which
+is why nobody noticed. It now checks the toggle state and asserts the 3D view is the
+one on screen. `render.py` had the same bug on its first run and was caught the same
+way — by the picture not showing what it claimed to.
+
+### Open, and precisely what is known about it
+Beyond the town's edge there is a field of pale tiles with grey blocks standing on it.
+Ruled out by measurement, not by eye:
+- **not the water plane** — toggled off, the field is still there;
+- **not generated country** — `__ash.hist()` reports `wild: {}` in that run, zero
+  cells made outside the town;
+- **not the terrain's own water** — the town histogram is ordinary
+  (1697 grass, 312 rock, 255 water, 292 road).
+It became visible only now because the void beyond the made world reads as bright sky
+instead of near-black. Next cycle starts from those three eliminations rather than
+from scratch. Also still open: the Keep's four Lambert materials, the frontier's
+rectangular lip, and normal maps — which need the ambientCG normal textures that are
+not in this repo.

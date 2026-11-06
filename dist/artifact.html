@@ -6547,6 +6547,7 @@ const shd=(c,f)=>((Math.min(255,((c>>16)&255)*f)|0)<<16)|((Math.min(255,((c>>8)&
    same walk, because two loops that each decide how many quads a cell needs are
    two chances to disagree, and the first disagreement would paint every colour
    after it onto the wrong vertex. */
+const s2l=c=>c<=0.04045?c/12.92:Math.pow((c+0.055)/1.055,2.4);
 function chunkWalk(cx,cy,quad){
   const lev=(x,y)=>{ if(!isMade(x,y)) return -0.6;
     const i=I(x,y); return ty[i]===WATER? -0.34 : hh[i]*HU; };
@@ -6568,7 +6569,7 @@ function chunkGeo(cx,cy){
   // UVs come from world position, so one tiling texture runs across the whole map
   // and a quad's grain lines up with its neighbour's, chunk border or not.
   chunkWalk(cx,cy,(a,b,c2,d,cl)=>{
-    const r=((cl>>16)&255)/255, g2=((cl>>8)&255)/255, b2=(cl&255)/255;
+    const r=s2l(((cl>>16)&255)/255), g2=s2l(((cl>>8)&255)/255), b2=s2l((cl&255)/255);
     for(const q of [a,b,c2,d]){ pos.push(q[0],q[1],q[2]); col.push(r,g2,b2);
       uv.push(q[0]*0.5,q[2]*0.5); }
     idx.push(v,v+2,v+1,v,v+3,v+2); v+=4;
@@ -6583,7 +6584,7 @@ function chunkGeo(cx,cy){
 function chunkRecolour(cx,cy,G){
   const a=G.getAttribute('color'); let i=0;
   chunkWalk(cx,cy,(p1,p2,p3,p4,cl)=>{
-    const r=((cl>>16)&255)/255, g2=((cl>>8)&255)/255, b2=(cl&255)/255;
+    const r=s2l(((cl>>16)&255)/255), g2=s2l(((cl>>8)&255)/255), b2=s2l((cl&255)/255);
     for(let k=0;k<4;k++) a.setXYZ(i++,r,g2,b2);
   });
   a.needsUpdate=true; geoRecolours++;
@@ -6613,11 +6614,11 @@ function mkBuilding(b){
   const k=BK[b.kind], G=new THREE.Group(), base=H(b.x,b.y)*HU;
   const w=b.w-0.16, d=b.d-0.16, wh=k.ht*0.082;
   const walls=new THREE.Mesh(new THREE.BoxGeometry(w,wh,d),
-    new THREE.MeshLambertMaterial({color:hx(k.col)}));
+    new THREE.MeshStandardMaterial({color:hx(k.col),roughness:0.93,metalness:0}));
   walls.castShadow=walls.receiveShadow=true; G.add(walls);
   const rh=Math.max(w,d)*(k.shrine?0.85:0.40);
   const roof=new THREE.Mesh(new THREE.ConeGeometry(Math.max(w,d)*0.73,rh,4),
-    new THREE.MeshLambertMaterial({color:hx(k.roof)}));
+    new THREE.MeshStandardMaterial({color:hx(k.roof),roughness:0.74,metalness:0}));
   roof.rotation.y=Math.PI/4; roof.castShadow=true; G.add(roof);
   const sill=new THREE.Group(), glass=new THREE.MeshBasicMaterial({color:0xffd98a});
   [[-1,0],[1,0],[0,-1],[0,1]].forEach(a=>{
@@ -6627,7 +6628,7 @@ function mkBuilding(b){
   G.add(sill);
   const inner=new THREE.Group(); inner.visible=false;
   const fl=new THREE.Mesh(new THREE.BoxGeometry(w,0.08,d),
-    new THREE.MeshLambertMaterial({color:0x9a6f42}));
+    new THREE.MeshStandardMaterial({color:0x9a6f42,roughness:0.9,metalness:0}));
   fl.position.set(b.x+b.w/2,base+0.05,b.y+b.d/2); fl.receiveShadow=true; inner.add(fl);
   (b.furn||[]).forEach(it=>{ const F=FURN[it.f], fh=F.h*0.05;
     const proto=ASSETS.furn[it.f];
@@ -6643,7 +6644,7 @@ function mkBuilding(b){
       inner.add(m2);
     } else {
     const m=new THREE.Mesh(new THREE.BoxGeometry(F.w*0.9,fh,F.d*0.9),
-      new THREE.MeshLambertMaterial({color:hx(F.c)}));
+      new THREE.MeshStandardMaterial({color:hx(F.c),roughness:0.85,metalness:0}));
     m.position.set(b.x+it.x+0.5, base+0.09+fh/2, b.y+it.y+0.5);
     m.castShadow=true; inner.add(m); }
     if(F.fire||F.glow){ const L=new THREE.PointLight(F.fire?0xff8a34:hx(F.glow),1.1,5.5);
@@ -6657,16 +6658,16 @@ function mkBuilding(b){
 function mkFolk3(p3){
   const G=new THREE.Group(), s=p3.age<ADULT?0.7:1;
   const body=new THREE.Mesh(new THREE.BoxGeometry(0.30*s,0.40*s,0.22*s),
-    new THREE.MeshLambertMaterial({color:hx(p3.top)}));
+    new THREE.MeshStandardMaterial({color:hx(p3.top),roughness:0.9,metalness:0}));
   body.position.y=0.34*s; body.castShadow=true; G.add(body);
   const legs=new THREE.Mesh(new THREE.BoxGeometry(0.22*s,0.26*s,0.18*s),
-    new THREE.MeshLambertMaterial({color:0x2b2738}));
+    new THREE.MeshStandardMaterial({color:0x2b2738,roughness:0.9,metalness:0}));
   legs.position.y=0.13*s; G.add(legs);
   const head=new THREE.Mesh(new THREE.SphereGeometry(0.145*s,10,8),
-    new THREE.MeshLambertMaterial({color:hx(p3.skin)}));
+    new THREE.MeshStandardMaterial({color:hx(p3.skin),roughness:0.72,metalness:0}));
   head.position.y=0.655*s; head.castShadow=true; G.add(head);
   const hair=new THREE.Mesh(new THREE.SphereGeometry(0.152*s,10,6,0,Math.PI*2,0,Math.PI*0.62),
-    new THREE.MeshLambertMaterial({color:hx(p3.hair)}));
+    new THREE.MeshStandardMaterial({color:hx(p3.hair),roughness:0.8,metalness:0}));
   hair.position.y=0.662*s; G.add(hair);
   if(p3.gift){ const w=new THREE.Mesh(new THREE.SphereGeometry(0.075,8,6),
       new THREE.MeshBasicMaterial({color:hx(p3.gift.col)}));
@@ -6734,25 +6735,34 @@ function init3D(){
   if(R3) return R3;
   if(typeof THREE==='undefined'){ v3d=false; return null; }
   cv3=document.getElementById('view3d'); if(!cv3) return null;
+  /* Every hex in this file was picked by eye, which means it is sRGB. Until now
+     three was handing those numbers to the shader as if they were linear light and
+     writing the result straight out, which is why the roofs read as poster paint and
+     the ground as washed-out olive. Turn colour management on, output sRGB, and put
+     a filmic curve on the end so highlights roll off instead of clipping. */
+  THREE.ColorManagement.enabled=true;
   const renderer=new THREE.WebGLRenderer({canvas:cv3,antialias:true});
   renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+  renderer.outputEncoding=THREE.sRGBEncoding;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=0.85;
   renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   const S3=new THREE.Scene(); S3.fog=new THREE.Fog(0x1b1830,46,165);
   const cam=new THREE.PerspectiveCamera(44,1,0.4,520);
-  S3.add(new THREE.AmbientLight(0xffffff,0.26));
-  const hemi=new THREE.HemisphereLight(0xbcd8ff,0x47402f,0.5); S3.add(hemi);
-  const sun=new THREE.DirectionalLight(0xffeccf,1.1);
+  S3.add(new THREE.AmbientLight(0xffffff,0.06));
+  const hemi=new THREE.HemisphereLight(0xbcd8ff,0x47402f,0.30); S3.add(hemi);
+  const sun=new THREE.DirectionalLight(0xffeccf,2.4);   // render3D resets this every frame; see LIT
   sun.castShadow=true; sun.shadow.mapSize.set(2048,2048); sun.shadow.bias=-0.0015;
   const sc=sun.shadow.camera; sc.left=-32; sc.right=32; sc.top=32; sc.bottom=-32;
   sc.near=1; sc.far=190; S3.add(sun); S3.add(sun.target);
-  const groundMat=new THREE.MeshLambertMaterial({vertexColors:true});
+  const groundMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.97,metalness:0});
   R3TEX.groundMat=groundMat;
   const gGroup=new THREE.Group(); S3.add(gGroup);
   /* A unit plane fitted to the made world each time it grows. Sized to the whole
      grid it turned every unmade acre into open sea, which read as an island and
      disagreed with the flat view, where unmade ground is simply nowhere. */
   const water=new THREE.Mesh(new THREE.PlaneGeometry(1,1),
-    new THREE.MeshLambertMaterial({color:0x3a73b8,transparent:true,opacity:0.8}));
+    new THREE.MeshStandardMaterial({color:0x3a73b8,transparent:true,opacity:0.8,roughness:0.38,metalness:0.0,depthWrite:false}));
   water.rotation.x=-Math.PI/2; S3.add(water);
   const R3TMP=mkTrees(S3);
   const bG=new THREE.Group(); S3.add(bG);
@@ -6777,9 +6787,9 @@ function mkTrees(S3,leafCol){
   let tn=0; for(let i=0;i<N*N;i++) if(tree[i]&&GEN[i]) tn++;
   if(!tn) return {};
   const trunks=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.07,0.11,0.55,5),
-    new THREE.MeshLambertMaterial({color:0x55401f}),tn);
+    new THREE.MeshStandardMaterial({color:0x55401f,roughness:0.95,metalness:0}),tn);
   const leaves=new THREE.InstancedMesh(new THREE.ConeGeometry(0.44,1.05,7),
-    new THREE.MeshLambertMaterial({color:leafCol||0x357a38}),tn);
+    new THREE.MeshStandardMaterial({color:leafCol||0x357a38,roughness:0.88,metalness:0}),tn);
   trunks.castShadow=leaves.castShadow=true; leaves.receiveShadow=true;
   const M=new THREE.Matrix4(); let ti=0;
   for(let y=0;y<N;y++)for(let x=0;x<N;x++){ const i=I(x,y);
@@ -6795,7 +6805,10 @@ function fitWater(S){
   if(!S.water) return;
   const b=genBounds();
   S.water.scale.set((b.x1-b.x0+1)+4, (b.y1-b.y0+1)+4, 1);
-  S.water.position.set((b.x0+b.x1+1)/2, -0.2, (b.y0+b.y1+1)/2);
+  /* The terrain's own water cells sit at -0.34. At -0.2 the sheet was close
+     enough to fight them for depth, which flat shading hid and a specular
+     highlight did not: the river broke into white shards. */
+  S.water.position.set((b.x0+b.x1+1)/2, -0.14, (b.y0+b.y1+1)/2);
 }
 function regrow3D(S){
   syncGround(S);
@@ -6810,6 +6823,13 @@ function resize3D(){ if(!cv3) return;
   const w=Math.max(280,Math.floor(r.width)), h=Math.max(200,Math.floor(r.height));
   const ren=(R3&&R3.renderer)||(K3&&K3.renderer); if(ren) ren.setSize(w,h,false);
   [R3,K3].forEach(S=>{ if(S&&S.cam){ S.cam.aspect=w/h; S.cam.updateProjectionMatrix(); } }); }
+/* The day cycle rewrites the sun and the hemisphere every frame from the clock,
+   so the intensities handed to the constructors never survive a tick. These are the
+   knobs that actually reach a pixel. */
+/* Chosen by comparing five looks in one browser run, judged on the pictures.
+   A strong key and a quiet fill: the old balance was a weak sun against a loud
+   hemisphere, which under a filmic curve reads as milk. */
+const LIT={sun:1.9, hemi:0.55};
 function render3D(){
   const S=init3D(); if(!S){ render(); return; }
   if(worldDirty){ worldDirty=false; regrow3D(S); }
@@ -6819,9 +6839,9 @@ function render3D(){
   const dayAmt=Math.max(0,Math.min(1,el*1.7+0.34));
   S.sun.position.set(tx0(26)+az*72,Math.max(3,el*66),ty0(23)-46);
   S.sun.target.position.set(tx0(26),0,ty0(23)); S.sun.target.updateMatrixWorld();
-  S.sun.intensity=0.16+dayAmt*1.05;
+  S.sun.intensity=(0.16+dayAmt*1.05)*LIT.sun;
   S.sun.color.setHex(el<0.26?0xffb27a:0xffeccf);
-  S.hemi.intensity=0.14+dayAmt*0.48;
+  S.hemi.intensity=(0.14+dayAmt*0.48)*LIT.hemi;
   const sw=season().warm;
   S.sun.intensity*=1+sw*0.9;
   S.hemi.color.setHex(sw<-0.05?0xd8e6f4:(sw>0.1?0xbcd8ff:0xc8dcf0));
@@ -7048,6 +7068,7 @@ function loadAssets(S){
         Object.entries(m.textures).forEach(([key,file])=>{
           jobs.push(new Promise(res=>TL.load(ASSETS.base+file, t=>{
             t.wrapS=t.wrapT=THREE.RepeatWrapping; t.anisotropy=4;
+            t.encoding=THREE.sRGBEncoding;     // albedo, not data
             R3TEX[key]=t;
             // the town's ground material is already on screen; the rest are read when a
             // Keep floor is built, so they only need to be in the cache
@@ -7801,6 +7822,15 @@ window.__ash={
   world(){ let made=0; for(let i=0;i<N*N;i++) if(GEN[i]) made++;
     return {N,cells:N*N,made,chunks:chunksMade,bounds:genBounds()}; },
   out(){ return people.filter(p=>!p.away&&p.errandTo).length; },
+  /* What the generator actually lays down, counted inside the town and beyond it
+     separately. Guessing at a screenshot four times is what this replaces. */
+  hist(){ const nm=['grass','road','plaza','water','dirt','field','rock'];
+    const inn={}, out={};
+    for(let y=0;y<N;y++)for(let x=0;x<N;x++){ const i=I(x,y); if(!GEN[i]) continue;
+      const u=x-OFF, v=y-OFF;
+      const b=(u<0||v<0||u>=TOWN||v>=TOWN)?out:inn;
+      const k=nm[ty[i]]||('t'+ty[i]); b[k]=(b[k]||0)+1; }
+    return {town:inn, wild:out}; },
   errands(){ return Object.assign({},ERR); },
   speed(){ return speed; },
   season(){ seasonI=(seasonI+1)%4; applySeason(); return seasonI; },
@@ -7821,6 +7851,40 @@ window.__ash={
       G.dispose();
     }
     return bad; },
+  /* The live scene, not a grep. A grep over the source cannot see what the KayKit
+     models bring with them, and those arrive as MeshStandardMaterial from the glTF
+     loader whatever this file says. */
+  materials(){ const S=R3; if(!S) return null;
+    const seen=new Set(), by={}; let meshes=0;
+    S.scene.traverse(o=>{ if(!(o.isMesh||o.isInstancedMesh)) return; meshes++;
+      const ms=Array.isArray(o.material)?o.material:[o.material];
+      for(const m of ms){ if(!m||seen.has(m.uuid)) continue; seen.add(m.uuid);
+        by[m.type]=(by[m.type]||0)+1; } });
+    return {meshes, unique:seen.size, byType:by,
+      tone:S.renderer.toneMapping, exposure:S.renderer.toneMappingExposure,
+      enc:S.renderer.outputEncoding}; },
+  noon(h){ hour=(h===undefined?12:h); minute=0; return hour; },
+  /* Live knobs so a tuning pass can compare several looks in one browser run
+     instead of one edit-build-screenshot round trip each. */
+  tune(o){ const S=R3; if(!S) return null;
+    if(o.water!==undefined) S.water.visible=o.water;
+    if(o.tone!==undefined) S.renderer.toneMapping=o.tone;
+    if(o.exposure!==undefined) S.renderer.toneMappingExposure=o.exposure;
+    if(o.sun!==undefined) LIT.sun=o.sun;
+    if(o.hemi!==undefined) LIT.hemi=o.hemi;
+    if(o.amb!==undefined) S.scene.traverse(q=>{ if(q.isAmbientLight) q.intensity=o.amb; });
+    S.scene.traverse(q=>{ if(q.isMesh||q.isInstancedMesh){
+      const ms=Array.isArray(q.material)?q.material:[q.material];
+      for(const m of ms) if(m) m.needsUpdate=true; } });
+    return {tone:S.renderer.toneMapping, exposure:S.renderer.toneMappingExposure,
+            sunK:LIT.sun, hemiK:LIT.hemi}; },
+  /* Read back AFTER a frame. Reading an intensity in the same tick you set it told
+     me a light had changed when the next frame was about to overwrite it. */
+  lit(){ const S=R3; return S?{sun:S.sun.intensity, hemi:S.hemi.intensity,
+    amb:(()=>{let v=null; S.scene.traverse(q=>{if(q.isAmbientLight)v=q.intensity;}); return v;})()
+    }:null; },
+  look(x,y,d){ const S=R3; if(!S) return null;
+    S.tx=tx0(x); S.tz=ty0(y); S.dist=d; S.ph=0.62; userPanned=true; return [S.tx,S.tz,S.dist]; },
   faceVerts(){ let q=0;
     const lev=(x,y)=>{ if(!isMade(x,y)) return -0.6;
       const i=I(x,y); return ty[i]===WATER?-0.34:hh[i]*HU; };
