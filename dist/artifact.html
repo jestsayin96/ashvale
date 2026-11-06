@@ -185,11 +185,14 @@ h1 em{font-style:normal;color:var(--gold)}
   top:0;
   bottom:0;
   width:148px;
+  overflow-x:hidden;
   overflow-y:auto;
   overscroll-behavior:contain;
   background:linear-gradient(90deg,#100d1aF2,#100d1aE6);
   border-right:1px solid var(--edge);
-  padding:12px 6px 24px;
+  /* Bottom padding must clear the last .tiny hint; a fade-mask used to eat
+     ~28px and, when content fit the rail, left nothing to scroll into view. */
+  padding:12px 6px 36px;
   padding-left:max(6px,env(safe-area-inset-left,0px));
   display:flex;
   flex-direction:column;
@@ -197,11 +200,17 @@ h1 em{font-style:normal;color:var(--gold)}
   scrollbar-width:thin;
   scrollbar-color:var(--edge2) transparent;
   z-index:2;
-  -webkit-mask-image:linear-gradient(180deg,#000 0,#000 calc(100% - 28px),transparent 100%);
-  mask-image:linear-gradient(180deg,#000 0,#000 calc(100% - 28px),transparent 100%);
 }
 #rail::-webkit-scrollbar{width:5px}
 #rail::-webkit-scrollbar-thumb{background:var(--edge2);border-radius:3px}
+@media (max-height:860px){
+  #rail{
+    padding-bottom:44px;
+    gap:10px;
+  }
+  .grp{gap:0}
+  .tiny{margin-top:4px;padding-bottom:2px}
+}
 
 .grp h4{
   margin:0 0 6px;
@@ -352,11 +361,64 @@ h1 em{font-style:normal;color:var(--gold)}
 #log h4 span:hover{color:var(--ink)}
 #log.shut #logList{display:none}
 #log.shut{width:180px}
-#log div{margin-bottom:6px;line-height:1.5;font-size:13.5px}
+#logList > div{margin-bottom:6px;line-height:1.5;font-size:13.5px}
 #log b{color:var(--ink);font-weight:700}
 #log .d{color:#e59a93}
 #log .m{color:#bda3f0}
 #log .g{color:#e3c77a}
+
+/* Standing beat above the event log — keeps the chronicle column from reading
+   as ~690px of dead black on day 1, when only two log lines exist. */
+.now{
+  margin:0 0 14px;
+  padding:0 0 12px;
+  border-bottom:1px solid #2a2440;
+}
+.now-kicker{
+  font-family:var(--fd);
+  font-size:10px;
+  letter-spacing:1.4px;
+  text-transform:uppercase;
+  color:var(--arcane);
+  margin:0 0 6px;
+}
+.now-beat{
+  margin:0 0 6px;
+  font-size:13.5px;
+  line-height:1.45;
+  color:var(--ink);
+  font-weight:600;
+}
+.now-meta{
+  margin:0 0 10px;
+  font-size:11.5px;
+  line-height:1.4;
+  color:#6b6283;
+}
+.now-vitals{
+  list-style:none;
+  margin:0;
+  padding:8px 0 0;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px 10px;
+  border-top:1px solid #251f38;
+}
+.now-vitals li{
+  margin:0;
+  font-size:11.5px;
+  line-height:1.3;
+  color:#6b6283;
+}
+.now-vitals b{
+  color:var(--ink);
+  font-weight:700;
+  font-size:13px;
+  margin-right:3px;
+}
+#log.shut .now{padding-bottom:8px;margin-bottom:0}
+#log.shut .now-beat{font-size:12.5px}
+#log.shut .now-vitals{grid-template-columns:1fr 1fr;gap:4px 8px;padding-top:6px}
 
 /* Chronicle entries */
 .ann{
@@ -389,14 +451,75 @@ h1 em{font-style:normal;color:var(--gold)}
   min-height:68px;
 }
 .who{display:flex;gap:12px;align-items:center;min-width:0}
-#portrait{
+
+/* Ashvale badge — authored crest for the town idle state. The sim still paints
+   faces onto #portrait; the crest covers the empty diamond that used to show. */
+.badge{
+  position:relative;
   width:48px;
   height:48px;
   flex:none;
   border-radius:8px;
   border:1px solid var(--edge2);
-  background:#15121f;
+  background:
+    radial-gradient(120% 100% at 50% 0%,#3a2f1a 0%,#15121f 62%,#100e18 100%);
+  overflow:hidden;
 }
+.badge-mark{
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .16s ease;
+}
+.badge.town .badge-mark{opacity:1}
+.badge-gem{
+  position:absolute;
+  width:28px;
+  height:28px;
+  background:linear-gradient(145deg,#f0d78a 0%,var(--gold) 42%,#8a6a22 100%);
+  transform:rotate(45deg);
+  border-radius:3px;
+  box-shadow:inset 0 0 0 1px #f6e2a855, 0 0 0 1px #5a4a2288;
+}
+.badge-keep{
+  position:absolute;
+  width:10px;
+  height:14px;
+  bottom:14px;
+  background:var(--bg);
+  border-radius:1px 1px 0 0;
+  box-shadow:
+    -6px 4px 0 -2px var(--bg),
+     6px 4px 0 -2px var(--bg),
+     0 -3px 0 -3px var(--bg);
+  opacity:.9;
+}
+.badge-letter{
+  position:relative;
+  z-index:1;
+  font-family:var(--fd);
+  font-weight:700;
+  font-size:15px;
+  line-height:1;
+  color:#1a1408;
+  text-shadow:0 1px 0 #f6e2a866;
+  margin-top:1px;
+}
+#portrait{
+  position:relative;
+  z-index:2;
+  display:block;
+  width:48px;
+  height:48px;
+  border-radius:7px;
+  background:transparent;
+  opacity:1;
+  transition:opacity .16s ease;
+}
+.badge.town #portrait{opacity:0;pointer-events:none}
 .who h3{
   font-family:var(--fd);
   font-size:17px;
@@ -688,6 +811,17 @@ aside.panel.open{transform:none}
     <canvas id="fx"></canvas>
     <div class="float" id="hint"><b>Click anyone</b> for their life: family, trade, gift, gear and coin. Click a building for who works there. Drag to pan, scroll to zoom.</div>
     <div class="float" id="log"><h4 id="logHead">The Ashvale Chronicle<span>hide</span></h4>
+      <section class="now" id="now" aria-live="polite">
+        <div class="now-kicker">Right now</div>
+        <p class="now-beat" id="nowBeat">Ashvale is waking.</p>
+        <p class="now-meta" id="nowMeta">Day 1 &middot; dawn</p>
+        <ul class="now-vitals" id="nowVitals">
+          <li><b id="nowPop">0</b> souls</li>
+          <li><b id="nowGold">0</b> gold</li>
+          <li><b id="nowGift">0</b> gifted</li>
+          <li><b id="nowFloor">0</b> deepest</li>
+        </ul>
+      </section>
       <div id="logList"></div></div>
 
     <aside class="panel" id="who">
@@ -720,7 +854,14 @@ aside.panel.open{transform:none}
 
   <div id="console">
     <div class="who">
-      <canvas id="portrait" width="120" height="120"></canvas>
+      <div class="badge town" id="badge" title="Ashvale">
+        <div class="badge-mark" aria-hidden="true">
+          <span class="badge-gem"></span>
+          <span class="badge-keep"></span>
+          <span class="badge-letter">A</span>
+        </div>
+        <canvas id="portrait" width="120" height="120"></canvas>
+      </div>
       <div style="min-width:0">
         <h3 id="selName">Ashvale</h3>
         <p id="selSub">A town of twenty-odd families, and the hole in the ground that feeds it.</p>
@@ -733,6 +874,91 @@ aside.panel.open{transform:none}
     </div>
   </div>
 </div>
+<script>
+/* DOM layer only: standing chronicle beat + town badge crest.
+   Reads nodes the sim already paints; does not touch game.js. */
+(function(){
+  const clock=document.getElementById('sClock');
+  const pop=document.getElementById('sPop');
+  const gold=document.getElementById('sGold');
+  const gift=document.getElementById('sMagic');
+  const floor=document.getElementById('sFloor');
+  const beat=document.getElementById('nowBeat');
+  const meta=document.getElementById('nowMeta');
+  const nowPop=document.getElementById('nowPop');
+  const nowGold=document.getElementById('nowGold');
+  const nowGift=document.getElementById('nowGift');
+  const nowFloor=document.getElementById('nowFloor');
+  const badge=document.getElementById('badge');
+  const selName=document.getElementById('selName');
+  if(!clock||!beat||!meta||!badge||!selName) return;
+
+  function hourBeat(h){
+    if(h<6||h>=22) return {
+      line:'The town is asleep. Windows dark, streets empty.',
+      when:'deep night'
+    };
+    if(h<8) return {
+      line:'Ashvale is stirring. Kitchens first, then the doors.',
+      when:'dawn'
+    };
+    if(h<12) return {
+      line:'Morning work. Shops open, the guild gathers for the Keep.',
+      when:'morning'
+    };
+    if(h<13) return {
+      line:'Midday. Some peel off to the tavern; most stay at their trade.',
+      when:'noon'
+    };
+    if(h<17) return {
+      line:'Afternoon labour. A few with no work head into the country.',
+      when:'afternoon'
+    };
+    if(h<20) return {
+      line:'Evening out. Children free of school; grown folk choosing company.',
+      when:'evening'
+    };
+    return {
+      line:'Turning in. Lamps on, streets thinning toward home.',
+      when:'nightfall'
+    };
+  }
+
+  function paintNow(){
+    const t=clock.textContent||'';
+    const m=/Day\s+(\d+).*?\b(\d{1,2}):(\d{2})\b/.exec(t);
+    const day=m?m[1]:'1';
+    const h=m?+m[2]:6;
+    const season=(/·\s*([a-z]+)\s+y/i.exec(t)||[])[1];
+    const b=hourBeat(h);
+    beat.textContent=b.line;
+    meta.textContent='Day '+day+(season?' · '+season:'')+' · '+b.when;
+    if(nowPop&&pop) nowPop.textContent=pop.textContent||'0';
+    if(nowGold&&gold) nowGold.textContent=gold.textContent||'0';
+    if(nowGift&&gift) nowGift.textContent=gift.textContent||'0';
+    if(nowFloor&&floor) nowFloor.textContent=floor.textContent||'0';
+  }
+
+  function paintBadge(){
+    /* Town idle used to be a faint canvas diamond. Crest covers that only.
+       Person faces and the Keep torch stay on the canvas. */
+    const isTown=(selName.textContent||'').trim()==='Ashvale';
+    badge.classList.toggle('town', isTown);
+    badge.classList.toggle('person', !isTown);
+  }
+
+  function boot(){
+    paintNow();
+    paintBadge();
+    const opts={characterData:true,childList:true,subtree:true};
+    new MutationObserver(paintNow).observe(clock,opts);
+    [pop,gold,gift,floor].forEach(el=>{ if(el) new MutationObserver(paintNow).observe(el,opts); });
+    new MutationObserver(paintBadge).observe(selName,opts);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
+  else boot();
+})();
+</script>
 
 <script>window.__ASHVALE_NO_ASSETS=1;</script>
 <script>

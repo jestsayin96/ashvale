@@ -179,11 +179,14 @@ h1 em{font-style:normal;color:var(--gold)}
   top:0;
   bottom:0;
   width:148px;
+  overflow-x:hidden;
   overflow-y:auto;
   overscroll-behavior:contain;
   background:linear-gradient(90deg,#100d1aF2,#100d1aE6);
   border-right:1px solid var(--edge);
-  padding:12px 6px 24px;
+  /* Bottom padding must clear the last .tiny hint; a fade-mask used to eat
+     ~28px and, when content fit the rail, left nothing to scroll into view. */
+  padding:12px 6px 36px;
   padding-left:max(6px,env(safe-area-inset-left,0px));
   display:flex;
   flex-direction:column;
@@ -191,11 +194,17 @@ h1 em{font-style:normal;color:var(--gold)}
   scrollbar-width:thin;
   scrollbar-color:var(--edge2) transparent;
   z-index:2;
-  -webkit-mask-image:linear-gradient(180deg,#000 0,#000 calc(100% - 28px),transparent 100%);
-  mask-image:linear-gradient(180deg,#000 0,#000 calc(100% - 28px),transparent 100%);
 }
 #rail::-webkit-scrollbar{width:5px}
 #rail::-webkit-scrollbar-thumb{background:var(--edge2);border-radius:3px}
+@media (max-height:860px){
+  #rail{
+    padding-bottom:44px;
+    gap:10px;
+  }
+  .grp{gap:0}
+  .tiny{margin-top:4px;padding-bottom:2px}
+}
 
 .grp h4{
   margin:0 0 6px;
@@ -346,11 +355,64 @@ h1 em{font-style:normal;color:var(--gold)}
 #log h4 span:hover{color:var(--ink)}
 #log.shut #logList{display:none}
 #log.shut{width:180px}
-#log div{margin-bottom:6px;line-height:1.5;font-size:13.5px}
+#logList > div{margin-bottom:6px;line-height:1.5;font-size:13.5px}
 #log b{color:var(--ink);font-weight:700}
 #log .d{color:#e59a93}
 #log .m{color:#bda3f0}
 #log .g{color:#e3c77a}
+
+/* Standing beat above the event log — keeps the chronicle column from reading
+   as ~690px of dead black on day 1, when only two log lines exist. */
+.now{
+  margin:0 0 14px;
+  padding:0 0 12px;
+  border-bottom:1px solid #2a2440;
+}
+.now-kicker{
+  font-family:var(--fd);
+  font-size:10px;
+  letter-spacing:1.4px;
+  text-transform:uppercase;
+  color:var(--arcane);
+  margin:0 0 6px;
+}
+.now-beat{
+  margin:0 0 6px;
+  font-size:13.5px;
+  line-height:1.45;
+  color:var(--ink);
+  font-weight:600;
+}
+.now-meta{
+  margin:0 0 10px;
+  font-size:11.5px;
+  line-height:1.4;
+  color:#6b6283;
+}
+.now-vitals{
+  list-style:none;
+  margin:0;
+  padding:8px 0 0;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px 10px;
+  border-top:1px solid #251f38;
+}
+.now-vitals li{
+  margin:0;
+  font-size:11.5px;
+  line-height:1.3;
+  color:#6b6283;
+}
+.now-vitals b{
+  color:var(--ink);
+  font-weight:700;
+  font-size:13px;
+  margin-right:3px;
+}
+#log.shut .now{padding-bottom:8px;margin-bottom:0}
+#log.shut .now-beat{font-size:12.5px}
+#log.shut .now-vitals{grid-template-columns:1fr 1fr;gap:4px 8px;padding-top:6px}
 
 /* Chronicle entries */
 .ann{
@@ -383,14 +445,75 @@ h1 em{font-style:normal;color:var(--gold)}
   min-height:68px;
 }
 .who{display:flex;gap:12px;align-items:center;min-width:0}
-#portrait{
+
+/* Ashvale badge — authored crest for the town idle state. The sim still paints
+   faces onto #portrait; the crest covers the empty diamond that used to show. */
+.badge{
+  position:relative;
   width:48px;
   height:48px;
   flex:none;
   border-radius:8px;
   border:1px solid var(--edge2);
-  background:#15121f;
+  background:
+    radial-gradient(120% 100% at 50% 0%,#3a2f1a 0%,#15121f 62%,#100e18 100%);
+  overflow:hidden;
 }
+.badge-mark{
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .16s ease;
+}
+.badge.town .badge-mark{opacity:1}
+.badge-gem{
+  position:absolute;
+  width:28px;
+  height:28px;
+  background:linear-gradient(145deg,#f0d78a 0%,var(--gold) 42%,#8a6a22 100%);
+  transform:rotate(45deg);
+  border-radius:3px;
+  box-shadow:inset 0 0 0 1px #f6e2a855, 0 0 0 1px #5a4a2288;
+}
+.badge-keep{
+  position:absolute;
+  width:10px;
+  height:14px;
+  bottom:14px;
+  background:var(--bg);
+  border-radius:1px 1px 0 0;
+  box-shadow:
+    -6px 4px 0 -2px var(--bg),
+     6px 4px 0 -2px var(--bg),
+     0 -3px 0 -3px var(--bg);
+  opacity:.9;
+}
+.badge-letter{
+  position:relative;
+  z-index:1;
+  font-family:var(--fd);
+  font-weight:700;
+  font-size:15px;
+  line-height:1;
+  color:#1a1408;
+  text-shadow:0 1px 0 #f6e2a866;
+  margin-top:1px;
+}
+#portrait{
+  position:relative;
+  z-index:2;
+  display:block;
+  width:48px;
+  height:48px;
+  border-radius:7px;
+  background:transparent;
+  opacity:1;
+  transition:opacity .16s ease;
+}
+.badge.town #portrait{opacity:0;pointer-events:none}
 .who h3{
   font-family:var(--fd);
   font-size:17px;
