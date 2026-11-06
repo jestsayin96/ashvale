@@ -1483,3 +1483,64 @@ not the dt**, or retune everything and measure it.
 Not abandoned — but a bigger world that is still unpleasant to look at is worth less
 than a small one that is a joy. Feel first: time, camera, seeing the people, UI. Then
 the other three kingdoms.
+
+# WHAT THE FINISHED THING IS — settled 6 Nov 2026
+
+Asked directly what he is in this world, the owner said: **"A watcher's interface, it
+is meant to be on stream one day."**
+
+That settles a question that was quietly shaping everything. He is not a ruler and not
+a god. There is no build mode, no command, no orders to issue. **The interface is a
+window, not a desk**, and the second audience is a stream viewer who has no mouse and
+is looking at a downscaled 1080p feed.
+
+## What follows from "watcher"
+- **The UI gets out of the way.** Panels are for looking closer, not for acting. Any
+  control that exists only to let the owner change the world is the wrong direction.
+- **The world has to carry the interest by itself.** If nothing happens for ten
+  minutes, that is a design failure, not a pacing choice.
+- **Following is the primary verb.** Click a person and ride with them. He chose that
+  himself, and for a watcher it is not a convenience, it is the main way in.
+
+## What follows from "on stream one day"
+- **Legibility at a distance beats density.** A viewer reads a 1080p feed from a sofa.
+  Small type, thin lines and low-contrast panels are worse than useless there.
+- **Events must announce themselves in the world**, not only in the chronicle. A death,
+  a party coming home short-handed, a breach at the gate — these are the moments a
+  viewer should catch without reading a log.
+- **A director camera is worth more here than anywhere else**: when something happens,
+  the view should be able to go to it. For an unattended stream that is the difference
+  between a screensaver and a programme.
+- Chat touching the world is an obvious eventual idea. **Not now** — it is not needed
+  for the thing to be good, and it is a whole system.
+
+## The goal, in one sentence
+**You open it, and an hour later you are still watching** — because a party came back
+short a man, two houses stopped speaking, a caravan got through. It should hold
+attention with nobody touching it, and reward you when you do.
+
+**Diablo 3 is not reachable and is not the target.** A native engine and a large art
+team with gigabytes of authored assets is not what one three.js page becomes. The
+reachable target, stated honestly every time it comes up: the difference between a
+flat-shaded toy and a lit, readable world that is a pleasure to leave open.
+
+## Cycle 43 — 1x is a day you can watch
+`minute += dt*22` with `dt = raw*speed` made a game-day **65 real seconds**. Now
+`dt = raw*speed*DTSCALE` with `DAYSEC=240`, so 1x is a four-minute day, 3x is 80 s and
+8x is 30 s.
+
+**One constant, and no retuning, which is the only reason it is safe.** Every rate in
+the game is per dt-unit and a dt-unit is 22 game-minutes by definition. Scaling dt
+uniformly changes how much *real* time a dt-unit takes and nothing else — needs still
+rise and fall the same across a game-day, a walker still covers the same 65 tiles of
+daylight, the errand budget still means what it says. Slowing the clock alone would
+have been the wrong fix: people would have kept moving at the same real-world speed
+and crossed four times as much ground in a day.
+
+### The probe measured the renderer, not the clock
+First run reported **835 s per game-day** against an intended 240, and the constant was
+not at fault. `raw` is clamped to 50 ms a frame, and under swiftshader at ~1.3 fps the
+sim advances 65 ms per real second — so a probe dividing game-minutes by *wall* seconds
+measures the software renderer. Divided by `tnow` (simulated seconds, the sum of the
+clamped deltas) it reads 240.0 / 80.0 / 30.0 exactly. **Wall time is the wrong
+denominator in a headless browser.**
