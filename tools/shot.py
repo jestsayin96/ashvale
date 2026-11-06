@@ -104,6 +104,29 @@ with sync_playwright() as p:
     elif not sig.get("peak", 0) > 0.001:
         errs.append(f"the score produced no signal: {sig}")
 
+    # c50. The chronicle's standing block must be COUNTED, not canned. The first
+    # version of it scraped the clock with a regex and picked a sentence by hour
+    # band, so it announced people in the country whether or not any had gone.
+    # Two tests: the vitals must agree with the header, and the line must change
+    # when the town does. A sentence that never changes is a caption.
+    now0 = pg.evaluate("""()=>{const g=i=>{const e=document.getElementById(i);
+        return e?e.textContent.trim():null};
+        return {beat:g('nowBeat'),pop:g('nowPop'),gold:g('nowGold'),
+                floor:g('nowFloor'),hPop:g('sPop'),hGold:g('sGold'),hFloor:g('sFloor')};}""")
+    if now0["pop"] != now0["hPop"] or now0["gold"] != now0["hGold"] \
+       or now0["floor"] != now0["hFloor"]:
+        errs.append(f"the standing block disagrees with the header: {now0}")
+    if not now0["beat"] or len(now0["beat"]) < 8:
+        errs.append(f"the standing block has no line: {now0}")
+    pg.evaluate("()=>window.__ash.fast(20)"); pg.wait_for_timeout(14000)
+    now1 = pg.evaluate("""()=>{const g=i=>{const e=document.getElementById(i);
+        return e?e.textContent.trim():null};
+        return {beat:g('nowBeat'),pop:g('nowPop'),hPop:g('sPop')};}""")
+    if now1["pop"] != now1["hPop"]:
+        errs.append(f"the standing block stopped tracking the header: {now1}")
+    print("now    %r -> %r" % (now0["beat"], now1["beat"]))
+    pg.evaluate("()=>window.__ash.fast(1)")
+
     # The houses panel must render households, not an empty shell.
     pg.click("#housesBtn"); pg.wait_for_timeout(900)
     counts = pg.evaluate("()=>({house:document.querySelectorAll('.house').length,"

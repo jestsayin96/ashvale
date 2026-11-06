@@ -127,51 +127,14 @@
   const selName=document.getElementById('selName');
   if(!clock||!beat||!meta||!badge||!selName) return;
 
-  function hourBeat(h){
-    if(h<6||h>=22) return {
-      line:'The town is asleep. Windows dark, streets empty.',
-      when:'deep night'
-    };
-    if(h<8) return {
-      line:'Ashvale is stirring. Kitchens first, then the doors.',
-      when:'dawn'
-    };
-    if(h<12) return {
-      line:'Morning work. Shops open, the guild gathers for the Keep.',
-      when:'morning'
-    };
-    if(h<13) return {
-      line:'Midday. Some peel off to the tavern; most stay at their trade.',
-      when:'noon'
-    };
-    if(h<17) return {
-      line:'Afternoon labour. A few with no work head into the country.',
-      when:'afternoon'
-    };
-    if(h<20) return {
-      line:'Evening out. Children free of school; grown folk choosing company.',
-      when:'evening'
-    };
-    return {
-      line:'Turning in. Lamps on, streets thinning toward home.',
-      when:'nightfall'
-    };
-  }
-
-  function paintNow(){
-    const t=clock.textContent||'';
-    const m=/Day\s+(\d+).*?\b(\d{1,2}):(\d{2})\b/.exec(t);
-    const day=m?m[1]:'1';
-    const h=m?+m[2]:6;
-    const season=(/·\s*([a-z]+)\s+y/i.exec(t)||[])[1];
-    const b=hourBeat(h);
-    beat.textContent=b.line;
-    meta.textContent='Day '+day+(season?' · '+season:'')+' · '+b.when;
-    if(nowPop&&pop) nowPop.textContent=pop.textContent||'0';
-    if(nowGold&&gold) nowGold.textContent=gold.textContent||'0';
-    if(nowGift&&gift) nowGift.textContent=gift.textContent||'0';
-    if(nowFloor&&floor) nowFloor.textContent=floor.textContent||'0';
-  }
+  /* c50. The standing block's MARKUP and styling are the DOM layer's; what it
+     SAYS is the simulation's. The version that lived here scraped the clock with
+     a regex and chose a canned sentence by hour band, so it announced "a few
+     with no work head into the country" whether or not anyone had gone, and it
+     overwrote game.js's line on every clock tick through a MutationObserver.
+     A chronicle that states what the screen contradicts is worse than an empty
+     one. `paintNow` in game.js counts the town and owns these elements now.
+     `paintBadge` below is presentation, and stays. */
 
   function paintBadge(){
     /* Town idle used to be a faint canvas diamond. Crest covers that only.
@@ -182,11 +145,8 @@
   }
 
   function boot(){
-    paintNow();
     paintBadge();
     const opts={characterData:true,childList:true,subtree:true};
-    new MutationObserver(paintNow).observe(clock,opts);
-    [pop,gold,gift,floor].forEach(el=>{ if(el) new MutationObserver(paintNow).observe(el,opts); });
     new MutationObserver(paintBadge).observe(selName,opts);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);

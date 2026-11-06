@@ -2815,7 +2815,45 @@ function roleTags(p){
   if(p.away) t.push('<span class="tag war">in the Keep</span>');
   return '<div class="tagline">'+t.join('')+'</div>';
 }
+/* c50. Cursor built the standing block in the chronicle; this fills it. The
+   column was ~690px of black for the first in-game day because the log had two
+   entries in it, and an empty panel reads as a dead app. A standing line is
+   always true of a town that is always doing something.
+
+   Every sentence here is counted off the sim at the moment it is said. The
+   chronicle is the world's voice, and the fastest way to make a watcher stop
+   trusting it is to have it state a number that the screen contradicts. */
+const DAYPART=h=>h<5?'night':h<8?'dawn':h<11?'morning':h<14?'midday'
+  :h<17?'afternoon':h<20?'evening':'night';
+function townBeat(){
+  const live=people.filter(p=>!p.dead);
+  const below=live.filter(p=>p.away).length;
+  const parties=(typeof RUNS!=='undefined'&&RUNS)?RUNS.length:(activeRun?1:0);
+  const outside=live.filter(p=>!p.away&&!p.inside).length;
+  const afield=live.filter(p=>!p.away&&p.errandTo).length;
+  const kids=live.filter(p=>!p.away&&!p.inside&&p.age<ADULT).length;
+  if(below) return below===1 ? 'One of them is down in the Keep.'
+    : (parties>1? parties+' parties are down in the Keep.'
+                : below+' of them are down in the Keep.');
+  if(afield>1) return afield+' are out in the country after firewood and roots.';
+  if(outside>=12) return outside+' are out on the streets'+
+    (kids>2? ', '+kids+' of them children.' : '.');
+  if(outside>0) return outside===1 ? 'One soul is out in the open.'
+                                   : outside+' are out in the open.';
+  return hour>=20||hour<5 ? 'Everyone is behind a door; the lamps are lit.'
+                          : 'Everyone is indoors.';
+}
+function paintNow(){
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
+  set('nowBeat', townBeat());
+  set('nowMeta', 'Day '+day+' \u00b7 '+DAYPART(hour)+' \u00b7 '+season().n);
+  set('nowPop', people.filter(p=>!p.dead).length);
+  set('nowGold', Math.round(ECON.treasury).toLocaleString());
+  set('nowGift', people.filter(p=>!p.dead&&p.gift).length);
+  set('nowFloor', KEEP.deepest);
+}
 function paintConsole(){
+  paintNow();
   document.getElementById('sPop').textContent=people.length;
   document.getElementById('sGold').textContent=Math.round(ECON.treasury).toLocaleString();
   document.getElementById('sMagic').textContent=people.filter(p=>p.gift).length;

@@ -73,6 +73,15 @@ Two things any outside assistant has to be told, because both have been got wron
   that does not exist — Grok's `.keep-open` — silently matches everything or
   nothing. Verify the selector is real before styling it.
 
+**Markup and styling are theirs; what it SAYS is the simulation's.** Their first
+standing block scraped the clock with a regex and chose a canned sentence by hour
+band, so the chronicle announced people out in the country whether or not any had
+gone — and drove it from a MutationObserver that overwrote `game.js`'s line on
+every tick. They cannot see the sim, so any text making a claim about the world
+can only be a guess, and a confident guess in the world's voice is the one thing
+that costs a watcher their trust. Shells, classes and ids: theirs. Sentences and
+numbers: `game.js`.
+
 Their CSS is **merged, never pasted over**. Grok's first pass dropped ~50 selectors
 including `.float`; diff the selector lists before applying anything.
 
@@ -93,7 +102,6 @@ including `.float`; diff the selector lists before applying anything.
 | 15 | The Ashvale badge, bottom left, is an empty diamond placeholder. | footer | c49 review |
 | 1 | Only 6 of 58 outdoor people are in frame at all; size fixed legibility, not presence. Canopy is the untested suspect. | town, dist 20, any hour | c49 |
 | 2 | The conga line: whole town walks single file to one spot, strands out there after dark, chasing a frontier that recedes as it is approached. | open country, 17:00 onward | c49 |
-| 3 | Chronicle column is an empty black 280px band for the first in-game day. | right column, day 1 | c49 |
 | 4 | Left rail clips its own last line; no scroll at 860px viewport height. | left rail, short viewports | c48 |
 | 5 | The Keep has no follow and no keyboard camera at all. Both camera cycles were town-only. | the Keep | c47 |
 | 6 | Ground mark is near-black at 34% opacity and vanishes on grass. Needs a rim, not more opacity — and it is WebGL, so it cannot be fixed in CSS. | town, all distances | c49 |
@@ -106,4 +114,6 @@ including `.float`; diff the selector lists before applying anything.
 | # | Defect | Fixed | Re-reviewed |
 |---|---|---|---|
 | 10 | The canopy was striped into rows of one model: `(x*3+y*7)%3` — x*3 is divisible by 3 for every x, so the prototype came from y alone. Three real KayKit trees read as one cone copied forever. | c50, real 2D hash + height, lean and tint variation | 6 shapes, 6 canopy colours, height spread 1.32 → 6.52, even 33/33/33 split |
+| 3 | Chronicle column was an empty black 280px band for the first in-game day. | c50, Cursor's standing block + `paintNow`/`townBeat` in game.js counting the town | "Everyone is indoors." → "2 are out in the open."; vitals agree with the header, asserted in shot.py |
+| 15 | The Ashvale badge was an empty diamond placeholder. | c50, Cursor's crest + `paintBadge` town/person toggle | pending visual re-review |
 | 0 | People were 0.25% of the frame — six readable figures in a town of 58 outdoors, biggest 29x41px. | c49, folkScale swept to 1.6 | 3.26% / 18 figures at dist 20 |

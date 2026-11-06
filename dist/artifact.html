@@ -893,51 +893,14 @@ aside.panel.open{transform:none}
   const selName=document.getElementById('selName');
   if(!clock||!beat||!meta||!badge||!selName) return;
 
-  function hourBeat(h){
-    if(h<6||h>=22) return {
-      line:'The town is asleep. Windows dark, streets empty.',
-      when:'deep night'
-    };
-    if(h<8) return {
-      line:'Ashvale is stirring. Kitchens first, then the doors.',
-      when:'dawn'
-    };
-    if(h<12) return {
-      line:'Morning work. Shops open, the guild gathers for the Keep.',
-      when:'morning'
-    };
-    if(h<13) return {
-      line:'Midday. Some peel off to the tavern; most stay at their trade.',
-      when:'noon'
-    };
-    if(h<17) return {
-      line:'Afternoon labour. A few with no work head into the country.',
-      when:'afternoon'
-    };
-    if(h<20) return {
-      line:'Evening out. Children free of school; grown folk choosing company.',
-      when:'evening'
-    };
-    return {
-      line:'Turning in. Lamps on, streets thinning toward home.',
-      when:'nightfall'
-    };
-  }
-
-  function paintNow(){
-    const t=clock.textContent||'';
-    const m=/Day\s+(\d+).*?\b(\d{1,2}):(\d{2})\b/.exec(t);
-    const day=m?m[1]:'1';
-    const h=m?+m[2]:6;
-    const season=(/·\s*([a-z]+)\s+y/i.exec(t)||[])[1];
-    const b=hourBeat(h);
-    beat.textContent=b.line;
-    meta.textContent='Day '+day+(season?' · '+season:'')+' · '+b.when;
-    if(nowPop&&pop) nowPop.textContent=pop.textContent||'0';
-    if(nowGold&&gold) nowGold.textContent=gold.textContent||'0';
-    if(nowGift&&gift) nowGift.textContent=gift.textContent||'0';
-    if(nowFloor&&floor) nowFloor.textContent=floor.textContent||'0';
-  }
+  /* c50. The standing block's MARKUP and styling are the DOM layer's; what it
+     SAYS is the simulation's. The version that lived here scraped the clock with
+     a regex and chose a canned sentence by hour band, so it announced "a few
+     with no work head into the country" whether or not anyone had gone, and it
+     overwrote game.js's line on every clock tick through a MutationObserver.
+     A chronicle that states what the screen contradicts is worse than an empty
+     one. `paintNow` in game.js counts the town and owns these elements now.
+     `paintBadge` below is presentation, and stays. */
 
   function paintBadge(){
     /* Town idle used to be a faint canvas diamond. Crest covers that only.
@@ -948,11 +911,8 @@ aside.panel.open{transform:none}
   }
 
   function boot(){
-    paintNow();
     paintBadge();
     const opts={characterData:true,childList:true,subtree:true};
-    new MutationObserver(paintNow).observe(clock,opts);
-    [pop,gold,gift,floor].forEach(el=>{ if(el) new MutationObserver(paintNow).observe(el,opts); });
     new MutationObserver(paintBadge).observe(selName,opts);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
@@ -6986,7 +6946,45 @@ function roleTags(p){
   if(p.away) t.push('<span class="tag war">in the Keep</span>');
   return '<div class="tagline">'+t.join('')+'</div>';
 }
+/* c50. Cursor built the standing block in the chronicle; this fills it. The
+   column was ~690px of black for the first in-game day because the log had two
+   entries in it, and an empty panel reads as a dead app. A standing line is
+   always true of a town that is always doing something.
+
+   Every sentence here is counted off the sim at the moment it is said. The
+   chronicle is the world's voice, and the fastest way to make a watcher stop
+   trusting it is to have it state a number that the screen contradicts. */
+const DAYPART=h=>h<5?'night':h<8?'dawn':h<11?'morning':h<14?'midday'
+  :h<17?'afternoon':h<20?'evening':'night';
+function townBeat(){
+  const live=people.filter(p=>!p.dead);
+  const below=live.filter(p=>p.away).length;
+  const parties=(typeof RUNS!=='undefined'&&RUNS)?RUNS.length:(activeRun?1:0);
+  const outside=live.filter(p=>!p.away&&!p.inside).length;
+  const afield=live.filter(p=>!p.away&&p.errandTo).length;
+  const kids=live.filter(p=>!p.away&&!p.inside&&p.age<ADULT).length;
+  if(below) return below===1 ? 'One of them is down in the Keep.'
+    : (parties>1? parties+' parties are down in the Keep.'
+                : below+' of them are down in the Keep.');
+  if(afield>1) return afield+' are out in the country after firewood and roots.';
+  if(outside>=12) return outside+' are out on the streets'+
+    (kids>2? ', '+kids+' of them children.' : '.');
+  if(outside>0) return outside===1 ? 'One soul is out in the open.'
+                                   : outside+' are out in the open.';
+  return hour>=20||hour<5 ? 'Everyone is behind a door; the lamps are lit.'
+                          : 'Everyone is indoors.';
+}
+function paintNow(){
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
+  set('nowBeat', townBeat());
+  set('nowMeta', 'Day '+day+' \u00b7 '+DAYPART(hour)+' \u00b7 '+season().n);
+  set('nowPop', people.filter(p=>!p.dead).length);
+  set('nowGold', Math.round(ECON.treasury).toLocaleString());
+  set('nowGift', people.filter(p=>!p.dead&&p.gift).length);
+  set('nowFloor', KEEP.deepest);
+}
 function paintConsole(){
+  paintNow();
   document.getElementById('sPop').textContent=people.length;
   document.getElementById('sGold').textContent=Math.round(ECON.treasury).toLocaleString();
   document.getElementById('sMagic').textContent=people.filter(p=>p.gift).length;
