@@ -3953,9 +3953,22 @@ var MUSIC=(()=>{var se=Object.defineProperty;var Ve=Object.getOwnPropertyDescrip
 /* Four kingdoms on the corners of a 260-tile square centred on the map, each the
    52x52 that Ashvale's PLAN is authored at. 130 tiles between a kingdom and the
    dungeons out near the edges is about two days' walk at the 65 tiles/day measured
-   in c37. N=364 holds that with 26 tiles of margin, and 13 still divides it so a
-   CSZ chunk never straddles a region border. See ROADMAP c41 for the arithmetic. */
-const TOWN=52, KSQ=260, N=364, TW=32, TH=16, HZ=10;
+   in c37.
+
+   c49, at the owner's instruction: take an RTS map as the reference, not a
+   continent. N=364 put the neighbouring capital 260 tiles away - four days on
+   foot one way, which is a commute, not an adventure, and it is what let a
+   forager aim at a frontier nobody could reach. A four-player StarCraft map
+   seats its players at the corners of something you can cross: contested middle,
+   arrivable edges.
+
+   N=247, KSQ=143. The spacing is chosen so the arithmetic lands back on the same
+   origin: (247-143)/2 - 52/2 = 26, so OFF is still 26 and every coordinate ever
+   authored in town space is untouched. 13 divides 247, 143, 52 and 26 alike, so a
+   chunk still never straddles a region border. Neighbouring capitals are 92 tiles
+   of open country apart - a day and a half on foot, under a day by road - and the
+   far corner is 202, about three days. The map holds 61,009 cells instead of
+   132,496. */
 const KINGDOM=[
   {k:0, x0:(N-KSQ)/2-TOWN/2|0,       y0:(N-KSQ)/2-TOWN/2|0      },
   {k:1, x0:(N+KSQ)/2-TOWN/2|0,       y0:(N-KSQ)/2-TOWN/2|0      },

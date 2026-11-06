@@ -1819,3 +1819,83 @@ executed, and the UI runs earlier than you think.**
 
 ### Still ahead
 The Keep has no follow or keyboard camera at all; c47 and c48 are both town-only.
+
+---
+
+## c49 — 0.25% of the picture
+
+### The complaint was literally true
+"i dont see any sims tho" was said once, answered with discs in c46, and never
+actually measured. Every counter in this repo answers *how many does the game
+believe it drew*. `tools/seen.py` answers the other question: take the frame, take
+it again with the people layers hidden, diff, and whatever changed is a person, in
+pixels, with nothing in the sim getting a vote.
+
+```
+dist 20   people 1646 px   0.25% of the frame
+          six readable figures, biggest 29x41 px,
+          in a town with 58 people outdoors
+```
+
+They were drawn. They were the right size against a house — 1.0 to 1.46 world
+units, which is about what a person is next to a building. They were illegible,
+and c46's disc did not help because a 34%-opacity near-black mark disappears on
+grass.
+
+### Swept, not chosen
+`folkScale` multiplies whichever of the two bodies a person has — the procedural
+box and the real model — and the per-frame loop applies it, so a skin created
+later still obeys it.
+
+```
+dist 34   1.0 -> 0.24%   1.4 -> 0.63%   1.8 -> 1.22%   2.2 -> 2.00%
+dist 22   1.0 -> 0.28%   1.4 -> 0.88%   1.8 -> 1.90%   2.2 -> 3.71%
+```
+
+Area goes as the square, as it should. 2.2 makes an adult two thirds the height of
+a house, so **1.6 ships**:
+
+```
+folkScale 1.6, background drift 0 px throughout
+dist 20   21736 px   3.26%   18 figures   (was 1646 / 0.25% / 6)
+dist 12   45574 px   6.85%   14 figures
+dist  7   70972 px  10.66%    9 figures
+```
+
+### Three ways the probe lied before it told the truth
+- It diffed **73% of the frame**, because between the two shots the clock moved,
+  the sun moved, the camera was still easing and the trees were still swaying.
+  Freeze what you are not measuring.
+- `look()` takes **town-local** tiles and applies the kingdom offset itself. Fed
+  the world coordinates `cam()` returns, it walked the camera 36 tiles further
+  into the wilderness on every call — and the empty frame that came back looked
+  for a moment like a finding.
+- The noise floor was measured with the people **visible**, so the noise was their
+  own animated limbs, which grow with them. A signal-over-noise test had quietly
+  become a test that punished the improvement. **A control that contains the thing
+  under test is not a control.** Taken with the layer hidden it reads 0 px.
+
+### Found, not yet fixed: the conga line
+A screenshot from the owner: two columns of people in perfect single file, evenly
+spaced, standing in the dark far outside town across the river.
+
+`wildSpot` samples 140 tiles, sorts them by how far **outside** the town they are,
+and takes the first reachable of the top four. The sampling is per-person; the sort
+collapses it. Everyone gets a near-maximal spot, so the whole town walks to the
+same corner — one destination, one flow field, one identical path at one identical
+speed. Beads on a string.
+
+Worse, the budget `(20-hour)*4.6*0.8` is computed once at the moment of choosing
+and never re-checked while they walk, so somebody who set out at four is still out
+there at midnight. `errand()` does cancel at hour 20 — but it clears `errandTo`,
+while the walk is driven by `p.goal` and `p.fld`, which nothing clears. *(reasoned
+from the source, not yet run.)*
+
+And the destination is "furthest outside the made world", while the made world
+grows **because** people walk into it. The target recedes as they approach it.
+That is a frontier nobody can ever arrive at.
+
+### Still ahead
+Only 6 of 58 outdoor people were in frame at all at dist 20. Size explains why you
+could not read them; it does not explain why most of the town is not on screen.
+The canopy is the untested suspect.

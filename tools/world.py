@@ -55,6 +55,21 @@ with sync_playwright() as p:
     assert bb["chunks"] > boot["chunks"], ("nobody made any country", bb)
     assert bb["made"] > boot["made"], bb
     bx = bb["bounds"]
+    # c49 shrank the world to an RTS scale at the owner's instruction, and the
+    # spacing between capitals is now a design figure rather than a leftover: far
+    # enough that crossing is a journey, near enough that it is one somebody can
+    # finish. Guard it relatively, so the next resize fails loudly here instead of
+    # quietly producing a four-day commute again.
+    K=w()["kingdoms"]
+    assert len(K) == 4, ("there should be four kingdoms", K)
+    gap = K[1]["x0"] - (K[0]["x1"] + 1)
+    down = K[2]["y0"] - (K[0]["y1"] + 1)
+    assert gap == down, ("the four kingdoms are not laid out square", gap, down, K)
+    days = gap / 65.0                       # 65 tiles a day on foot, measured in c37
+    print("gap    %d tiles between capitals = %.2f days on foot, %.2f by road"
+          % (gap, days, gap / 99.0))
+    assert 60 <= gap <= 140, ("the crossing is no longer a day's journey", gap, days)
+
     assert (bx["x0"] < T["x0"] or bx["y0"] < T["y0"]
             or bx["x1"] > T["x1"] or bx["y1"] > T["y1"]), ("bounds never left the town", bx, T)
     # and it grew because somebody walked, not because anything enlarged the world

@@ -31,7 +31,7 @@ with sync_playwright() as p:
     # a 4-connected flood of radius d covers about 2*d^2 cells, so 40,000 is the
     # ceiling with slack. This does not bind yet - today's floods are ~2,200 because
     # most of the grid is unwalkable - but it is the number that stops mattering only
-    # if someone removes the cap, and it is what keeps N=364 affordable.
+    # if someone removes the cap, and it is what keeps the map affordable at any N.
     per = d["cells"] / max(1, d["build"])
     assert per <= 40000, ("a flood is no longer bounded by FMAX", per)
     assert d["build"] > 0, ("no fields were built - the probe measured nothing", d)
