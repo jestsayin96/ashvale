@@ -8124,16 +8124,26 @@ function fitBuilding(m,b){
   box.getSize(sz);
   const wantH=BLDH[b.kind]||BLDH_DEFAULT;
   const byH = sz.y>0.01 ? wantH/sz.y : 1;
-  /* The plot was a hard cap, and it bound in every single case - the height
-     target above changed nothing at all on its first run, because a house is
-     depth-limited by its plot long before its roof matters. A real building
-     overflows its footprint upward and a little outward; its plot is where it
-     sits, not a box it must stay inside. So the plot allows OVERSPILL, capped,
-     and the height target does the work within that. */
-  const SPILL=1.35;
-  const byPlot = Math.min((b.w-0.1)/(sz.x||1), (b.d-0.1)/(sz.z||1)) * SPILL;
-  const s=Math.min(byH, byPlot);
-  m.scale.setScalar(s);
+  /* Two attempts to get here, and the second was worse than the first.
+
+     A uniform scale cannot serve both: the plot bound in every case, so a pure
+     height target changed nothing (identical numbers, byte for byte), and letting
+     the footprint overspill by 35% to free the height packed the buildings
+     shoulder to shoulder and ate the streets. The town became a wall of roofs
+     with no ground between them. Height needed to rise; footprint did not. I had
+     conflated them because one scalar was doing both jobs.
+
+     So: footprint fits the plot EXACTLY, as it always did, and height is a
+     separate factor on top. These are blocky stylised buildings and a modest
+     vertical stretch reads as a taller building rather than a distorted one -
+     but only modest. 1.5 was visibly too much: the chimneys gave it away, thin
+     grey columns stretched half again their height, and a chimney is the one
+     part of these models with nothing to hide behind. 1.25 keeps most of the
+     gain and the tell goes. */
+  const byPlot = Math.min((b.w-0.1)/(sz.x||1), (b.d-0.1)/(sz.z||1));
+  const s=byPlot;
+  const ky=Math.max(1, Math.min(byH/(byPlot||1), 1.25));
+  m.scale.set(s, s*ky, s);
   const b2=new THREE.Box3().setFromObject(m), c=new THREE.Vector3();
   b2.getCenter(c);
   m.position.x-=c.x; m.position.z-=c.z; m.position.y-=b2.min.y;
