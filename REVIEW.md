@@ -93,7 +93,8 @@ including `.float`; diff the selector lists before applying anything.
 
 | # | Defect | Where | First seen |
 |---|---|---|---|
-| 16 | The canopy hides **42.7%** of the town's visible people at dist 26 (12.8% at dist 16). Measured c50; this is defect 1's cause. Needs clearings, thinning near the town, or shorter trees on the town edge. | town, dist 26 | c50 |
+| 18 | Occlusion moved rather than went away: people-pixels at dist 20 fell 17,359 → 6,578 after the buildings grew, while the canopy's share of hiding dropped 43.8% → 12.6%. The **buildings** now hide the town. Do not book this as a win. | town, dist 20–26 | c51 |
+| ~~16~~ | ~~The canopy hides 42.7%~~ of the town's visible people at dist 26 (12.8% at dist 16). Measured c50; this is defect 1's cause. Needs clearings, thinning near the town, or shorter trees on the town edge. | town, dist 26 | c50 |
 | ~~10~~ | ~~Trees are identical cones~~ — one shape, one green, one size, scattered evenly across the whole map. The single loudest "this is a prototype" signal in any frame. | everywhere, all distances | c49 review |
 | 11 | The ground is a visible checkerboard — hard-edged tile squares in the grass, a grid you can count. | town, noon, dist 40 | c49 review |
 | 12 | No subject. The frame is an even field of stuff; the eye lands nowhere. The plaza is the only candidate and it is empty. | town, dist 40 | c49 review |
@@ -118,5 +119,6 @@ including `.float`; diff the selector lists before applying anything.
 | 10 | The canopy was striped into rows of one model: `(x*3+y*7)%3` — x*3 is divisible by 3 for every x, so the prototype came from y alone. Three real KayKit trees read as one cone copied forever. | c50, real 2D hash + height, lean and tint variation | 6 shapes, 6 canopy colours, height spread 1.32 → 6.52, even 33/33/33 split |
 | 3 | Chronicle column was an empty black 280px band for the first in-game day. | c50, Cursor's standing block + `paintNow`/`townBeat` in game.js counting the town | "Everyone is indoors." → "2 are out in the open."; vitals agree with the header, asserted in shot.py |
 | 15 | The Ashvale badge was an empty diamond placeholder. | c50, Cursor's crest + `paintBadge` town/person toggle | pending visual re-review |
+| 16 | The canopy hid 43.8% of visible people at dist 26. | c51, as a side effect of the building rescale — not by fixing the trees | 12.6% at dist 26, 9.9% at 16; but see defect 18, the hiding moved to the buildings |
 | 17 | Every building took a different scale factor (×1.29 hall to ×3.38 guild) because `fitModel` stretched each to fill its plot, while characters were fitted by height. A school at 3.38 units was barely two people tall, which is why villagers looked like giants beside one. | c51, `fitBuilding`: height target per kind, plot as a limit with 1.35× overspill | hall 5.11→6.90, school 3.38→4.56, guild→9.00 on target, people steady ~1.8; hall:person 3.02 → 4.06 |
 | 0 | People were 0.25% of the frame — six readable figures in a town of 58 outdoors, biggest 29x41px. | c49, folkScale swept to 1.6 | 3.26% / 18 figures at dist 20 |

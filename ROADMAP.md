@@ -1991,3 +1991,59 @@ any had gone.
 Defect 17: one global scale cannot serve both ends. Check whether the *houses* are
 the ones out of scale before compensating further. Then the canopy clearings, which
 are two fifths of the town.
+
+
+---
+
+## c51 — the people were never the problem
+
+### The question had no answer
+Set up to ask whether the houses were out of scale with KayKit's own characters.
+They are not, because there is no such thing:
+```
+native     character 3.53H   hall 3.98H   ratio 1.13
+in scene   character 1.69H   hall 5.11H   ratio 3.02
+```
+A KayKit character is natively 89% of a KayKit hall. The character pack and the
+building pack were authored at different scales, so there is no shared proportion
+to recover and "which is wrong" cannot be answered on KayKit's terms.
+
+What the audit did show: `fitModel` scaled every building to fill its **plot**, so
+one pack produced five different factors — hall ×1.29, bank ×2.10, altar ×2.51,
+school ×2.64, guild ×3.38. Nothing held the two conventions together.
+
+So take a real anchor: one unit, one metre. People already land at 1.69–1.99 —
+simply a person — so **they are the fixed point and the buildings move**. A school
+at 3.38 units was barely two people tall, which is why a villager beside one looked
+like a giant. c49 and c50 were both compensating in the wrong direction.
+
+### Three attempts, and the second was worse than the first
+1. Height target, plot as hard cap → **changed nothing**, byte for byte, because the
+   plot bound in every case. A house is depth-limited long before its roof matters.
+2. Footprint overspill 35% to free the height → every number improved (hall 5.11 →
+   6.90, hall:person 3.02 → 4.06) and the shot showed **a wall of roofs with the
+   streets gone**. Fourth time this repo has produced that shape, and the first time
+   I did it with the rule already written in REVIEW.md.
+3. The real fault: **one uniform scalar doing two jobs.** Footprint fits the plot
+   exactly, as always; height is its own factor on top.
+
+Stretch cap took one more look. 1.5 was too much — **the chimneys gave it away**,
+thin grey columns half again their height, and a chimney has nothing to hide behind.
+1.25 keeps the gain and the tell goes.
+
+```
+             before   spill 1.35   final
+hall          5.11      6.90       6.39
+altar         4.13      5.58       5.18
+guild         7.41      9.00       9.00
+bank          5.21      7.04       6.53
+school        3.38      4.56       4.22
+person        ~1.8      ~1.8       ~1.8
+footprints      —       +35%     as before
+```
+
+### Recorded, not celebrated
+People-pixels at dist 20 fell 17,359 → 6,578 and the canopy's share of hiding fell
+43.8% → 12.6%. The trees did not stop hiding anyone; **the buildings took over the
+job**. Defect 16 struck with that caveat attached, defect 18 opened for the
+successor. Occlusion moved. It did not go away.
