@@ -688,7 +688,7 @@ function dReveal(x,y,r){
 }
 let activeRun=null;
 function loadRun(run){
-  activeRun=run; genFloor(run.floor); dFieldCache.clear(); snd('descend',0.55);
+  activeRun=run; genFloor(run.floor); dFieldCache.clear(); snd('descend',0.55); scoreUpdate();
   run.party.forEach((p,i)=>{
     p.dx=dUpAt[0]+0.5+(i%2)*0.6-0.3; p.dy=dUpAt[1]+0.5+((i/2)|0)*0.6-0.3;
     p.dgoal=null; p.dtarget=null; p.atk=0; p.dfld=null;
@@ -1581,7 +1581,7 @@ function storyDay(){
     if(seasonI===0){ yearN++; birthdays();
       logMsg('<b>Spring of year '+yearN+'.</b> Ashvale begins again.','g'); }
     else logMsg('<b>'+season().n.replace(/^./,c=>c.toUpperCase())+'</b> came to Ashvale.','');
-    applySeason(); snd('season',0.6);
+    applySeason(); snd('season',0.6); scoreUpdate();
   }
   // something happens, but not every day
   if(day-lastEvent>=4 && rnd()<0.34){
@@ -1789,15 +1789,43 @@ const SFXMAP={                       // game event -> the studio's catalogue
 };
 let sndSeed=1, lastSnd=Object.create(null);
 
+/* The score. The studio generates a whole project from a mood and a seed, so Ashvale
+   picks the mood from where you are and how the year is going, and hands it over. */
+let meng=null, mcur='';
+function scoreWant(){
+  if(scene==='keep'){
+    const band=THEMES.findIndex(t=>dfloor<=t.to);
+    return band>=2 ? 'hype' : 'lowkey';       // the deeps get loud, the caves stay quiet
+  }
+  const s=season().n;
+  return (s==='spring'||s==='summer') ? 'playful' : 'lowkey';
+}
+function scoreUpdate(){
+  if(!meng||!sndOn) return;
+  const want=scoreWant(); if(want===mcur) return;
+  mcur=want;
+  try{
+    meng.project=MUSIC.applyMood(MUSIC.newProject(), want, (seasonI+1)*7919+(scene==='keep'?31:0));
+    meng.setMasterGain(-19);                  // the score sits well under the effects
+    if(!meng.playing) meng.toggle();
+  }catch(e){ /* a score that will not build must not take the sim with it */ }
+}
 function sndStart(){
   if(actx) return true;
   try{
     const AC=window.AudioContext||window.webkitAudioContext;
     if(!AC||typeof MUSIC==='undefined'||!MUSIC.playSfx){ sndFail='no audio in this browser'; return false; }
-    actx=new AC();
+    // One context for everything: the engine builds it synchronously, and the effects
+    // ride on it, so "exactly one AudioContext" stays true.
+    if(MUSIC.AudioEngine){
+      meng=new MUSIC.AudioEngine();
+      meng.startAudio();
+      actx=meng.context;
+    }
+    if(!actx) actx=new AC();
     abus=actx.createGain(); abus.gain.value=0.5; abus.connect(actx.destination);
     return true;
-  }catch(e){ sndFail='the browser refused an audio context'; actx=null; return false; }
+  }catch(e){ sndFail='the browser refused an audio context'; actx=null; meng=null; return false; }
 }
 function snd(kind,gain){
   if(!sndOn||!actx||actx.state!=='running') return;
@@ -1816,7 +1844,12 @@ function sndSet(on){
   if(sndOn){
     if(!sndStart()){ sndOn=false; logMsg('Sound could not start: '+sndFail+'.','d'); }
     else if(actx.state==='suspended') actx.resume().catch(()=>{});
-  } else if(actx && actx.state==='running'){ actx.suspend().catch(()=>{}); }
+    if(sndOn){ mcur=''; scoreUpdate(); }
+  } else {
+    try{ if(meng&&meng.playing) meng.stop(); }catch(e){}
+    mcur='';
+    if(actx && actx.state==='running') actx.suspend().catch(()=>{});
+  }
   try{ localStorage.setItem(SNDKEY, sndOn?'1':'0'); }catch(e){}
   const b=document.getElementById('sndBtn');
   if(b){ b.classList.toggle('on',sndOn); b.textContent=sndOn?'♪ Sound':'♪ Muted';
@@ -3313,6 +3346,7 @@ function setScene(sc){
   if(sc===scene) return;
   camSave[scene]={camX,camY,zoom};
   scene=sc; GS = sc==='keep' ? DN : N; follow=null; userPanned=false;
+  scoreUpdate();
   if(!v3d) resize();
   const sv=camSave[sc];
   if(sv){ camX=sv.camX; camY=sv.camY; zoom=sv.zoom; }

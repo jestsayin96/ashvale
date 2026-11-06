@@ -433,3 +433,36 @@ one. Verified by calling `sndStart()` at boot and watching it fail with
    in one run. When a probe says nothing happened, suspect the probe.
 2. The first bundling attempt failed on `node:fs/promises`. That is the studio's headless
    render path, not a real dependency — `--external:` is the whole fix.
+
+## Cycle 23 — a score that follows the year and the depth (shipped)
+`entry.ts` now re-exports `AudioEngine`, `applyMood` and `newProject` as well as the
+effects. **30 KB minified, 10 KB gzipped** for the whole thing — the studio's moods,
+scales, sequencer and voices.
+
+- `scoreWant()` picks a mood from where you are: `playful` above ground in spring and
+  summer, `lowkey` in autumn and winter; in the Keep, `lowkey` in the caves and crypts
+  and `hype` from the iron halls down.
+- `scoreUpdate()` rebuilds the project only when the mood actually changes, seeded from
+  the season and the scene so a given season sounds the same each time you return to it.
+  Called on the season turn, on a scene change, and on arriving at a floor.
+- The score sits at −19 dB, well under the effects.
+- **One AudioContext for everything.** `AudioEngine.build()` is synchronous, so
+  `sndStart()` constructs the engine, calls `startAudio()` and takes `engine.context` for
+  the effects bus. The "exactly one context, none before the gesture" guard still holds.
+  Muting stops the engine and suspends the context.
+
+### Tests
+`shot.py` now builds a project, plays it, and **reads the analyser** — it fails unless the
+peak exceeds 0.001. Verified by reverting `entry.ts` to the sfx-only exports, which fails
+with `the music bundle threw: MUSIC.AudioEngine is not a constructor`. This guards the
+vendored bundle itself, which is the thing most likely to break when the snapshot is
+re-copied from upstream.
+
+### Three probe failures in a row — the lesson, properly learned
+Counting calls needs a wrapper, and every wrapper I wrote failed to install for a
+different reason (an arrow function Playwright discarded; a `setInterval` race; a
+`defineProperty` accessor that broke the global it was watching). Each time the probe
+reported "nothing happened" and each time the feature was working. **Measure the output,
+not the calls.** Reading 0.1835 off the analyser settled in one run what three wrappers
+could not, and it is also the assertion worth keeping, because signal is the thing that
+cannot lie.

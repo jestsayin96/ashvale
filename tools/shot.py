@@ -70,6 +70,28 @@ with sync_playwright() as p:
         errs.append(f"pressing the speaker made {after} AudioContext(s), expected 1")
     pg.click("#sndBtn"); pg.wait_for_timeout(300)
 
+    # The vendored studio must actually make a sound. Count no calls - measure the
+    # signal, which is the only thing that cannot lie. This guards the bundle itself,
+    # the part most likely to break when the snapshot is re-copied from upstream.
+    sig = pg.evaluate("""async () => {
+      try {
+        const e = new MUSIC.AudioEngine();
+        e.project = MUSIC.applyMood(MUSIC.newProject(), 'lowkey', 11);
+        e.setMasterGain(-6);
+        await e.toggle();
+        await new Promise(r => setTimeout(r, 900));
+        const a = e.meter, buf = new Float32Array(a.fftSize);
+        a.getFloatTimeDomainData(buf);
+        let peak = 0; for (const v of buf) peak = Math.max(peak, Math.abs(v));
+        e.stop();
+        return { playing: e.playing, peak };
+      } catch (err) { return { error: String(err) }; }
+    }""")
+    if sig.get("error"):
+        errs.append("the music bundle threw: " + sig["error"])
+    elif not sig.get("peak", 0) > 0.001:
+        errs.append(f"the score produced no signal: {sig}")
+
     # The houses panel must render households, not an empty shell.
     pg.click("#housesBtn"); pg.wait_for_timeout(900)
     counts = pg.evaluate("()=>({house:document.querySelectorAll('.house').length,"
