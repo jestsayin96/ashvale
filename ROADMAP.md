@@ -951,3 +951,102 @@ decision said it would.
 was perfect — and the 3D view was an empty sky, because `R3`'s camera target was still
 `tx:26,tz:23`, now far outside the town. `npm test` only fails on console errors, so
 "clean" meant nothing here. Read the PNGs.
+
+## Cycle 37 — the map grows because people walk into it
+
+### Stage 2, and most of stage 3 with it
+Stage 2 alone could not be measured honestly. The trigger is somebody approaching
+the made edge, and in c36 nobody had any reason to go near one — so a stage-2-only
+cycle would have ended with a mechanism that compiled and a probe that teleported
+a villager to prove it. Stage 3 was the only honest test of stage 2, so both are here.
+
+**Chunks.** `CSZ=13` divides both `TOWN` (52) and `N` (156), so the town occupies
+chunks 4..7 on each axis exactly and no chunk ever straddles its border. `CHGEN`
+marks which chunks exist; the town's sixteen are marked at boot.
+
+**`genChunk(cx,cy)`** writes wild country that meets the town without a seam, by
+carrying on the formulas `buildTerrain` authored with rather than inventing new
+ones: the eastern ridge is the same `2+(u-45)*2+sin(v*0.4)*1.5`, clamped; the river
+is the same `2+sin(v*0.3)*1.4`, with a drift that is zero at the town's border and
+grows with distance so it wanders instead of running 156 tiles straight. Heights,
+rock and woodland come from hash noise (`h2`/`vnoise`), not `rnd()` — a cell has to
+generate the same whatever order the chunks happen to be made in.
+
+**`exploreFrom(x,y)`** runs on every step anybody takes, and makes any chunk within
+seven tiles. Generating around the walker rather than at the frontier means the land
+is already there by the time they can path onto it. Each new chunk clears
+`fieldCache`: every cached flow field was solved against a world that stopped at the
+old border and now disagrees with the ground.
+
+**A reason to go.** Between eight and five an adult with no trade sat at home with
+`why` reading "nothing to do". They now take a day in the country after what it
+gives — firewood, game, roots — and come back with a few coins, their appetite for
+a night out spent and their legs tired. It is the first errand in the game that does
+not end at a door, so `p.goal.b` can now be null. The destination is drawn from made
+ground, preferring the outermost reachable tile. At boot nothing outside exists, so
+the first trip is to a wooded corner of the town's own edge; walking there makes the
+next ring, and the trip after that can go into it. **The frontier creeps outward at
+the pace people actually travel.**
+
+### Three things the measurement caught that looking could not
+1. **`far: 0` while every other number said success.** 9 trips, 24 chunks made,
+   bounds grown in two directions — and nobody had set foot outside the town. All
+   the growth was `SIGHT` reaching over the border while people walked *inside*.
+   The counter that distinguishes "the world grew" from "somebody left" is the only
+   reason that was visible. *Assert on the thing you mean, not on its side effect.*
+2. **Walkable is not reachable.** Two foragers in a row set out for the grass west
+   of the river — good ground that no path from the town can cross — stood with no
+   flow value under them and gave up at dusk; 8 of 14 trips died that way.
+   `wildSpot` now builds the field for a candidate and checks it comes back to the
+   walker before committing. 14 of 14 completed after.
+3. **A trip has to fit in the daylight left.** The clock advances 22 game-minutes
+   per dt-unit and a walker covers about 1.7 tiles in one, so an hour of daylight is
+   worth roughly 4.6 tiles. A forager setting out at four was picking somewhere a
+   whole day away. The destination is now budgeted against `(20-hour)`.
+
+### A fourth, which was my own measurement lying
+The probe failed with `grew while paused`, 3 chunks appearing with the sim stopped.
+It had not. `bb` was read, then two tool calls and four assertions ran, then the
+pause was clicked — all at 8x speed — and the assertion blamed the pause for the
+gap between its two readings. It now reads the count at the moment of the click and
+checks `speed===0` as well; growth while paused is zero. **An assertion that
+compares numbers taken at different times will invent a bug and send the next cycle
+hunting it.** Worse, `2>&1 | grep` on the probe had been swallowing the traceback,
+so for two runs it looked like a silent pass.
+
+### Two more c36 offset bugs, both found by looking
+`c36` moved the town to the middle of the grid and I believed I had caught every
+hardcoded landmark. Two survived, and `npm test` was green over both:
+- the flat view's Keep glow and `Dragon's Keep ↓N` plate drew at world (49,19),
+  far out in the unmade north-west — **the plate is simply missing from c36's
+  screenshot, and I published it anyway**;
+- the 3D **Re-centre** button set the camera target to the unoffset `26,23`, so
+  pressing it threw the view into the void.
+I could not find an honest cheap automated guard for either — a red-pixel count
+cannot tell the Keep's glow from a red roof. The guard is the rule, which has now
+caught this class three times: **read the PNGs, every one, every cycle.**
+
+### Measured
+```
+boot    chunks=16 made=2704  bounds=52,52..103,103
+paused  chunks=16 made=2704            (unchanged)
+ran 65s chunks=23 made=3887  bounds=52,39..103,116  started=10 done=5 gaveup=0 far=4
+paused  chunks=28 ... at click 28 -> 28 (unchanged, speed=0)
+```
+Growth is north, south and west only. East is the ridge and the near west is the
+river, so there is nowhere else to walk — which is the generator agreeing with the
+authored map rather than ignoring it.
+
+Also: the 3D water plane was sized to the whole grid, which turned every unmade acre
+into open sea and read as an island. It is a unit plane now, fitted to `genBounds()`
+on every regrow.
+
+### Still open
+- **Stage 4 — per-chunk terrain meshes.** The frontier reads as rectangular slabs
+  with a cliff lip, which is honest (it is the edge of the known world) but coarse;
+  per-chunk meshes would let the edge be softened as well as making `applySeason()`
+  cheap on a large world.
+- Trees in new country are the procedural cones; `dressTown`'s GLB props are
+  town-only.
+- The errand is the only reason anyone leaves. A trader with somewhere to trade,
+  and an adventurer walking to the gate, would both use the same machinery.
