@@ -3261,7 +3261,13 @@ function discMat(col,op){
     opacity:op,depthWrite:false});
   return DISCM[k];
 }
+/* c49. How big a person is, in a frame somebody is watching from across the room.
+   Measured, not chosen: at the shipped camera distance people were a quarter of one
+   percent of the picture - drawn correctly, sized correctly against a house, and
+   completely illegible. `folkScale` is the live multiplier a tuning pass sweeps; the
+   per-frame loop applies it to whichever body a person currently has. */
 const FOLKS=1.25;                       // a little larger, still shorter than a door
+let folkScale=1.6;   // swept 1.0/1.4/1.8/2.2; see ROADMAP c49
 function mkFolk3(p3){
   const G=new THREE.Group(), s=(p3.age<ADULT?0.7:1)*FOLKS;
 
@@ -3543,6 +3549,7 @@ function render3D(){
   people.forEach(p3=>{ const m=p3.m3; if(!m) return;
     if(p3.dead||p3.away||(p3.inside&&!isOpen(p3.inside))){ m.visible=false; return; }
     m.visible=true;
+    m.scale.setScalar(folkScale);
     m.position.set(p3.x,H(p3.x|0,p3.y|0)*HU,p3.y);
     const bob=p3.moving?Math.abs(Math.sin((p3.f||0)*9))*0.045:0;
     m.userData.body.position.y=(0.34+bob)*m.userData.s;
@@ -4003,6 +4010,7 @@ function updateSkins(S,dt){
     sk.grp.visible=!!vis;
     if(p.m3) p.m3.visible=false;                     // the box stands in only when unskinned
     if(!vis) return;
+    sk.grp.scale.setScalar(folkScale);
     sk.grp.position.set(p.x,H(p.x|0,p.y|0)*HU,p.y);
     if(p.fx!==undefined){ const a=Math.atan2(p.x-p.fx,p.y-p.fy);
       if(Math.abs(p.x-p.fx)+Math.abs(p.y-p.fy)>0.004) sk.grp.rotation.y=a; }
@@ -4619,6 +4627,33 @@ try{ set3D(true); }catch(e){ v3d=false; cv.style.display=''; }
    rather than eyeball the result, and a scratch build to do that is a scratch
    build that can be forgotten to revert. Nothing in the game reads any of it. */
 window.__ash={
+  /* c49. Two hooks for one question: what of a person is actually on screen?
+     `folkLayer(false)` takes the people and their marks away without touching
+     anything else, so a probe can diff two frames and count people in pixels
+     rather than ask the game how many it believes it drew. `folkRig` reports,
+     per person near the camera, which of the three possible bodies they have -
+     a real model, the procedural box, or nothing at all - and how tall it
+     measures in world units. */
+  folkSize(k){ if(typeof k==='number') folkScale=Math.max(0.2,Math.min(6,k));
+    return folkScale; },
+  folkLayer(v){ const S=R3; if(!S) return null;
+    S.pG.visible=!!v; if(S.dG) S.dG.visible=!!v;
+    return {pG:S.pG.visible, dG:S.dG?S.dG.visible:null}; },
+  folkRig(n){ const S=R3; if(!S) return null;
+    const cam=S.cam.position, box=new THREE.Box3(), sz=new THREE.Vector3();
+    const near=people.filter(p=>!p.dead&&!p.away)
+      .map(p=>[p,Math.hypot(p.x-cam.x,p.y-cam.z)])
+      .sort((a,b)=>a[1]-b[1]).slice(0,n||8);
+    return near.map(([p,d])=>{
+      const sk=(typeof SKINS!=='undefined')?SKINS.get(p):null;
+      let rig='none', h=0, shown=false;
+      if(sk){ rig='model'; shown=!!sk.grp.visible;
+        box.setFromObject(sk.grp); if(!box.isEmpty()){ box.getSize(sz); h=+sz.y.toFixed(3); } }
+      else if(p.m3){ rig='box'; shown=!!p.m3.visible;
+        box.setFromObject(p.m3); if(!box.isEmpty()){ box.getSize(sz); h=+sz.y.toFixed(3); } }
+      return {who:p.name, d:+d.toFixed(1), rig, shown, h,
+        inside:!!p.inside, disc:!!(p.d3&&p.d3.visible)}; }); },
+
   world(){ let made=0; for(let i=0;i<N*N;i++) if(GEN[i]) made++;
     return {N,cells:N*N,made,chunks:chunksMade,bounds:genBounds(),
       town:{x0:OFF,y0:OFF,x1:OFF+TOWN-1,y1:OFF+TOWN-1},
