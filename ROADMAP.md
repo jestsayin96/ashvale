@@ -763,3 +763,33 @@ everyone else goes home and stays there. The town now visibly answers a breach.
 so a guard still fighting from two streets away is possible in the first seconds. Proper
 proximity-gated defence belongs with the minds work, where someone deciding to fight is
 part of what they decide.
+
+## Cycle 32 — the first pass at minds (shipped, incomplete)
+North star item 1. The evening used to be a dice roll: at six o'clock a villager drew a
+number, went to the tavern for no reason, and tomorrow it meant nothing that they had.
+
+- **Four needs** per person — `company` (rises alone, falls among people), `rest` (rises
+  all day, falls at home at night), `spirit` (drains slowly, restored at the altar),
+  `cheer` (rises only when they have coin to spend). Ticked in the same per-frame pass
+  that moves them.
+- **`chooseEvening(p)`** scores each place by the need it answers and takes the best, with
+  a small jitter so identical neighbours do not march in lockstep. A spouse who is already
+  out is a reason of its own. The dice remain only as a tiebreak; they no longer decide.
+- **`whyOf(p)`** names the reason in plain words — lonely, worn out, looking for meaning,
+  went to find <spouse>.
+- **Memory, finally.** Every person has carried `log: []` since the first commit, created
+  in `mkPerson` and **never written to**. `remember()` now writes at the moments that
+  deserve it: a death in the family (to spouse, children and parents), a marriage, a
+  birth, coming of age, standing over a boss, and taking a relic.
+- The person panel shows **What they want** as four bars, what they are doing right now
+  and why, and **What they remember**.
+
+### Still open on this item
+Relationships. Friendship, debt and grudge do not exist, so `formParty` still picks by
+level and health rather than by who trusts whom — which is the half that would let a
+delver refuse the party containing the man who left him on floor twelve. That is the next
+pass, not a finished system.
+
+**Not yet verified in play.** Paused mid-cycle at the owner's request; the suite is green
+and the build is clean, but nobody has watched a villager choose the altar because their
+spirit ran low. Verify before trusting it.

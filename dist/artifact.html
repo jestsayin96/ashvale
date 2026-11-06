@@ -208,6 +208,20 @@ aside.panel.open{transform:none}
 .pbody{overflow-y:auto;padding:14px;flex:1;min-height:0;-webkit-user-select:text;user-select:text}
 .sec{margin-bottom:16px}
 .sec h4{font-family:var(--fd);font-size:11.5px;letter-spacing:.8px;color:var(--gold);margin:0 0 8px}
+/* What a person wants, and what they have not forgotten. */
+.needs{display:grid;gap:5px}
+.nrow{display:grid;grid-template-columns:76px 1fr;align-items:center;gap:10px;font-size:12px}
+.nrow span:first-child{color:var(--muted)}
+.nbar{height:5px;border-radius:3px;background:#191527;overflow:hidden;display:block}
+.nbar i{display:block;height:100%}
+.mem{font-size:12.5px;line-height:1.5;padding:4px 0 4px 9px;border-left:2px solid #2f2945;
+  margin-bottom:3px;color:var(--muted)}
+.mem b{color:var(--ink);font-weight:600}
+.mem em{font-style:normal;display:block;font-size:10.5px;color:#6b6283;letter-spacing:.2px}
+.mem.death{border-left-color:#6e3330} .mem.wed{border-left-color:#6b5420}
+.mem.born{border-left-color:#3f6b38}  .mem.relic{border-left-color:#8f6fe0}
+.mem.boss{border-left-color:#c1483f}  .mem.age{border-left-color:#3b3354}
+
 .kv{display:grid;grid-template-columns:104px 1fr;gap:4px 10px;font-size:13px;line-height:1.5}
 .kv span{color:var(--muted)}
 .kv b{font-weight:600}
@@ -3975,6 +3989,8 @@ function bereave(v,how){
                  how:how||'died', tr:v.trade||'' });
   if(DEAD.length>120) DEAD.pop();
   annal('death', '<b>'+v.name+' '+v.last+'</b> '+(how||'died')+', aged '+v.age+'.');
+  [v.spouse, ...(v.kids||[]), ...(v.parents||[])].forEach(k=>{
+    if(k&&!k.dead) remember(k,'death','Lost <b>'+v.name+'</b> \u2014 '+(how||'died')+'.'); });
   snd('death',0.7);
 
   v.dead=true;
@@ -4005,15 +4021,90 @@ function schedule(p){
   if(h<17) return p.work||p.home;
   if(h<20){
     if(p.child) return rnd()<0.5?p.home:theSchool;
-    const r=rnd();
-    if(r<0.26) return theTavern;
-    if(r<0.38) return theAltar;
-    if(r<0.50) return pick(shops);
-    if(r<0.56&&p.age>=18&&!p.spouse) return theRose;
-    return p.home;
+    return chooseEvening(p);
   }
   return p.home;
 }
+/* ===================== what a person wants =====================
+   The evening used to be a dice roll: at six o'clock a villager drew a number and went
+   to the tavern for no reason, and tomorrow it meant nothing that they had. Now each
+   person carries four needs that rise and fall with what they actually do, and the
+   evening goes to whichever place answers the loudest one. The same dice are still in
+   there as a tiebreak, but they no longer decide.
+
+   need.company  loneliness - rises alone, falls among people
+   need.rest     tiredness  - rises all day, falls at home
+   need.spirit   meaning    - drains slowly, restored at the altar
+   need.cheer    appetite for a night out - rises when they have coin to spend     */
+const NEEDKEYS=['company','rest','spirit','cheer'];
+function needsOf(p){
+  if(!p.need) p.need={company:rnd()*0.3, rest:rnd()*0.3, spirit:rnd()*0.3, cheer:rnd()*0.3};
+  return p.need;
+}
+function needsTick(p,dt){
+  const n=needsOf(p), h=hour;
+  const alone=!p.inside || (p.inside.residents||[]).length<2;
+  n.company=clamp01(n.company + dt*(alone?0.014:-0.045));
+  n.rest   =clamp01(n.rest    + dt*((h>=22||h<6)&&p.inside===p.home ? -0.09 : 0.012));
+  n.spirit =clamp01(n.spirit  + dt*(p.inside===theAltar ? -0.12 : 0.007));
+  // you only fancy a night out if you can pay for one
+  n.cheer  =clamp01(n.cheer   + dt*(p.gold>10 ? 0.013 : -0.02));
+}
+const clamp01=v=>v<0?0:v>1?1:v;
+
+/* The evening choice. Each place is scored by the need it answers; the best one wins,
+   with a small random nudge so two identical neighbours do not march in lockstep. */
+function chooseEvening(p){
+  const n=needsOf(p), opts=[];
+  const jit=()=>rnd()*0.12;
+  opts.push([theTavern, n.company*0.9 + n.cheer*0.8 + jit()]);
+  opts.push([theAltar,  n.spirit*1.15 + jit()]);
+  opts.push([p.home,    n.rest*1.1 + (p.kids.length?0.18:0) + jit()]);
+  if(p.gold>8) opts.push([pick(shops), n.cheer*0.55 + jit()]);
+  if(p.age>=18 && !p.spouse && p.gold>12)
+    opts.push([theRose, n.company*0.55 + n.cheer*0.5 + jit()]);
+  // somebody they care about being out is a reason of its own
+  if(p.spouse && p.spouse.inside && !p.spouse.away)
+    opts.push([p.spouse.inside, n.company*1.0 + 0.25 + jit()]);
+  let best=opts[0];
+  for(const o of opts) if(o[1]>best[1]) best=o;
+  p.why=whyOf(p,best[0]);
+  return best[0]||p.home;
+}
+function whyOf(p,b){
+  const n=needsOf(p);
+  if(b===theAltar) return 'looking for meaning';
+  if(b===theTavern) return n.company>n.cheer?'lonely':'fancies a drink';
+  if(b===theRose)   return 'lonely';
+  if(b===p.home)    return n.rest>0.5?'worn out':'home with the family';
+  if(p.spouse&&b===p.spouse.inside) return 'went to find '+p.spouse.name;
+  return 'out spending';
+}
+
+/* ===================== what a person remembers =====================
+   Every person has carried an empty `log: []` since the first commit. This is what
+   finally writes to it. Kept short - a dozen entries - because it is a memory, not a
+   ledger, and the oldest things fade. */
+function remember(p,kind,text){
+  if(!p||!p.log) return;
+  p.log.unshift({d:day, y:yearN, s:seasonI, k:kind, t:text});
+  if(p.log.length>12) p.log.pop();
+}
+const NEEDLABEL={company:'company', rest:'rest', spirit:'meaning', cheer:'a night out'};
+const NEEDCOL={company:'#6fae5a', rest:'#8f9bb0', spirit:'#8f6fe0', cheer:'#e3b64a'};
+function needBars(p){
+  const n=needsOf(p);
+  return '<div class="needs">'+NEEDKEYS.map(k=>
+    '<div class="nrow"><span>'+NEEDLABEL[k]+'</span>'+
+    '<span class="nbar"><i style="width:'+Math.round(n[k]*100)+'%;background:'+
+      NEEDCOL[k]+'"></i></span></div>').join('')+'</div>';
+}
+function recallOf(p){
+  if(!p.log||!p.log.length) return '';
+  return p.log.slice(0,6).map(e=>
+    '<div class="mem '+e.k+'"><em>'+SEASONNAME(e.s)+' y'+e.y+'</em>'+e.t+'</div>').join('');
+}
+
 function logMsg(t,cls){
   LOGS.unshift('<div class="'+(cls||'')+'">'+t+'</div>');
   if(LOGS.length>9) LOGS.pop();
@@ -4432,7 +4523,11 @@ function stepFloor(run,dt){
             if(mob.boss){
               logMsg('<b>'+mob.name+'</b> is dead. '+p.name+' struck the last blow.','g');
               run.party.forEach(q=>{ const r=grantRelic(q,run.floor);
-                if(r) logMsg('<b>'+q.name+'</b> took the '+r.n+'.','m'); });
+                if(r){ logMsg('<b>'+q.name+'</b> took the '+r.n+'.','m');
+                  remember(q,'relic','Took the <b>'+r.n+'</b> from '+mob.name+'.');
+                  annal('relic','<b>'+q.name+'</b> took the '+r.n+'.'); } });
+              run.party.forEach(q=>remember(q,'boss','Stood over <b>'+mob.name+
+                '</b> on floor '+run.floor+'.'));
               run.loot+=Math.round(run.floor*9+40);
             } else logMsg('<b>'+p.name+'</b> cut down '+mob.name+' on floor '+run.floor+'.','');
           } }
@@ -5123,6 +5218,7 @@ function tick(ts){
     });
     for(const p of people){
       if(p.away) continue;
+      needsTick(p,dt);
       if(p.bubbleT>0) p.bubbleT-=raw;
       if(p.hp<p.hpMax && rnd()<dt*0.03) p.hp=Math.min(p.hpMax,p.hp+1);
       if(!p.goal){
@@ -5347,6 +5443,8 @@ function birthdays(){
       } else p.trade=pick(TRADES);
       annal('age','<b>'+p.name+' '+p.last+'</b> came of age'+
         (p.adventurer?' and signed the guild roll':' as a '+p.trade)+'.');
+      remember(p,'age','Came of age'+(p.adventurer?' and signed the guild roll':
+        ' and took up '+p.trade)+'.');
     }
     // the old go quietly, and more often the older they are
     if(p.age>62 && rnd() < (p.age-62)*0.035){
@@ -5377,6 +5475,8 @@ function marriages(){
   logMsg('<b>'+a.name+' '+a.last+'</b> and <b>'+b.name+' '+b.last+
     '</b> were married at the altar.','g');
   annal('wed','<b>'+a.name+' '+a.last+'</b> married <b>'+b.name+' '+b.last+'</b>.');
+  remember(a,'wed','Married <b>'+b.name+'</b> at the altar.');
+  remember(b,'wed','Married <b>'+a.name+'</b> at the altar.');
   snd('wed',0.7);
 }
 function births(){
@@ -5397,6 +5497,8 @@ function births(){
   kid.x=mum.x; kid.y=mum.y; kid.tx=kid.x; kid.ty=kid.y;
   logMsg('<b>'+kid.name+' '+kid.last+'</b> was born to '+mum.name+' and '+dad.name+'.','g');
   annal('born','<b>'+kid.name+' '+kid.last+'</b> born to '+mum.name+' and '+dad.name+'.');
+  remember(mum,'born','<b>'+kid.name+'</b> was born.');
+  remember(dad,'born','<b>'+kid.name+'</b> was born.');
   snd('born',0.6);
 }
 
@@ -5868,6 +5970,13 @@ function showPerson(p){
     '<div class="sec"><h4>Kin</h4>'+(kin.length?
       '<div class="kv">'+kin.map(([k,v])=>'<span>'+k+'</span><b>'+esc(v)+'</b>').join('')+'</div>'
       :'<div class="sum">No family recorded in the hall\u2019s ledger.</div>')+'</div>'+
+    '<div class="sec"><h4>What they want</h4>'+needBars(p)+
+      (p.why?'<div class="sum" style="margin-top:7px">Right now: <b>'+esc(p.why)+
+        '</b></div>':'')+'</div>'+
+    (p.log&&p.log.length
+      ? '<div class="sec"><h4>What they remember</h4>'+recallOf(p)+'</div>'
+      : '<div class="sec"><h4>What they remember</h4><div class="sum">'+
+        'Nothing yet worth keeping.</div></div>')+
     '<div class="sec"><h4>The gift</h4>'+(p.gift?
       '<div class="sum">Attuned to <b style="color:'+p.gift.col+'">'+p.gift.school+
       '</b> at rank '+p.gift.power+' of 3. The schoolmaster tests every child at seven; '+

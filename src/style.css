@@ -202,6 +202,20 @@ aside.panel.open{transform:none}
 .pbody{overflow-y:auto;padding:14px;flex:1;min-height:0;-webkit-user-select:text;user-select:text}
 .sec{margin-bottom:16px}
 .sec h4{font-family:var(--fd);font-size:11.5px;letter-spacing:.8px;color:var(--gold);margin:0 0 8px}
+/* What a person wants, and what they have not forgotten. */
+.needs{display:grid;gap:5px}
+.nrow{display:grid;grid-template-columns:76px 1fr;align-items:center;gap:10px;font-size:12px}
+.nrow span:first-child{color:var(--muted)}
+.nbar{height:5px;border-radius:3px;background:#191527;overflow:hidden;display:block}
+.nbar i{display:block;height:100%}
+.mem{font-size:12.5px;line-height:1.5;padding:4px 0 4px 9px;border-left:2px solid #2f2945;
+  margin-bottom:3px;color:var(--muted)}
+.mem b{color:var(--ink);font-weight:600}
+.mem em{font-style:normal;display:block;font-size:10.5px;color:#6b6283;letter-spacing:.2px}
+.mem.death{border-left-color:#6e3330} .mem.wed{border-left-color:#6b5420}
+.mem.born{border-left-color:#3f6b38}  .mem.relic{border-left-color:#8f6fe0}
+.mem.boss{border-left-color:#c1483f}  .mem.age{border-left-color:#3b3354}
+
 .kv{display:grid;grid-template-columns:104px 1fr;gap:4px 10px;font-size:13px;line-height:1.5}
 .kv span{color:var(--muted)}
 .kv b{font-weight:600}
