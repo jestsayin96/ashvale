@@ -1,0 +1,67 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;background:#1a1726}canvas{display:block}</style></head><body>
+<script src="../vendor/three.bundle.js"></script>
+<script>
+const Q=new URLSearchParams(location.search);
+const MODEL=Q.get('model')||'peasant-man.glb', ANIM=Q.get('anim')||'Xbot.glb', CLIP=Q.get('clip')||'walk';
+const W=+(Q.get('w')||420), H=+(Q.get('h')||520);
+const r=new THREE.WebGLRenderer({antialias:true}); r.setSize(W,H); r.shadowMap.enabled=true;
+document.body.appendChild(r.domElement);
+const sc=new THREE.Scene(); sc.background=new THREE.Color(0x1a1726);
+const cam=new THREE.PerspectiveCamera(32,W/H,0.1,50); cam.position.set(2.1,1.35,3.0); cam.lookAt(0,0.9,0);
+sc.add(new THREE.AmbientLight(0xffffff,0.5));
+const key=new THREE.DirectionalLight(0xffeccf,1.5); key.position.set(3,6,4); key.castShadow=true;
+key.shadow.mapSize.set(1024,1024); sc.add(key);
+const rim=new THREE.DirectionalLight(0x8fb6ff,0.8); rim.position.set(-4,2,-3); sc.add(rim);
+const gnd=new THREE.Mesh(new THREE.CircleGeometry(3,40),new THREE.MeshLambertMaterial({color:0x3d3550}));
+gnd.rotation.x=-Math.PI/2; gnd.receiveShadow=true; sc.add(gnd);
+const normBone=n=>n.replace(/[^A-Za-z0-9]/g,'').toLowerCase();
+function retarget(clip,root){
+  const names=new Map(); root.traverse(o=>{ if(o.name) names.set(normBone(o.name),o.name); });
+  const tracks=[]; let hit=0;
+  clip.tracks.forEach(t=>{ const i=t.name.lastIndexOf('.');
+    const node=i<0?t.name:t.name.slice(0,i), prop=i<0?'':t.name.slice(i);
+    if(prop!=='.quaternion') return;
+    const real=names.get(normBone(node)); if(!real) return;
+    hit++; const c=t.clone(); c.name=real+prop; tracks.push(c); });
+  return hit?new THREE.AnimationClip(clip.name,clip.duration,tracks):null;
+}
+let mixer=null, act=null;
+window.__state='loading';
+const L=new THREE.GLTFLoader();
+L.load('../models/'+MODEL,g=>{
+  const m=g.scene;
+  m.traverse(o=>{ if(o.isMesh||o.isSkinnedMesh){o.castShadow=true;o.frustumCulled=false;} });
+  m.updateMatrixWorld(true);
+  let lo=1e9,hi=-1e9,n=0; const v=new THREE.Vector3();
+  m.traverse(o=>{ if(o.isBone){ v.setFromMatrixPosition(o.matrixWorld);
+    lo=Math.min(lo,v.y); hi=Math.max(hi,v.y); n++; } });
+  const h=n>3?(hi-lo)*1.05:1.7, s=Math.max(0.02,Math.min(60,1.75/h));
+  m.scale.setScalar(s); m.position.y=-lo*s;
+  sc.add(m);
+  // frame the camera on where the bones actually are, not where we hope they are
+  m.updateMatrixWorld(true);
+  const mn=new THREE.Vector3(1e9,1e9,1e9), mx=new THREE.Vector3(-1e9,-1e9,-1e9);
+  m.traverse(o=>{ if(o.isBone){ v.setFromMatrixPosition(o.matrixWorld); mn.min(v); mx.max(v); } });
+  const mid=mn.clone().add(mx).multiplyScalar(0.5);
+  const reach=Math.max(mx.x-mn.x, mx.y-mn.y, mx.z-mn.z, 0.5);
+  const d=reach*2.3;
+  cam.position.set(mid.x+d*0.55, mid.y+d*0.33, mid.z+d*0.85);
+  cam.lookAt(mid.x, mid.y, mid.z);
+  gnd.position.set(mid.x, mn.y-0.002, mid.z);
+  key.position.set(mid.x+3, mid.y+6, mid.z+4);
+  window.__dbg={bones:n, span:+(hi-lo).toFixed(3), scale:+s.toFixed(4),
+    mid:[+mid.x.toFixed(2),+mid.y.toFixed(2),+mid.z.toFixed(2)], reach:+reach.toFixed(2)};
+  const go=clips=>{
+    const c=clips.find(a=>a.name.toLowerCase().indexOf(CLIP)>=0)||clips[0];
+    if(!c){ window.__state='noclip'; return; }
+    const rt=retarget(c,m); if(!rt){ window.__state='nobind'; return; }
+    mixer=new THREE.AnimationMixer(m); act=mixer.clipAction(rt); act.play();
+    window.__dur=rt.duration; window.__state='ready';
+  };
+  if(ANIM&&ANIM!==MODEL) L.load('../models/'+ANIM,a=>go(a.animations),undefined,()=>go(g.animations));
+  else go(g.animations);
+},undefined,()=>{window.__state='loadfail';});
+window.__frame=t=>{ if(mixer){ mixer.setTime(t); } r.render(sc,cam); };
+r.render(sc,cam);
+</script></body></html>

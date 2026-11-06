@@ -1,5 +1,5 @@
 {
-  "_comment": "PLACEHOLDER CAST. Soldier and Xbot come from the three.js examples (MIT) and are here to prove the pipeline, not to stay. Xbot is Mixamo's own base rig, so the medieval cast drops straight in: replace these files, keep the keys. See README.md.",
+  "_comment": "Soldier and Xbot are placeholders from the three.js examples (MIT); each plays its OWN clips, so no cross-rig retargeting is involved. peasant-man.glb is a real Mixamo character and is deliberately NOT referenced yet: its animations have not arrived, and borrowing Xbot's clips does not work because Xbot was re-exported through Blender and no longer shares Mixamo's rest pose. Point 'man' at it once idle/walk/slash/dying land in this folder.",
   "cap": 20,
   "buildings": {},
   "characters": {

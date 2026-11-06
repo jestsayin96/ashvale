@@ -19,6 +19,10 @@ Other artifacts (do not break): colony https://claude.ai/artifact/BbRBE9rRHmqwS5
 5. Keep the reply to the user short — they asked for updates on request, not narration.
 
 ## Shipped
+- c5.1 retargeting: clip tracks are rebound by normalised bone name (three's 'mixamorigHips'
+  vs FBX2glTF's 'mixamorig:Hips'), ROTATIONS ONLY. Mixamo FBX converts to glb in-container
+  via the fbx2gltf npm package - no Blender needed. tools/preview.py renders any model's
+  animation to a GIF with the camera auto-framed on the skeleton.
 - c5 assets: optional .glb pipeline. three rebundled with esbuild (three + GLTFLoader +
   SkeletonUtils, one global, 651 KB) replacing the deprecated UMD build. models/manifest.json
   drives building and character models; absent or empty -> fully procedural, silently.
@@ -56,6 +60,15 @@ Other artifacts (do not break): colony https://claude.ai/artifact/BbRBE9rRHmqwS5
   before spending a cycle on it; do not assume.
 
 ## Assets
+- CROSS-RIG RETARGETING DOES NOT WORK and is not worth fixing. Xbot and a native Mixamo
+  character share bone NAMES but not rest poses (Xbot came back through Blender), so raw
+  rotations collapse the legs. The fix is not bind-pose compensation, it is: download the
+  animations from Mixamo, where they are authored against the rig every Mixamo character
+  already has. Then no retargeting happens at all beyond name normalisation.
+- Mixamo downloads through the Claude browser pane are UNRELIABLE: the first prompted a
+  save dialog, later ones complete the export and never download. Its /monitor endpoint
+  needs an OAuth bearer the page holds, so fetching job_result by hand gets "Oauth token
+  is not valid". Have the user download in Brave instead; it is four files, once.
 - Pages serves models/; the artifact bundle sets window.__ASHVALE_NO_ASSETS and never fetches.
 - The sandbox can reach GitHub and npm but NOTHING else, so models can be curled straight
   from raw.githubusercontent.com. Mixamo and Tripo cannot: they are blocked AND need the
@@ -69,10 +82,10 @@ Other artifacts (do not break): colony https://claude.ai/artifact/BbRBE9rRHmqwS5
 ## Known rough edges
 - Placeholder characters render dark red at night; could be Soldier's texture failing to
   decode rather than just dim light. Check in daylight when the real cast lands.
-- SHADOWS ARE UNVERIFIED. Shadow maps are configured per the docs (PCFSoft, 2048 map,
-  a 64-unit ortho frustum), but this sandbox renders through swiftshader, which produces
-  no shadows even for a textbook box-on-a-plane control case. Check on real hardware
-  before touching the shadow settings - they are probably fine.
+- SHADOWS DO WORK. The earlier "swiftshader renders no shadows" conclusion was WRONG:
+  tools/preview.py renders a clean contact shadow under the character. Whatever the
+  box-on-a-plane control case was doing, it was not representative. If shadows look
+  absent in the town view it is a frustum or bias problem, not a platform limit.
 - three.js 0.150.1 is vendored and INLINED into the bundle (714 KB). The UMD build is
   deprecated at r150+ and gone at r160, so do not bump past 0.159 without porting to modules.
 - The 3D view renders the town only. Pressing Town/Keep leaves 3D; 3 toggles it.

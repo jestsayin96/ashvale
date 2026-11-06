@@ -2041,6 +2041,37 @@ function charFor(p){
 const CLIPWORDS={ idle:['idle','breathing','stand'], walk:['walk'],
   run:['run','jog'], attack:['slash','attack','punch','swing','shoot','stab'],
   die:['death','dying','die','fall'] };
+/* Exporters disagree about bone names: three's Xbot carries 'mixamorigLeftHand',
+   FBX2glTF keeps Mixamo's own 'mixamorig:LeftHand'. Same skeleton, same joint, no bind.
+   So match on a normalised name and rewrite the clip's tracks onto whatever this rig
+   actually calls them. Done once per clip per rig, then cached. */
+const normBone=n=>n.replace(/[^A-Za-z0-9]/g,'').toLowerCase();
+const RETARGET=new WeakMap();
+function retarget(clip,root){
+  let byRig=RETARGET.get(root);
+  if(!byRig){ byRig=new Map(); RETARGET.set(root,byRig); }
+  if(byRig.has(clip)) return byRig.get(clip);
+  const names=new Map();
+  root.traverse(o=>{ if(o.name) names.set(normBone(o.name),o.name); });
+  // ROTATIONS ONLY. A position track describes the source skeleton's own limb lengths and
+  // root units - three's Xbot carries a 100x armature scale - so copying one onto another
+  // rig smears the mesh across the map. Rotation is the only thing that means the same
+  // on both. That also gives in-place locomotion, which is what we want: the simulation
+  // walks people along their paths, the clip only needs to move their legs.
+  const tracks=[]; let hit=0;
+  clip.tracks.forEach(t=>{
+    const i=t.name.lastIndexOf('.');
+    const node=i<0?t.name:t.name.slice(0,i), prop=i<0?'':t.name.slice(i);
+    if(prop!=='.quaternion') return;
+    const real=names.get(normBone(node));
+    if(!real) return;                                // no such bone on this rig
+    hit++;
+    const c=t.clone(); c.name=real+prop; tracks.push(c);
+  });
+  const out = hit ? new THREE.AnimationClip(clip.name,clip.duration,tracks) : null;
+  byRig.set(clip,out);
+  return out;
+}
 function pickClip(list,slot,named){
   if(!list||!list.length) return null;
   if(named&&named[slot]){ const x=list.find(a=>a.name===named[slot]); if(x) return x; }
@@ -2133,7 +2164,9 @@ function makeSkin(p){
   const mixer=new THREE.AnimationMixer(inner), actions={};
   ['idle','walk','run','attack','die'].forEach(k=>{
     const c=pickClip(C.clips,k,ASSETS.named)||pickClip(ASSETS.shared,k,ASSETS.named);
-    if(c) actions[k]=mixer.clipAction(c); });
+    if(!c) return;
+    const r=retarget(c,inner);
+    if(r) actions[k]=mixer.clipAction(r); });
   if(actions.die){ actions.die.loop=THREE.LoopOnce; actions.die.clampWhenFinished=true; }
   return {grp,mixer,actions,cur:null};
 }
