@@ -29,17 +29,23 @@ with sync_playwright() as p:
     assert a["chunks"] == boot["chunks"] and a["made"] == boot["made"], ("grew while paused", a)
 
     # --- B: running. People walk, and the world is made where they go. ---
-    # Wait for the condition rather than for a guessed number of seconds: how long
-    # a forager takes to reach the town border is not something a clock can assert.
-    pg.click("[data-sp='8']")
+    # Wait on GAME time, not wall time. c43 made a day four real minutes at 1x, and
+    # the old wall-clock wait silently stopped giving anyone enough days to walk out:
+    # 180 real seconds went from about five game-days to one and a half, and `far`
+    # read 0 while the errand counters said every trip had completed perfectly.
+    pg.evaluate("()=>window.__ash.fast(40)")
+    day0 = pg.evaluate("()=>window.__ash.clock().mins")
     waited = 0
     while waited < secs:
         pg.wait_for_timeout(5000); waited += 5
         e = pg.evaluate("()=>window.__ash.errands()")
+        days = (pg.evaluate("()=>window.__ash.clock().mins") - day0) / 1440.0
         if e["far"] > 0 and e["done"] > 0 and w()["chunks"] > boot["chunks"]:
             break
+    days = (pg.evaluate("()=>window.__ash.clock().mins") - day0) / 1440.0
+    print("ran    ", waited, "s =", round(days, 1), "game-days")
     bb = w(); e = pg.evaluate("()=>window.__ash.errands()")
-    print("ran    ", waited, "s", json.dumps(bb), json.dumps(extra()), e)
+    print("       ", json.dumps(bb), json.dumps(extra()), e)
     assert bb["chunks"] > boot["chunks"], ("nobody made any country", bb)
     assert bb["made"] > boot["made"], bb
     bx = bb["bounds"]

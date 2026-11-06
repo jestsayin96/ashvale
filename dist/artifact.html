@@ -5513,8 +5513,21 @@ function render(){
 
 /* ===================== the loop ===================== */
 let last=performance.now(), lastRailTick=-1;
+/* How long a game-day takes at 1x, in real seconds. It used to be 65 - a whole day
+   in just over a minute, which is not a speed setting, it is a bug wearing one.
+
+   The fix is one constant and it needs no retuning, which is the only reason it is
+   safe. Every rate in this game is written per dt-unit and a dt-unit is 22 game-
+   minutes by definition. Scaling dt uniformly changes how much real time a
+   dt-unit takes and nothing else: needs still rise and fall the same amount across
+   a game-day, a walker still covers the same 65 tiles of daylight, the errand
+   budget still means what it says. Slowing the clock alone would have been the
+   wrong fix - people would have kept walking at the same real-world speed and
+   crossed four times as much ground in a day. */
+const DAYSEC=240, MPS=1440/DAYSEC, DTSCALE=MPS/22;
 function tick(ts){
-  const raw=Math.min(0.05,(ts-last)/1000); last=ts; const dt=raw*speed; tnow+=raw;
+  const raw=Math.min(0.05,(ts-last)/1000); last=ts;
+  const dt=raw*speed*DTSCALE; tnow+=raw;
   if(dt>0){
     minute+=dt*22;
     while(minute>=60){ minute-=60; hour++;
@@ -7921,6 +7934,16 @@ window.__ash={
     return {town:inn, wild:out}; },
   errands(){ return Object.assign({},ERR); },
   speed(){ return speed; },
+  /* Probes need more game-time than the speed buttons offer, now that 8x is a
+     130-second day under software rendering. Test plumbing only; nothing in the
+     game calls it and the UI still offers 0/1/3/8. */
+  fast(n){ setSpeed(n); return speed; },
+  /* `tnow` is simulated seconds, the sum of every frame's clamped delta. Wall time
+     is the wrong denominator here: `raw` is capped at 50 ms a frame, so under
+     software rendering at ~1.3 fps the sim advances 65 ms per real second and a
+     probe measuring wall time measures the renderer, not the clock. */
+  clock(){ return {day, hour, minute, mins:(day-1)*1440+hour*60+minute, speed,
+    daysec:DAYSEC, mps:MPS, sim:tnow}; },
   fields(){ return Object.assign({size:fieldCache.size, bytes:fieldCache.size*N*N*2},FSTAT); },
   season(){ seasonI=(seasonI+1)%4; applySeason(); return seasonI; },
   /* The same rule as chunkWalk, but one pass over the whole grid with no chunks

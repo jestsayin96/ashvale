@@ -4361,6 +4361,10 @@ window.__ash={
     return {town:inn, wild:out}; },
   errands(){ return Object.assign({},ERR); },
   speed(){ return speed; },
+  /* Probes need more game-time than the speed buttons offer, now that 8x is a
+     130-second day under software rendering. Test plumbing only; nothing in the
+     game calls it and the UI still offers 0/1/3/8. */
+  fast(n){ setSpeed(n); return speed; },
   /* `tnow` is simulated seconds, the sum of every frame's clamped delta. Wall time
      is the wrong denominator here: `raw` is capped at 50 ms a frame, so under
      software rendering at ~1.3 fps the sim advances 65 ms per real second and a

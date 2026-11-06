@@ -1544,3 +1544,19 @@ sim advances 65 ms per real second — so a probe dividing game-minutes by *wall
 measures the software renderer. Divided by `tnow` (simulated seconds, the sum of the
 clamped deltas) it reads 240.0 / 80.0 / 30.0 exactly. **Wall time is the wrong
 denominator in a headless browser.**
+
+### c43 addendum — the same mistake, twice in an hour
+The clock change broke no game behaviour and one probe. `tools/world.py` waited a
+number of **wall** seconds for somebody to walk out of town; at the new pace 180 real
+seconds is 1.4 game-days instead of five, so `far` read 0 while the errand counters
+said `started 5, done 5, gaveup 0` — every trip perfect, just not enough days for
+anyone to reach the border.
+
+It waits on game-days now, via `__ash.clock().mins`, and runs at a test-only speed
+(`__ash.fast(40)`; the UI still offers 0/1/3/8). It finishes in **55 s instead of 180**
+and covers more of the sim than it did before: `started 9, done 9, gaveup 0, far 2`,
+two people outside the town, the world grown from 16 chunks to 20.
+
+**Wall time was the wrong denominator in both of today's probes** — the clock probe
+measured the software renderer, and this one measured a pace that had just changed.
+When a probe waits, it should wait on the thing the game measures time in.
