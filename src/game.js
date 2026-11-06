@@ -3961,12 +3961,60 @@ function loadAssets(S){
     })
     .catch(()=>{});                                  // no manifest, no models, no fuss
 }
+/* c51. Buildings were fitted to their PLOT and characters to a HEIGHT, two
+   conventions with nothing holding them together, and the audit shows what that
+   produced: every building took a different scale factor, from x1.29 for the hall
+   to x3.38 for the guild tower, because each was stretched to fill whatever
+   footprint it was standing on.
+
+   The obvious repair - preserve KayKit's own proportions - turns out not to exist.
+   Natively a KayKit character is 3.53 units and a KayKit hall is 3.98: the
+   character pack and the building pack were authored at different scales, so there
+   is no shared ratio to recover.
+
+   So pick a real anchor instead. One world unit is one metre. People already land
+   at 1.69-1.99, which is simply a person, so they are the fixed point and the
+   buildings move. A school at 3.38 units was barely taller than two people, which
+   is why a villager standing next to one looked like a giant - the building was
+   short, not the person tall.
+
+   Height is the target; the plot is only a limit. A building is scaled to the
+   height its kind should be, unless that would overflow its footprint, in which
+   case the footprint wins and it is simply a smaller example of its kind. */
+const BLDH={
+  hall:8.0, guild:9.0, bank:8.5, altar:8.5,         // the tall public ones
+  guard:6.0, school:5.5, store:5.0, smith:5.0,
+  fletch:5.0, apoth:5.0, tavern:5.5, mill:7.0,
+  home:4.8, house:4.8
+};
+const BLDH_DEFAULT=5.0;
+function fitBuilding(m,b){
+  const box=new THREE.Box3().setFromObject(m), sz=new THREE.Vector3();
+  box.getSize(sz);
+  const wantH=BLDH[b.kind]||BLDH_DEFAULT;
+  const byH = sz.y>0.01 ? wantH/sz.y : 1;
+  /* The plot was a hard cap, and it bound in every single case - the height
+     target above changed nothing at all on its first run, because a house is
+     depth-limited by its plot long before its roof matters. A real building
+     overflows its footprint upward and a little outward; its plot is where it
+     sits, not a box it must stay inside. So the plot allows OVERSPILL, capped,
+     and the height target does the work within that. */
+  const SPILL=1.35;
+  const byPlot = Math.min((b.w-0.1)/(sz.x||1), (b.d-0.1)/(sz.z||1)) * SPILL;
+  const s=Math.min(byH, byPlot);
+  m.scale.setScalar(s);
+  const b2=new THREE.Box3().setFromObject(m), c=new THREE.Vector3();
+  b2.getCenter(c);
+  m.position.x-=c.x; m.position.z-=c.z; m.position.y-=b2.min.y;
+  m.traverse(o=>{ if(o.isMesh||o.isSkinnedMesh){ o.castShadow=true; o.receiveShadow=true; } });
+  return s;
+}
 function swapBuilding(S,kind,proto){
   ASSETS.buildings[kind]=proto;
   buildings.filter(b=>b.kind===kind).forEach(b=>{
     const u=b.m3&&b.m3.userData; if(!u||u.model) return;
     const m=proto.clone(true);
-    fitModel(m,b.w-0.1,b.d-0.1,true);
+    fitBuilding(m,b);
     m.position.x+=b.x+b.w/2; m.position.z+=b.y+b.d/2; m.position.y+=u.base;
     b.m3.add(m); u.model=m;
     u.walls.visible=false; u.roof.visible=false; u.sill.visible=false;
@@ -4747,6 +4795,46 @@ window.__ash={
      how tall they ended up, and how many distinct canopy colours are in play.
      `groveLayer(false)` takes the trees away so a probe can diff two frames and
      see what the canopy was hiding. */
+  /* c51. Buildings are fitted by FOOTPRINT (`fitModel` takes min(wantW/sz.x,
+     wantD/sz.z)); characters are fitted by HEIGHT (`makeSkin` scales to `want`).
+     Two conventions with no reason to agree, and every scale argument so far has
+     assumed the buildings were the fixed thing. This reports what each one is
+     natively in its own GLB, what it ends up as in the scene, and therefore what
+     scale factor each was given - so the question "are the people too small or
+     the houses too big" can be answered instead of guessed. */
+  scaleAudit(){ const S=R3; if(!S) return null;
+    const box=new THREE.Box3(), sz=new THREE.Vector3();
+    const native=o=>{ const keep=o.scale.clone(); o.scale.set(1,1,1);
+      o.updateMatrixWorld(true);
+      box.setFromObject(o); box.getSize(sz); const r=sz.clone();
+      o.scale.copy(keep); o.updateMatrixWorld(true); return r; };
+    const out={buildings:[],people:[]};
+    for(const b of buildings){
+      const u=b.m3&&b.m3.userData; if(!u||!u.model) continue;
+      if(out.buildings.length>=5) break;
+      const n=native(u.model);
+      box.setFromObject(u.model); box.getSize(sz);
+      out.buildings.push({what:b.kind||'?', plot:[b.w,b.d],
+        nativeH:+n.y.toFixed(2), nativeW:+n.x.toFixed(2),
+        finalH:+sz.y.toFixed(2), finalW:+sz.x.toFixed(2),
+        scale:+(n.y>0.001?sz.y/n.y:0).toFixed(3)});
+    }
+    if(typeof SKINS!=='undefined') for(const [p,sk] of SKINS){
+      if(out.people.length>=3) break;
+      const inner=sk.grp.children[0]; if(!inner) continue;
+      const n=native(inner);
+      box.setFromObject(sk.grp); box.getSize(sz);
+      out.people.push({who:p.name, nativeH:+n.y.toFixed(2),
+        finalH:+sz.y.toFixed(2),
+        scale:+(n.y>0.001?sz.y/n.y:0).toFixed(3)});
+    }
+    if(out.buildings.length&&out.people.length){
+      const bh=out.buildings[0], ph=out.people[0];
+      out.verdict={
+        nativeRatio:+(bh.nativeH/ph.nativeH).toFixed(2),
+        sceneRatio:+(bh.finalH/ph.finalH).toFixed(2)};
+    }
+    return out; },
   grove(){ const S=R3; if(!S||!S.grove) return null;
     const box=new THREE.Box3(), sz=new THREE.Vector3();
     const kinds={}, cols={}, hs=[];
