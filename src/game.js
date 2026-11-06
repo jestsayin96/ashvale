@@ -2095,7 +2095,7 @@ function styleOf(p){
   if(p.gift) return 'staff';
   return STYLES[(p.id*7+3)%STYLES.length];
 }
-const STYLEPFX={bow:'bow', sword:'gs', axe:'axe', staff:'gs'};
+const STYLEPFX={bow:'bow', sword:'sword', axe:'axe', staff:'staff'};
 function roleOf(p){
   if(p.age<ADULT) return 'child';
   if(p.adventurer) return styleOf(p)||'adventurer';
@@ -2246,12 +2246,17 @@ function makeSkin(p){
     o.frustumCulled=false;
     o.material=o.material.clone();   // so a flash is this body's alone
   } });
-  const want=p.age<ADULT?1.2:1.7;
+  const want=p.age<ADULT?1.05:1.45;
+  // Both measures fail, in opposite directions. A skinned mesh's Box3 is computed in bind
+  // space and can read far too SMALL (three's Xbot says 0.018 for a 1.78 rig). The skeleton
+  // is honest about the bones but stops at the skull, so a big-headed stylised character
+  // like KayKit's reads short and gets blown up. Take whichever is larger.
   const span=rigSpan(inner);
-  let h=span?span.h:0, foot=span?span.lo:0;
-  if(!h){ const b=new THREE.Box3().setFromObject(inner);
-    const sz=b.getSize(new THREE.Vector3());
-    if(isFinite(sz.y)&&sz.y>0){ h=sz.y; foot=b.min.y; } }
+  let h=0, foot=0;
+  const bb=new THREE.Box3().setFromObject(inner), bs=bb.getSize(new THREE.Vector3());
+  const boxH=(isFinite(bs.y)&&bs.y>0.05)?bs.y:0;
+  const boneH=span?span.h:0;
+  if(boxH>=boneH){ h=boxH; foot=bb.min.y; } else { h=boneH; foot=span.lo; }
   let sc = h>0.0005 ? want/h : 1;
   sc = Math.max(0.02, Math.min(60, sc));           // never let a bad measure make a giant
   inner.scale.setScalar(sc);
@@ -2262,17 +2267,15 @@ function makeSkin(p){
   const st=styleOf(p), wp=st&&ASSETS.weapons[st];
   if(wp){
     let hand=null;
-    inner.traverse(o=>{ if(!hand&&o.isBone&&normBone(o.name)==='mixamorigrighthand') hand=o; });
+    const HANDS=['handslotr','mixamorigrighthand','handr'];
+    for(const want of HANDS){
+      inner.traverse(o=>{ if(!hand&&o.isBone&&normBone(o.name)===want) hand=o; });
+      if(hand) break;
+    }
     if(hand){
       const w=wp.clone(true);
-      const wb=new THREE.Box3().setFromObject(w), ws=wb.getSize(new THREE.Vector3());
-      const want=st==='axe'?0.95:1.05;
-      const k=ws.y>0.001?want/ws.y:1;
-      w.scale.setScalar(k/ (inner.scale.x||1));
-      w.position.set(0,0.02,0);
-      w.rotation.set(-Math.PI/2,0,Math.PI/2);
       w.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
-      hand.add(w);
+      hand.add(w);                       // the slot bone is authored for exactly this
     }
   }
   return {grp, root:inner, own:C.clips, mixamo:!!C.mixamo,
@@ -2285,10 +2288,11 @@ function actionFor(sk,slot){
   // A model's OWN clips win. They were authored for its rig, so they always bind; the
   // shared Mixamo set only fits models that carry Mixamo's skeleton, and forcing it onto
   // a foreign rig (three's Soldier, say) folds the character into a spread-eagled mess.
-  const c = pickClip(sk.own,slot,ASSETS.named)
-            || (sk.mixamo && ((sk.pfx && ASSETS.slots[sk.pfx+'_'+slot])
-                              || ASSETS.slots[slot]
-                              || pickClip(ASSETS.shared,slot,ASSETS.named)))
+  const c = (sk.pfx && pickClip(sk.own, sk.pfx+'_'+slot, ASSETS.named))
+            || pickClip(sk.own,slot,ASSETS.named)
+            || (sk.pfx && ASSETS.slots[sk.pfx+'_'+slot])
+            || ASSETS.slots[slot]
+            || pickClip(ASSETS.shared,slot,ASSETS.named)
             || null;
   const r = c ? retarget(c,sk.root) : null;
   let a = r ? sk.mixer.clipAction(r) : null;
@@ -2303,10 +2307,12 @@ function makeMobSkin(mo){
   inner.traverse(o=>{ if(o.isMesh||o.isSkinnedMesh){ o.castShadow=true; o.frustumCulled=false;
     o.material=o.material.clone();   // so a flash is this body's alone
   } });
-  const want=mo.boss?2.3:1.55;
+  const want=mo.boss?1.9:1.35;
   const span=rigSpan(inner);
-  let h=span?span.h:0, foot=span?span.lo:0;
-  if(!h) h=1.7;
+  const bb=new THREE.Box3().setFromObject(inner), bs=bb.getSize(new THREE.Vector3());
+  const boxH=(isFinite(bs.y)&&bs.y>0.05)?bs.y:0, boneH=span?span.h:0;
+  let h, foot;
+  if(boxH>=boneH){ h=boxH; foot=bb.min.y; } else { h=boneH||1.7; foot=span?span.lo:0; }
   let sc=Math.max(0.02,Math.min(60, want/h));
   inner.scale.setScalar(sc); inner.position.y=-foot*sc;
   const grp=new THREE.Group(); grp.add(inner);

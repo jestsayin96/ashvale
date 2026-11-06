@@ -51,13 +51,19 @@ ROADMAP.md        what has shipped and what is next
 `src/game.js` is still one file. It is being split into modules a system at a time, as each
 one gets worked on — see the roadmap.
 
-## Asset credits
+## Asset credits and licensing
 
-Characters and animation clips are from **Adobe Mixamo**, used under its licence
-(free use, including commercially, with an Adobe account; no attribution required).
+**No Mixamo asset is committed to this repository.** Mixamo permits use of its
+characters and animations in a project, but **not redistribution** — and a public
+git repo is redistribution. Early versions of this project did commit converted
+Mixamo files; they have been removed from the working tree *and purged from git
+history*, and replaced with CC0 equivalents.
 
-Props and buildings under `models/props/` are from
-[BabylonJS/Assets](https://github.com/BabylonJS/Assets), licensed
-**CC BY 4.0**. If this is ever distributed or sold, that credit must travel with it.
+| Set | Source | Licence | Attribution |
+|---|---|---|---|
+| `models/kay/` — characters, monsters, weapons | [KayKit](https://github.com/KayKit-Game-Assets) by Kay Lousberg | CC0 1.0 | not required |
+| `models/props/` — buildings, trees, props | [BabylonJS/Assets](https://github.com/BabylonJS/Assets) | CC BY 4.0 | **required** |
 
-The two sets are kept in separate folders so their licences never get muddled.
+The two sets live in separate folders so their terms never get muddled. If this
+is ever sold or redistributed, the Babylon credit must travel with it; KayKit
+carries no obligation at all.

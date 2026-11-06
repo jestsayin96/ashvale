@@ -19,6 +19,23 @@ their local files under /home/claude/colony and /home/claude/village are the onl
 5. Keep the reply to the user short — they asked for updates on request, not narration.
 
 ## Shipped
+- c10 LICENCE FIX + KayKit. Mixamo forbids REDISTRIBUTION, and committing converted .glb
+  files to a public repo is redistribution. Every Mixamo-derived file was removed and
+  purged from git history. The cast is now KayKit (CC0, no attribution): Knight, Mage,
+  Rogue, Barbarian plus four skeletons for the Keep, and 25 weapon models.
+  RULES GOING FORWARD:
+    * NEVER commit a Mixamo file. Use KayKit, or Babylon with attribution.
+    * KayKit rigs have 41 bones and a purpose-built 'handslot.r' bone - parent weapons
+      to it with no transform, it is authored for exactly that.
+    * Each KayKit character carries all its own clips, so no shared animation files.
+      tools/prune-anims.mjs trims 76 clips to the ~32 used and resamples: 26 MB -> 10 MB.
+    * HEIGHT: take the LARGER of the mesh Box3 and the skeleton span. Box3 reads far too
+      small for some rigs (three's Xbot: 0.018 for 1.78); the skeleton reads short for
+      big-headed stylised ones like KayKit. Either alone produces giants or dolls.
+    * Figures are 1.45 units, not a true 1.7, because Keep corridors are one tile wide.
+  Reachable and still unused: KayKit Dungeon Remastered, Medieval Hexagon (blacksmith,
+  church, barracks, castle), City Builder Bits, Furniture Bits, Halloween Bits.
+  opengameart.org is BLOCKED, so Quaternius packs cannot be fetched here.
 - c9b archers and casters: every adventurer has a stable fighting style - sword, bow, axe,
   or staff if they are gifted - and it picks BOTH their model and their clips. Style clips
   are looked up as <pfx>_<slot> (bow_idle, gs_attack, axe_run) before the generic set, so
