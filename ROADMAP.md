@@ -19,6 +19,12 @@ their local files under /home/claude/colony and /home/claude/village are the onl
 5. Keep the reply to the user short — they asked for updates on request, not narration.
 
 ## Shipped
+- c13 town effects and dressing: gold floats over a shop when somebody spends there, motes
+  drift over the altar, boulders stand on the rocky ridge, a well sits on the plaza and a
+  windmill out by the fields. The Keep was relit after the torch models dimmed it.
+  BUG: effects are world-space and both views drew ALL of them, so a chest forced on floor
+  nine popped '+22 gold' over the town square. Every effect now carries the world it
+  belongs to and fxDraw skips the others. An effect with no base height is a Keep effect.
 - c12 the Keep dressed: KayKit Dungeon Remastered (CC0, 203 props) is cloned and usable.
   Real chests (gold while shut, plain once forced, with a coin pile beside an unopened one),
   mounted torches under the flames, and pillars, barrels, crates and rubble scattered from

@@ -420,6 +420,9 @@ function spendAt(p,sh){
   if(p.gold<want) want=Math.floor(p.gold*0.5);
   if(want<1) return;
   p.gold-=want; sh.till=(sh.till||0)+want; ECON.traded+=want;
+  if(v3d&&scene==='town'){ const b=H(sh.x,sh.y)*HU+1.1;
+    fxWord(sh.x+sh.w/2, sh.y+sh.d/2, '+'+want, '#f0cd62', b);
+    fxBurst(sh.x+sh.w/2, sh.y+sh.d/2, '#f0cd62', 5, 0.7, 1.1, b); }
   if(kind==='arms'&&p.adventurer&&rnd()<0.05&&p.gear.length<5){
     p.gear.push(pick(['buckler','mail shirt','whetstone'])); p.bubble='new kit'; p.bubbleT=4; }
   if(kind==='potions'&&p.hp<p.hpMax*0.7){ p.hp=Math.min(p.hpMax,p.hp+4); }
@@ -1928,6 +1931,32 @@ function dressTown(S){
     m.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
     grove.add(m); i++;
   }
+  // boulders on the rocky ridge, a well on the plaza, a mill out by the fields
+  const put=(proto,x,y,want,rot)=>{
+    if(!proto) return;
+    const m=proto.clone(true);
+    fitModel(m,0,0,true);
+    const b=new THREE.Box3().setFromObject(m), sz=b.getSize(new THREE.Vector3());
+    const big=Math.max(sz.x,sz.y,sz.z)||1, sc=want/big;
+    m.scale.setScalar(sc);
+    m.position.set(x, H(x|0,y|0)*HU - b.min.y*sc, y);
+    m.rotation.y=rot||0;
+    m.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
+    grove.add(m);
+  };
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    if(ty[I(x,y)]!==ROCK) continue;
+    const h=((x*17+y*29)%100)/100;
+    if(h>0.86) put(ASSETS.props.rock, x+0.5, y+0.5, 1.5+h, h*6.3);
+  }
+  let plaza=null;
+  for(let y=0;y<N&&!plaza;y++)for(let x=0;x<N;x++)
+    if(ty[I(x,y)]===PLAZA&&!occ[I(x,y)]){ plaza=[x,y]; break; }
+  if(plaza) put(ASSETS.props.well, plaza[0]+0.5, plaza[1]+0.5, 1.6, 0.4);
+  let field=null;
+  for(let y=N-1;y>=0&&!field;y--)for(let x=0;x<N;x++)
+    if(ty[I(x,y)]===FIELD&&!occ[I(x,y)]){ field=[x,y]; break; }
+  if(field) put(ASSETS.props.mill, field[0]+0.5, field[1]+0.5, 4.2, 2.2);
   return i;
 }
 function init3D(){
@@ -2022,14 +2051,16 @@ function render3D(){
     m.rotation.y=p3===selected?tnow*1.6:0; });
   const d3t=Math.max(0,Math.min(0.1,tnow-(S.last||tnow))); S.last=tnow;
   updateSkins(S,d3t);
+  if(theAltar && tnow-(S.altarT||0)>0.55){ S.altarT=tnow;      // motes over the shrine
+    fxBurst(theAltar.x+theAltar.w/2, theAltar.y+theAltar.d/2, '#d6c7ff', 2, 0.35, 0.9,
+      H(theAltar.x,theAltar.y)*HU+1.4); }
   S.keepGlow.intensity=1.5+Math.sin(tnow*1.8)*0.55;
   const cx=S.tx+Math.cos(S.th)*Math.cos(S.ph)*S.dist;
   const cy=S.ty+Math.sin(S.ph)*S.dist;
   const cz=S.tz+Math.sin(S.th)*Math.cos(S.ph)*S.dist;
   S.cam.position.set(cx,cy,cz); S.cam.lookAt(S.tx,S.ty,S.tz);
   S.renderer.render(S.scene,S.cam);
-  fxDraw(null,false);                       // the town has no effects of its own yet
-  if(fxg) fxg.clearRect(0,0,fxW,fxH);
+  fxDraw(S.cam,false);
 }
 function pick3D(mx,my){
   const S=R3; if(!S) return null;
@@ -2403,17 +2434,20 @@ function updateSkins(S,dt){
    serves the flat Keep and the 3D one, and none of it needs an asset. */
 const FX=[];
 let fxc=null, fxg=null;
-function fxNum(x,y,n,col,big){
-  FX.push({k:'n', x, y, z:1.0, t:0, life:big?1.5:1.05, vy:big?1.5:1.15,
+function fxNum(x,y,n,col,big,base){
+  FX.push({k:'n', w:base===undefined?'keep':'town', x, y, b:base||0, z:1.0, t:0, life:big?1.5:1.05, vy:big?1.5:1.15,
     txt:(n<1?'1':String(Math.round(n))), col:col||'#ffe9b0', big:!!big});
 }
-function fxWord(x,y,txt,col){
-  FX.push({k:'n', x, y, z:1.3, t:0, life:1.8, vy:0.9, txt, col:col||'#e8c88a', big:true});
+function fxWord(x,y,txt,col,base){
+  FX.push({k:'n', w:base===undefined?'keep':'town', x, y, b:base||0, z:1.3, t:0, life:1.8, vy:0.9, txt,
+    col:col||'#e8c88a', big:true});
 }
-function fxBurst(x,y,col,n,spread,up){
+function fxBurst(x,y,col,n,spread,up,base){
   for(let i=0;i<n;i++){
     const a=Math.random()*Math.PI*2, s=spread*(0.35+Math.random());
-    FX.push({k:'p', x, y, z:0.5+Math.random()*0.5, t:0, life:0.4+Math.random()*0.45,
+    FX.push({k:'p', w:base===undefined?'keep':'town', x, y, b:base||0,
+      z:0.5+Math.random()*0.5, t:0,
+      life:0.4+Math.random()*0.45,
       vx:Math.cos(a)*s, vy:Math.sin(a)*s, vz:(up||1.6)*(0.4+Math.random()),
       col, r:1.4+Math.random()*2.2});
   }
@@ -2439,7 +2473,7 @@ function fxResize(){
 }
 /* project a dungeon coordinate to the screen, whichever view is on */
 function fxProject(f,cam){
-  if(cam){ const v=new THREE.Vector3(f.x, f.z*0.75, f.y).project(cam);
+  if(cam){ const v=new THREE.Vector3(f.x, (f.b||0)+f.z*0.75, f.y).project(cam);
     if(v.z>1) return null;
     return [(v.x*0.5+0.5)*fxW, (-v.y*0.5+0.5)*fxH, 1]; }
   const p=scr(f.x,f.y,f.z*0.6);
@@ -2459,7 +2493,9 @@ function fxDraw(cam,vignette){
   if(!FX.length) return;
   fxg.save();
   fxg.textAlign='center'; fxg.textBaseline='middle';
+  const here=scene==='keep'?'keep':'town';
   for(const f of FX){
+    if(f.w!==here) continue;             // a chest forced underground is not town news
     const pr=fxProject(f,cam); if(!pr) continue;
     const k=f.t/f.life, fade=k<0.1?k/0.1:(1-k)/1;
     if(f.k==='p'){
@@ -2591,7 +2627,7 @@ function buildKeep3D(){
     if(stand) S.world.add(stand);
     const f=new THREE.Mesh(flameG,flameM);
     f.position.set(t.x, 1.75, t.y+0.08); S.world.add(f);
-    const L=new THREE.PointLight(hx(th.torch), 1.35, 11, 1.5);
+    const L=new THREE.PointLight(hx(th.torch), 1.9, 14, 1.4);
     L.position.set(t.x, 1.8, t.y+0.1); S.world.add(L);
     S.torches.push(f); S.lights.push({L, p:t.p});
   });
@@ -2635,8 +2671,8 @@ function initKeep3D(){
   const scene=new THREE.Scene();
   scene.fog=new THREE.Fog(0x16121c, 9, 40);          // you see as far as the torches reach
   const cam=new THREE.PerspectiveCamera(50,1,0.2,120);
-  scene.add(new THREE.AmbientLight(0xffffff,0.20));
-  scene.add(new THREE.HemisphereLight(0x6a5f7a,0x241d2a,0.30));
+  scene.add(new THREE.AmbientLight(0xffffff,0.30));
+  scene.add(new THREE.HemisphereLight(0x7a6d8c,0x2a2230,0.42));
   const world=new THREE.Group(); scene.add(world);
   const lamp=new THREE.PointLight(0xffd9a0, 1.5, 14, 1.45);   // the party's own lantern
   scene.add(lamp);
@@ -2660,11 +2696,11 @@ function renderKeep3D(){
   const dt=Math.max(0,Math.min(0.1,tnow-(S.last||tnow))); S.last=tnow;
   // torchlight never sits still
   S.lights.forEach((t,i)=>{ const f=Math.sin(tnow*7+t.p)*0.5+Math.sin(tnow*11.3+t.p*2)*0.3;
-    t.L.intensity=1.25+f*0.4;
+    t.L.intensity=1.8+f*0.5;
     const m=S.torches[i]; if(m) m.scale.setScalar(0.85+f*0.2); });
   const c=keepPartyCentre();
   S.lamp.position.set(c[0], 1.4, c[1]);
-  S.lamp.intensity=1.5+Math.sin(tnow*3.1)*0.14;
+  S.lamp.intensity=2.0+Math.sin(tnow*3.1)*0.16;
   // chests
   while(S.chests.children.length) S.chests.remove(S.chests.children[0]);
   dchests.forEach(ch=>{
