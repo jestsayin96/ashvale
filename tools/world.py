@@ -3,7 +3,12 @@ Usage: python3 tools/world.py [seconds]"""
 import sys, pathlib, json
 from playwright.sync_api import sync_playwright
 root = pathlib.Path(__file__).resolve().parent.parent
-secs = int(sys.argv[1]) if len(sys.argv) > 1 else 90
+# c50: this was 90, and 90 wall-seconds buys about 2.7 game-days under software
+# rendering - so the eight-game-day budget below never governed anything and the
+# probe failed roughly half the time on `far`. Third time a wall-clock wait has
+# quietly decided what gets measured (c43, c44, this). It exits the moment the
+# condition is met, so the larger cap only costs time on the runs that need it.
+secs = int(sys.argv[1]) if len(sys.argv) > 1 else 300
 errs = []
 with sync_playwright() as p:
     b = p.chromium.launch(args=["--use-gl=swiftshader", "--enable-unsafe-swiftshader"])
@@ -40,16 +45,19 @@ with sync_playwright() as p:
     # happens to pick a destination beyond the town in a given day is chance, and
     # c45's outings compete for the same "step outside" slot, so forages are rarer
     # than they were. Three game-days was luck; eight is the mechanism.
+    why = "wall cap"
     while waited < secs:
         pg.wait_for_timeout(5000); waited += 5
         e = pg.evaluate("()=>window.__ash.errands()")
         days = (pg.evaluate("()=>window.__ash.clock().mins") - day0) / 1440.0
         if e["far"] > 0 and e["done"] > 0 and w()["chunks"] > boot["chunks"]:
-            break
+            why = "somebody walked out"; break
         if days > 8:
-            break
+            why = "eight game-days"; break
     days = (pg.evaluate("()=>window.__ash.clock().mins") - day0) / 1440.0
-    print("ran    ", waited, "s =", round(days, 1), "game-days")
+    # Say which limit stopped it. A probe that does not report why it stopped can
+    # have its intent overridden by a backstop for cycles without anyone noticing.
+    print("ran    ", waited, "s =", round(days, 1), "game-days  (stopped: %s)" % why)
     bb = w(); e = pg.evaluate("()=>window.__ash.errands()")
     print("       ", json.dumps(bb), json.dumps(extra()), e)
     assert bb["chunks"] > boot["chunks"], ("nobody made any country", bb)
@@ -74,7 +82,10 @@ with sync_playwright() as p:
             or bx["x1"] > T["x1"] or bx["y1"] > T["y1"]), ("bounds never left the town", bx, T)
     # and it grew because somebody walked, not because anything enlarged the world
     assert e["started"] > 0 and e["done"] > 0, ("no one went out", e)
-    assert e["far"] > 0, ("nobody actually left the town rectangle", e)
+    assert e["far"] > 0, ("nobody left the town rectangle in %.1f game-days - note "
+                          "the world can still GROW without anyone walking out, "
+                          "because SIGHT reveals chunks around a walker inside it"
+                          % days, e, bb["bounds"])
     # walkable is not reachable: before the field check, 8 of 14 trips died at dusk
     assert e["gaveup"] <= e["done"], ("most trips are being abandoned", e)
 
