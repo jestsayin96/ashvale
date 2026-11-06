@@ -53,6 +53,7 @@ h1 em{font-style:normal;color:var(--gold)}
 #view.grab{cursor:grabbing}
 #view3d{display:none;position:absolute;inset:0;width:100%;height:100%;touch-action:none;
   cursor:grab;z-index:0}
+#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
 #rail{z-index:2}
 .float{position:absolute;background:#120f1dEE;border:1px solid var(--edge);border-radius:10px;
   padding:9px 12px;font-size:12.5px;line-height:1.5;color:var(--muted)}
@@ -122,6 +123,7 @@ aside.panel.open{transform:none}
   .grp{min-width:150px}
   #stage{display:flex;flex-direction:column} #view,#view3d{flex:1;min-height:0}
   #view3d{position:static;inset:auto}
+  #fx{position:absolute;inset:0}
   #log,#hint{display:none}
   #console{grid-template-columns:1fr}
 }
@@ -193,6 +195,7 @@ aside.panel.open{transform:none}
     <div id="rail"></div>
     <canvas id="view"></canvas>
     <canvas id="view3d"></canvas>
+    <canvas id="fx"></canvas>
     <div class="float" id="hint"><b>Click anyone</b> for their life: family, trade, gift, gear and coin. Click a building for who works there. Drag to pan, scroll to zoom.</div>
     <div class="float" id="log"><h4 id="logHead">The Ashvale Chronicle<span>hide</span></h4>
       <div id="logList"></div></div>
@@ -4130,7 +4133,12 @@ function stepFloor(run,dt){
       m.atk-=dt;
       if(m.atk<=0){ m.atk=1.1;
         tgt.hp-=m.dmg;
+        fxNum(tgt.dx,tgt.dy,m.dmg,'#ff7a6a');
+        fxBurst(tgt.dx,tgt.dy,'#ff9a7a',5,1.7);
+        const ks=KSKINS.get(tgt); if(ks) fxFlash(ks);
         if(tgt.hp<=0){
+          fxBurst(tgt.dx,tgt.dy,'#c9d6ff',22,2.5,2.6);
+          fxWord(tgt.dx,tgt.dy,tgt.name+' falls','#ff8a7a');
           tgt.hp=0; tgt.dead=true; tgt.away=false;
           party.splice(party.indexOf(tgt),1);
           KEEP.lost++;
@@ -4153,8 +4161,16 @@ function stepFloor(run,dt){
     } else if(mob && md<12){
       if(md<1.15){
         p.dgoal=null; p.atk-=dt;
-        if(p.atk<=0){ p.atk=0.85; mob.hp-=dDamage(p);
+        if(p.atk<=0){ p.atk=0.85;
+          const hit=dDamage(p); mob.hp-=hit;
+          const crit=p.gift&&rnd()<0.22;
+          fxNum(mob.x,mob.y,hit,crit?(p.gift.col||'#c9a6ff'):'#ffe9b0',crit);
+          fxBurst(mob.x,mob.y, crit?(p.gift.col||'#c9a6ff'):'#ffc98a', crit?12:5, crit?2.4:1.6);
+          const ms=MSKINS.get(mob); if(ms) fxFlash(ms);
           if(mob.hp<=0){
+            fxBurst(mob.x,mob.y, mob.boss?'#ffb45a':'#9ab08a', mob.boss?40:16,
+              mob.boss?3.4:2.1, mob.boss?3.2:2.0);
+            if(mob.boss) fxWord(mob.x,mob.y,mob.name+' is slain','#ffcf7a');
             if(mob.boss){
               logMsg('<b>'+mob.name+'</b> is dead. '+p.name+' struck the last blow.','g');
               run.party.forEach(q=>{ const r=grantRelic(q,run.floor);
@@ -4171,6 +4187,7 @@ function stepFloor(run,dt){
         .sort((a,b2)=>Math.hypot(a.x-p.dx,a.y-p.dy)-Math.hypot(b2.x-p.dx,b2.y-p.dy))[0];
       if(chest && Math.hypot(chest.x-p.dx,chest.y-p.dy)<1.1){
         chest.open=true; run.loot+=chest.gold;
+        fxLoot(chest.x,chest.y,chest.gold);
         p.bubble='+'+chest.gold+'g'; p.bubbleT=3;
         logMsg('<b>'+p.name+'</b> found '+chest.gold+' gold in a chest.','g');
         p.dgoal=null;
@@ -4601,6 +4618,7 @@ function renderKeep(){
     g.font='600 13px "Nunito Sans",sans-serif'; g.fillStyle='#8f86a6';
     g.fillText('No party is below. The guild forms one each morning.',CW/2,CH/2);
   }
+  fxDraw(null,false);                       // the flat Keep gets the numbers too
 }
 
 function visibleRange(){
@@ -4695,6 +4713,7 @@ function drawInterior(b){
   }
 }
 function render(){
+  if(scene!=='keep'&&fxg) fxg.clearRect(0,0,fxW,fxH);
   if(scene==='keep') return renderKeep();
   g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,CW,CH);
   const pb=new Map();
@@ -4845,6 +4864,7 @@ function tick(ts){
     camX+=(f[0]-camX)*Math.min(1,raw*3); camY+=(f[1]-camY)*Math.min(1,raw*3);
   } else if(follow&&scene==='town'){ const v=vpt(follow.x,follow.y), f=flat(v[0],v[1],H(follow.x|0,follow.y|0));
     camX+=(f[0]-camX)*Math.min(1,raw*3); camY+=(f[1]-camY)*Math.min(1,raw*3); }
+  fxStep(raw);
   if(v3d) (scene==='keep'?renderKeep3D():render3D()); else render();
   if(((tnow*10)|0)%4===0){
     paintConsole();
@@ -5407,6 +5427,8 @@ function render3D(){
   const cz=S.tz+Math.sin(S.th)*Math.cos(S.ph)*S.dist;
   S.cam.position.set(cx,cy,cz); S.cam.lookAt(S.tx,S.ty,S.tz);
   S.renderer.render(S.scene,S.cam);
+  fxDraw(null,false);                       // the town has no effects of its own yet
+  if(fxg) fxg.clearRect(0,0,fxW,fxH);
 }
 function pick3D(mx,my){
   const S=R3; if(!S) return null;
@@ -5614,7 +5636,9 @@ function makeSkin(p){
   const C=charFor(p); if(!C) return null;
   const inner=THREE.skeletonClone(C.scene);
   inner.traverse(o=>{ if(o.isMesh||o.isSkinnedMesh){ o.castShadow=true; o.receiveShadow=true;
-    o.frustumCulled=false; } });
+    o.frustumCulled=false;
+    o.material=o.material.clone();   // so a flash is this body's alone
+  } });
   const want=p.age<ADULT?1.2:1.7;
   const span=rigSpan(inner);
   let h=span?span.h:0, foot=span?span.lo:0;
@@ -5648,7 +5672,9 @@ function actionFor(sk,slot){
 function makeMobSkin(mo){
   const C=ASSETS.mobs[mo.boss?'boss':'default']||ASSETS.mobs.default; if(!C) return null;
   const inner=THREE.skeletonClone(C.scene);
-  inner.traverse(o=>{ if(o.isMesh||o.isSkinnedMesh){ o.castShadow=true; o.frustumCulled=false; } });
+  inner.traverse(o=>{ if(o.isMesh||o.isSkinnedMesh){ o.castShadow=true; o.frustumCulled=false;
+    o.material=o.material.clone();   // so a flash is this body's alone
+  } });
   const want=mo.boss?2.3:1.55;
   const span=rigSpan(inner);
   let h=span?span.h:0, foot=span?span.lo:0;
@@ -5720,8 +5746,107 @@ function updateSkins(S,dt){
       if(Math.abs(p.x-p.fx)+Math.abs(p.y-p.fy)>0.004) sk.grp.rotation.y=a; }
     p.fx=p.x; p.fy=p.y;
     playClip(sk, clipFor(p));
+    fxApplyFlash(sk,dt);
     sk.mixer.update(dt);
   });
+}
+
+/* ===================== the effects layer =====================
+   World-space events - damage taken, a death, a chest forced - are pushed onto FX and
+   drawn on a 2D canvas above whichever view is running. That way one implementation
+   serves the flat Keep and the 3D one, and none of it needs an asset. */
+const FX=[];
+let fxc=null, fxg=null;
+function fxNum(x,y,n,col,big){
+  FX.push({k:'n', x, y, z:1.0, t:0, life:big?1.5:1.05, vy:big?1.5:1.15,
+    txt:(n<1?'1':String(Math.round(n))), col:col||'#ffe9b0', big:!!big});
+}
+function fxWord(x,y,txt,col){
+  FX.push({k:'n', x, y, z:1.3, t:0, life:1.8, vy:0.9, txt, col:col||'#e8c88a', big:true});
+}
+function fxBurst(x,y,col,n,spread,up){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2, s=spread*(0.35+Math.random());
+    FX.push({k:'p', x, y, z:0.5+Math.random()*0.5, t:0, life:0.4+Math.random()*0.45,
+      vx:Math.cos(a)*s, vy:Math.sin(a)*s, vz:(up||1.6)*(0.4+Math.random()),
+      col, r:1.4+Math.random()*2.2});
+  }
+}
+function fxStep(dt){
+  for(let i=FX.length-1;i>=0;i--){
+    const f=FX[i]; f.t+=dt;
+    if(f.t>=f.life){ FX.splice(i,1); continue; }
+    if(f.k==='p'){ f.x+=f.vx*dt; f.y+=f.vy*dt; f.z+=f.vz*dt; f.vz-=5.4*dt; }
+    else f.z+=f.vy*dt;
+  }
+}
+function fxResize(){
+  if(!fxc) fxc=document.getElementById('fx');
+  if(!fxc) return null;
+  const r=fxc.getBoundingClientRect();
+  const w=Math.max(2,Math.floor(r.width)), h=Math.max(2,Math.floor(r.height));
+  if(fxc.width!==w*dpr||fxc.height!==h*dpr){
+    fxc.width=w*dpr; fxc.height=h*dpr; fxc.style.width=w+'px'; fxc.style.height=h+'px'; }
+  if(!fxg) fxg=fxc.getContext('2d');
+  fxg.setTransform(dpr,0,0,dpr,0,0);
+  return [w,h];
+}
+/* project a dungeon coordinate to the screen, whichever view is on */
+function fxProject(f,cam){
+  if(cam){ const v=new THREE.Vector3(f.x, f.z*0.75, f.y).project(cam);
+    if(v.z>1) return null;
+    return [(v.x*0.5+0.5)*fxW, (-v.y*0.5+0.5)*fxH, 1]; }
+  const p=scr(f.x,f.y,f.z*0.6);
+  return [p[0],p[1],zoom];
+}
+let fxW=0, fxH=0;
+function fxDraw(cam,vignette){
+  const sz=fxResize(); if(!sz) return;
+  fxW=sz[0]; fxH=sz[1];
+  fxg.clearRect(0,0,fxW,fxH);
+  if(vignette){
+    const g2=fxg.createRadialGradient(fxW*0.5,fxH*0.46,Math.min(fxW,fxH)*0.30,
+      fxW*0.5,fxH*0.5,Math.max(fxW,fxH)*0.76);
+    g2.addColorStop(0,'rgba(0,0,0,0)'); g2.addColorStop(1,'rgba(0,0,0,0.55)');
+    fxg.fillStyle=g2; fxg.fillRect(0,0,fxW,fxH);
+  }
+  if(!FX.length) return;
+  fxg.save();
+  fxg.textAlign='center'; fxg.textBaseline='middle';
+  for(const f of FX){
+    const pr=fxProject(f,cam); if(!pr) continue;
+    const k=f.t/f.life, fade=k<0.1?k/0.1:(1-k)/1;
+    if(f.k==='p'){
+      fxg.globalAlpha=Math.max(0,Math.min(1,fade));
+      fxg.fillStyle=f.col;
+      fxg.beginPath(); fxg.arc(pr[0],pr[1],f.r*Math.max(0.5,pr[2]*0.9),0,6.3); fxg.fill();
+    } else {
+      fxg.globalAlpha=Math.max(0,Math.min(1,fade));
+      // the family MUST be quoted: an unquoted two-word family makes the whole font
+      // string invalid, and the canvas silently keeps its 10px default
+      const s=(f.big?26:20)*Math.max(0.6,Math.min(1.7,pr[2]));
+      fxg.font='700 '+s.toFixed(0)+'px '+(f.big?'"Cinzel",Georgia,serif'
+                                               :'"Nunito Sans",system-ui,sans-serif');
+      fxg.lineWidth=Math.max(2,s*0.22); fxg.strokeStyle='rgba(8,6,14,0.85)';
+      fxg.strokeText(f.txt,pr[0],pr[1]); fxg.fillStyle=f.col;
+      fxg.fillText(f.txt,pr[0],pr[1]);
+    }
+  }
+  fxg.restore();
+}
+/* a struck body goes white for a moment */
+function fxFlash(sk){ if(sk) sk.flash=0.22; }
+function fxLoot(x,y,gold){ fxBurst(x,y,'#f0cd62',14,1.8,2.2);
+  fxWord(x,y,'+'+gold+' gold','#f0cd62'); }
+function fxApplyFlash(sk,dt){
+  if(sk.flash===undefined) return;
+  if(sk.flash<=0){ if(sk.flash!==0){ sk.flash=0; fxSetEmissive(sk,0); } return; }
+  sk.flash-=dt;
+  fxSetEmissive(sk, Math.max(0,sk.flash)/0.22);
+}
+function fxSetEmissive(sk,amt){
+  sk.root.traverse(o=>{ if((o.isMesh||o.isSkinnedMesh)&&o.material&&o.material.emissive){
+    o.material.emissive.setRGB(amt*0.9, amt*0.85, amt*0.8); } });
 }
 
 /* ===================== the Keep, in three dimensions ===================== */
@@ -5911,6 +6036,7 @@ function renderKeep3D(){
   const ox=cx-S.tx, oz=cz-S.tz, om=Math.hypot(ox,oz)||1;   // the hole sits in front of them
   S.uFade.value.set(S.tx+ox/om*2.6, S.tz+oz/om*2.6, 5.0);
   S.renderer.render(S.scene,S.cam);
+  fxDraw(S.cam,true);
 }
 function updateMobSkins(S,dt){
   const live=new Set(dmobs);
@@ -5927,6 +6053,7 @@ function updateMobSkins(S,dt){
     const moving=(Math.abs(mo.x-(mo.mfx||mo.x))+Math.abs(mo.y-(mo.mfy||mo.y)))>0.0015;
     mo.mfx=mo.x; mo.mfy=mo.y;
     playClip(sk, mo.hp<=0 ? 'die' : (mo.atk>0 ? 'attack' : (moving ? 'walk' : 'idle')));
+    fxApplyFlash(sk,dt);
     sk.mixer.update(dt);
   });
 }
@@ -5945,6 +6072,7 @@ function updateKeepSkins(S,dt){
     const moving=(p.kmv=(Math.abs(p.dx-(p.kpx||p.dx))+Math.abs(p.dy-(p.kpy||p.dy)))>0.0015);
     p.kpx=p.dx; p.kpy=p.dy;
     playClip(sk, p.hp<=0 ? 'die' : (p.atk>0 ? 'attack' : (moving ? 'run' : 'guard_idle')));
+    fxApplyFlash(sk,dt);
     sk.mixer.update(dt);
   });
 }

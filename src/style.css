@@ -47,6 +47,7 @@ h1 em{font-style:normal;color:var(--gold)}
 #view.grab{cursor:grabbing}
 #view3d{display:none;position:absolute;inset:0;width:100%;height:100%;touch-action:none;
   cursor:grab;z-index:0}
+#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
 #rail{z-index:2}
 .float{position:absolute;background:#120f1dEE;border:1px solid var(--edge);border-radius:10px;
   padding:9px 12px;font-size:12.5px;line-height:1.5;color:var(--muted)}
@@ -116,6 +117,7 @@ aside.panel.open{transform:none}
   .grp{min-width:150px}
   #stage{display:flex;flex-direction:column} #view,#view3d{flex:1;min-height:0}
   #view3d{position:static;inset:auto}
+  #fx{position:absolute;inset:0}
   #log,#hint{display:none}
   #console{grid-template-columns:1fr}
 }

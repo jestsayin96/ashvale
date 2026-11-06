@@ -19,6 +19,13 @@ their local files under /home/claude/colony and /home/claude/village are the onl
 5. Keep the reply to the user short — they asked for updates on request, not narration.
 
 ## Shipped
+- c8 effects: a 2D overlay canvas (#fx) above whichever view is running, so one
+  implementation serves the flat Keep and the 3D one. Floating damage numbers (crits in
+  the caster's gift colour, larger), impact sparks, death bursts, a named line when a
+  delver falls or a boss dies, gold on a forced chest, a white flash on a struck body
+  (materials are cloned per instance so one flash is its own), and a vignette in the Keep.
+  FONT STRINGS ON CANVAS MUST QUOTE A TWO-WORD FAMILY: '700 20px Nunito Sans, sans-serif'
+  is invalid and silently leaves the context at its 10px default. That cost an hour.
 - c7 the real cast + wall dissolve: eight Mixamo characters in (peasant man and girl,
   castle guard x2, knight, paladin, goblin, vampire). Monsters in the Keep are now the
   goblin, bosses the vampire, both skinned and animated like the party. Walls dissolve
@@ -124,7 +131,9 @@ their local files under /home/claude/colony and /home/claude/village are the onl
 - Wall dissolve is a distance fade around a point 2.6 units in front of the party, not a
   true occlusion test: a wall far off to the side but still in the way will not fade.
 - No fog of war in the 3D Keep; the whole floor is built at once and darkness does the work.
-- Chests and mobs are rebuilt from scratch every frame. Fine at this scale, wasteful later.
+- Chests, and mobs when no mob model is loaded, are rebuilt from scratch every frame.
+- The town has no effects of its own yet; the overlay is cleared there.
+- Nothing yet marks a cast: the gifted have a wisp but no spell effect.
 - Placeholder characters render dark red at night; could be Soldier's texture failing to
   decode rather than just dim light. Check in daylight when the real cast lands.
 - SHADOWS DO WORK. The earlier "swiftshader renders no shadows" conclusion was WRONG:
