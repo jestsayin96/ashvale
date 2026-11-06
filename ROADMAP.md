@@ -929,3 +929,25 @@ Costs, stated honestly:
 2. A `seen` state and generation on demand when somebody nears an unexplored edge.
 3. Someone with a reason to walk out, driven by the needs from item 1.
 4. Per-chunk terrain meshes, and the flat view drawing only known cells.
+
+### c36 stage 1 — implemented and measured
+`N` is 156 with `TOWN=52` placed at `OFF=52`, so the town is centred with 52 tiles of
+room in every direction. `tx0`/`ty0` convert town coordinates to world ones; `fill` and
+`raise` apply the offset themselves since they are only ever called from `buildTerrain`.
+
+**All 98 `I(` sites and 15 `inB` sites are unchanged, as the decision promised.** What did
+have to move was every hardcoded landmark: the 2D camera init, `centre()`, the keep and
+east-gate camera presets, the sun target and its orbit, the keep glow, the water plane,
+and the 3D camera's `tx/tz`.
+
+`GEN` is a byte per cell marking made ground, with a bounding box; `terrainGeo()` walks
+only that box and skips unmade cells.
+
+Measured at boot: `N=156 cells=24336 made=2704 bounds=52,52..103,103 meshVerts=11436`.
+The whole grid would be ~97k vertices; the town is 11.4k. The mechanism does what the
+decision said it would.
+
+**Caught by looking, again.** After the first pass the tests were green and the flat view
+was perfect — and the 3D view was an empty sky, because `R3`'s camera target was still
+`tx:26,tz:23`, now far outside the town. `npm test` only fails on console errors, so
+"clean" meant nothing here. Read the PNGs.

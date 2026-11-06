@@ -3574,17 +3574,38 @@ var MUSIC=(()=>{var se=Object.defineProperty;var Ve=Object.getOwnPropertyDescrip
 (function(){
 'use strict';
 /* ===================== world ===================== */
-const N=52, TW=32, TH=16, HZ=10;
+/* The world is bigger than the town. TOWN is the 52x52 the town was authored in; OFF
+   places it at the centre of N so there is land in every direction to walk into. Every
+   call site of I(x,y) and inB(x,y) is untouched by this \u2014 that was the whole point of
+   choosing a larger fixed grid over a coordinate-keyed chunk map (see ROADMAP c36). */
+const TOWN=52, N=156, OFF=((N-TOWN)/2)|0, TW=32, TH=16, HZ=10;
+const tx0=x=>x+OFF, ty0=y=>y+OFF;        // town coords -> world coords
 const GRASS=0,ROAD=1,PLAZA=2,WATER=3,DIRT=4,FIELD=5,ROCK=6;
 const ty=new Uint8Array(N*N), hh=new Int8Array(N*N), occ=new Int16Array(N*N), tree=new Uint8Array(N*N);
+/* Which cells exist. Everything outside is unmade: not water, not rock, just nowhere.
+   Kept as a flat byte array so it indexes exactly like the others. */
+const GEN=new Uint8Array(N*N);
+let genX0=N, genY0=N, genX1=-1, genY1=-1;          // the made world's bounding box
+function markGen(x0,y0,x1,y1){
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++) if(inB(x,y)) GEN[I(x,y)]=1;
+  if(x0<genX0) genX0=Math.max(0,x0); if(y0<genY0) genY0=Math.max(0,y0);
+  if(x1>genX1) genX1=Math.min(N-1,x1); if(y1>genY1) genY1=Math.min(N-1,y1);
+}
+const genBounds=()=>({x0:Math.max(0,genX0), y0:Math.max(0,genY0),
+                      x1:Math.min(N-1,genX1), y1:Math.min(N-1,genY1)});
+const isMade=(x,y)=>inB(x,y)&&!!GEN[I(x,y)];
 const I=(x,y)=>y*N+x, inB=(x,y)=>x>=0&&y>=0&&x<N&&y<N;
 const T=(x,y)=>inB(x,y)?ty[I(x,y)]:WATER;
 const H=(x,y)=>inB(x,y)?hh[I(x,y)]:0;
 let sd=991337; const rnd=()=>{sd=(sd*1664525+1013904223)|0;return((sd>>>8)&0xffffff)/0xffffff;};
 const pick=a=>a[(rnd()*a.length)|0];
 const ri=(a,b)=>a+((rnd()*(b-a+1))|0);
-function fill(x0,y0,x1,y1,v){for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)if(inB(x,y))ty[I(x,y)]=v;}
-function raise(x0,y0,x1,y1,v){for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)if(inB(x,y))hh[I(x,y)]=v;}
+/* These two are only ever called from buildTerrain, which authors in TOWN coordinates,
+   so they apply the offset themselves. */
+function fill(x0,y0,x1,y1,v){for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+  const wx=tx0(x),wy=ty0(y); if(inB(wx,wy))ty[I(wx,wy)]=v;}}
+function raise(x0,y0,x1,y1,v){for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+  const wx=tx0(x),wy=ty0(y); if(inB(wx,wy))hh[I(wx,wy)]=v;}}
 
 /* ===================== the town plan ===================== */
 const BK={
@@ -3619,13 +3640,16 @@ for(let i=0;i<10;i++) PLAN.push(['house', 13+ (i%5)*3, 33 + ((i/5)|0)*4]);
 for(let i=0;i<10;i++) PLAN.push(['house', 29+ (i%5)*3, 33 + ((i/5)|0)*4]);
 
 function buildTerrain(){
-  ty.fill(GRASS);
+  ty.fill(ROCK); hh.fill(0);              // beyond the town is unmade ground for now
+  const T=(x,y)=>I(tx0(x),ty0(y));
+  markGen(OFF,OFF,OFF+TOWN-1,OFF+TOWN-1);
+  for(let y=0;y<TOWN;y++)for(let x=0;x<TOWN;x++) ty[T(x,y)]=GRASS;
   // river down the west, bridged by the high road
-  for(let y=0;y<N;y++){ const w=2+((Math.sin(y*0.3)*1.4)|0);
-    for(let x=2;x<=4+w;x++) if(inB(x,y)) ty[I(x,y)]=WATER; }
+  for(let y=0;y<TOWN;y++){ const w=2+((Math.sin(y*0.3)*1.4)|0);
+    for(let x=2;x<=4+w;x++) if(x<TOWN) ty[T(x,y)]=WATER; }
   // the ridge in the east, with the Keep's mouth at its foot
-  for(let y=0;y<N;y++)for(let x=46;x<N;x++){
-    ty[I(x,y)]=ROCK; hh[I(x,y)]=Math.min(9,2+(x-45)*2+((Math.sin(y*0.4)*1.5)|0));
+  for(let y=0;y<TOWN;y++)for(let x=46;x<TOWN;x++){
+    ty[T(x,y)]=ROCK; hh[T(x,y)]=Math.min(9,2+(x-45)*2+((Math.sin(y*0.4)*1.5)|0));
   }
   // streets
   fill(10,18,45,20,ROAD);            // the high road, gate to bridge
@@ -3641,8 +3665,8 @@ function buildTerrain(){
   // farm strips north
   fill(26,3,38,8,FIELD);
   // scattered woodland
-  for(let y=1;y<N-1;y++)for(let x=1;x<N-1;x++){
-    const i=I(x,y);
+  for(let y=1;y<TOWN-1;y++)for(let x=1;x<TOWN-1;x++){
+    const i=T(x,y);
     if(ty[i]!==GRASS) continue;
     if(x>11&&x<42&&y>5&&y<38) { if(rnd()>0.97) tree[i]=1; }
     else if(rnd()>0.80) tree[i]=1;
@@ -3750,7 +3774,7 @@ function place(kind,x,y){
   if(!b.slots.length) b.slots.push([x+k.w/2, y+k.d/2]);
   buildings.push(b); return b;
 }
-PLAN.forEach(([k,x,y])=>place(k,x,y));
+PLAN.forEach(([k,x,y])=>place(k,tx0(x),ty0(y)));
 const byKind=k=>buildings.filter(b=>b.kind===k);
 const theHall=byKind('hall')[0], theGuild=byKind('guild')[0], theSchool=byKind('school')[0],
       theBank=byKind('bank')[0], theAltar=byKind('altar')[0], theTavern=byKind('tavern')[0],
@@ -4757,7 +4781,7 @@ function pickCell(sx,sy){
   if(vx<0||vy<0||vx>=GS||vy>=GS) return null;
   return wcell(vx,vy);
 }
-function centre(){ const p=flat(N/2,N/2,0); camX=p[0]; camY=p[1]; }
+function centre(){ const p=flat(tx0(26),ty0(24),0); camX=p[0]; camY=p[1]; }
 function resize(){
   const r=cv.getBoundingClientRect(); dpr=Math.min(2,window.devicePixelRatio||1);
   // a display:none canvas measures 0x0. Clamping that to the minimum left the 2D views
@@ -4766,7 +4790,7 @@ function resize(){
   CW=Math.max(280,Math.floor(r.width)); CH=Math.max(200,Math.floor(r.height));
   cv.width=CW*dpr;cv.height=CH*dpr;cv.style.width=CW+'px';cv.style.height=CH+'px'; }
 new ResizeObserver(resize).observe(cv); resize();
-camX=flat(26,24,0)[0]; camY=flat(26,24,0)[1];
+camX=flat(tx0(26),ty0(24),0)[0]; camY=flat(tx0(26),ty0(24),0)[1];
 
 const TC={};
 TC[GRASS]=['#5f8f4a','#52803f','#436a33']; TC[ROAD]=['#9a9183','#857d70','#6f6960'];
@@ -5962,7 +5986,7 @@ function paintRail(){
       else if(a==='c'){ userPanned=false;
         if(scene==='keep'){ V.dist=12; V.th=-2.3; V.ph=1.30; }
         else { V.tx=26; V.tz=23; V.dist=40; V.th=-2.25; V.ph=0.78; } }
-      else if(a==='keep'&&scene!=='keep'){ V.tx=46; V.tz=21; V.dist=24; V.th=-2.6; V.ph=0.5; }
+      else if(a==='keep'&&scene!=='keep'){ V.tx=tx0(46); V.tz=ty0(21); V.dist=24; V.th=-2.6; V.ph=0.5; }
       paintRail(); return;
     }
     if(a==='l') rot=(rot+3)%4; else if(a==='r') rot=(rot+1)%4;
@@ -5971,8 +5995,8 @@ function paintRail(){
     else if(a==='c'){ follow=null; userPanned=false;
       if(scene==='keep'&&activeRun&&activeRun.party.length){
         const p=activeRun.party[0], v=vpt(p.dx,p.dy), f=flat(v[0],v[1],0); camX=f[0];camY=f[1];
-      } else { const f=scene==='keep'?flat(DN/2,DN/2,0):flat(26,24,0); camX=f[0];camY=f[1]; } }
-    else if(a==='keep'){ follow=null; const v=vpt(47,19), f=flat(v[0],v[1],5); camX=f[0];camY=f[1]; }
+      } else { const f=scene==='keep'?flat(DN/2,DN/2,0):flat(tx0(26),ty0(24),0); camX=f[0];camY=f[1]; } }
+    else if(a==='keep'){ follow=null; const v=vpt(tx0(47),ty0(19)), f=flat(v[0],v[1],5); camX=f[0];camY=f[1]; }
     paintRail();
   });
   railEl.querySelectorAll('[data-ov]').forEach(b=>b.onclick=()=>{overlay=b.dataset.ov;paintRail();});
@@ -6356,7 +6380,12 @@ function terrainGeo(){
     idx.push(v,v+2,v+1,v,v+3,v+2); v+=4; };
   const lev=(x,y)=>{ if(!inB(x,y)) return -0.6;
     const i=I(x,y); return ty[i]===WATER? -0.34 : hh[i]*HU; };
-  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+  /* Only made ground gets geometry. At 156x156 the whole grid would be 24k top quads
+     plus sides, rebuilt on every season change; the town alone is a twentieth of that.
+     GEN marks which cells exist, so the mesh grows as the world does. */
+  const b=genBounds();
+  for(let y=b.y0;y<=b.y1;y++)for(let x=b.x0;x<=b.x1;x++){
+    if(!GEN[I(x,y)]) continue;
     const i=I(x,y), t=ty[i], h0=lev(x,y);
     let c=C3[t]; const n=((x*7+y*13)^(x*3+y*11))%7;
     if(n===0) c=shd(c,0.965); else if(n===4) c=shd(c,1.035);
@@ -6513,7 +6542,7 @@ function init3D(){
   ground.receiveShadow=true; S3.add(ground);
   const water=new THREE.Mesh(new THREE.PlaneGeometry(N*2.4,N*2.4),
     new THREE.MeshLambertMaterial({color:0x3a73b8,transparent:true,opacity:0.8}));
-  water.rotation.x=-Math.PI/2; water.position.set(N/2,-0.2,N/2); S3.add(water);
+  water.rotation.x=-Math.PI/2; water.position.set(tx0(26),-0.2,ty0(26)); S3.add(water);
   const R3TMP={};
   let tn=0; for(let i=0;i<N*N;i++) if(tree[i]) tn++;
   if(tn){
@@ -6534,10 +6563,10 @@ function init3D(){
   buildings.forEach(b=>{ const m=mkBuilding(b); b.m3=m; bG.add(m); });
   const pG=new THREE.Group(); S3.add(pG);
   const keepGlow=new THREE.PointLight(0xc1483f,2,24);
-  keepGlow.position.set(46,2.6,21); S3.add(keepGlow);
+  keepGlow.position.set(tx0(46),2.6,ty0(21)); S3.add(keepGlow);
   R3={renderer,scene:S3,cam,sun,hemi,water,bG,pG,keepGlow,ground,
       trunks:R3TMP.trunks, leaves:R3TMP.leaves,
-      th:-2.25,ph:0.78,dist:40,tx:26,ty:0.6,tz:23,folk:0};
+      th:-2.25,ph:0.78,dist:40,tx:tx0(26),ty:0.6,tz:ty0(23),folk:0};
   rebuildFolk(R3); resize3D(); loadAssets(R3);
   if(ASSETS.props.tree) dressTown(R3);
   return R3;
@@ -6553,8 +6582,8 @@ function render3D(){
   const t=(hour*60+minute)/1440, ang=(t-0.25)*Math.PI*2;
   const el=Math.sin(ang), az=Math.cos(ang);
   const dayAmt=Math.max(0,Math.min(1,el*1.7+0.34));
-  S.sun.position.set(26+az*72,Math.max(3,el*66),23-46);
-  S.sun.target.position.set(26,0,23); S.sun.target.updateMatrixWorld();
+  S.sun.position.set(tx0(26)+az*72,Math.max(3,el*66),ty0(23)-46);
+  S.sun.target.position.set(tx0(26),0,ty0(23)); S.sun.target.updateMatrixWorld();
   S.sun.intensity=0.16+dayAmt*1.05;
   S.sun.color.setHex(el<0.26?0xffb27a:0xffeccf);
   S.hemi.intensity=0.14+dayAmt*0.48;
@@ -7440,7 +7469,7 @@ function setScene(sc){
   const sv=camSave[sc];
   if(sv){ camX=sv.camX; camY=sv.camY; zoom=sv.zoom; }
   else if(sc==='keep'){ zoom=1.6; const f=flat(DN/2,DN/2,0); camX=f[0]; camY=f[1]; }
-  else { zoom=1.1; const f=flat(26,24,0); camX=f[0]; camY=f[1]; }
+  else { zoom=1.1; const f=flat(tx0(26),ty0(24),0); camX=f[0]; camY=f[1]; }
   if(sc==='keep'&&activeRun&&activeRun.party.length){
     const p=activeRun.party[0], v=vpt(p.dx,p.dy), f=flat(v[0],v[1],0); camX=f[0]; camY=f[1];
   }
