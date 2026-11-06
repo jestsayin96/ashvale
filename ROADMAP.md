@@ -1259,3 +1259,59 @@ evidence for the reasons c39 gave.
 - Normal maps need the ambientCG normal textures, which are **not in this repo**.
 - The frontier's rectangular cliff lip.
 - The ridge boulders read dense from some angles. Tuning, not correctness.
+
+# THE NORTH STAR, REVISED — 6 Nov 2026
+
+The owner changed the shape of the world. His words:
+
+> "Okay lets not bud an ever expandimg world but instead 1 that has 4 kingdoms"
+
+> "Lets add 3 more dungeons but lets not have them so close to the kingdoms lets gave
+> them spread out so they adventures actually have to go out on an adventure to go to
+> these dungeons"
+
+And, asked how alive the other kingdoms should be and what connects them, he chose
+**all four fully simulated**, with **trade and travellers, war and borders, and
+diplomacy and rulers**.
+
+## What this replaces
+Generation-on-demand is retired. The world is **bounded and authored**, not infinite.
+`exploreFrom`/`ensureChunk` stop being a generator and become **fog of war**: the land
+all exists from the start, and walking reveals it. `GEN` becomes `SEEN`. Keep the
+bounds-limited rendering, the per-chunk meshes and the dirty-chunk machinery exactly
+as they are — all of that is right for a fixed world too, and c38's measurements
+still hold.
+
+## What carries over, unchanged
+- Per-chunk terrain meshes and recolour-on-season (c38).
+- `genChunk`'s noise and its continuation of the river and ridge formulas — now used
+  to **author a fixed map once at boot** instead of lazily.
+- The errand machinery (c37). A goal with `p.goal.b===null` is already the thing that
+  sends a person out of town with a reason; a journey to another kingdom or to a
+  distant dungeon is the same mechanism with a destination worth having.
+- Everything in item 1: needs, bonds, grudges, memory, party selection.
+- The renderer work (c39, c40).
+
+## The shape to build toward
+1. **Four kingdoms, spread across the map, each a living town.** Ashvale is one of
+   them. The other three need their own names, plans and populations — generated with
+   variation rather than copy-pasted, and **no personal or real names, ever**.
+2. **Four dungeons, far from every kingdom.** The Keep stops being a five-minute walk
+   from the guild hall. A delve starts with a journey measured in game-days.
+3. **Travel as a first-class state.** A party on the road is neither in a town nor on
+   a floor; it is somewhere between, and can be seen there.
+4. **Trade and travellers**, then **diplomacy and rulers**, then **war and borders**.
+
+## Honest costs, stated up front
+- **~280 simulated people, four times today's load.** The needs and bond work is O(n)
+  and fine. The thing to watch is `fieldTo`: each cached flow field is a 24,336-entry
+  `Int16Array` built by a BFS over the whole grid, capped at 240 entries — about
+  11 MB, and four towns' worth of destinations will thrash it. Expect to need local
+  or hierarchical pathing. **Measure it before assuming it is fine, and measure the
+  population, not one sample.**
+- The grid may need to be larger than 156 to hold four realms and four distant
+  dungeons. Decide that by measuring, and remember c36: a larger fixed grid was chosen
+  precisely because `I(x,y)` and `inB` keep their meaning and the call sites do not
+  change. Raising `N` again should still be cheap.
+- Four towns of models is four times the scene graph. c40 cut it from 3,884 meshes to
+  1,071; do not give that back without noticing.
