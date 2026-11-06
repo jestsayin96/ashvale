@@ -568,3 +568,32 @@ as a download proxy is working around a security control rather than through it;
 sanctioned route is the account's own allowlist (claude.ai → Settings → Capabilities).
 It is also unnecessary: `village_assets` already holds 4,467 models across 50 packs, and
 this project has used perhaps thirty of them.
+
+## Cycle 27 — the deeps look like the deeps, and the camera reads the room (shipped)
+Worked unattended; the owner was asleep with the bridge left up.
+
+### Surfaces underground
+`dungeonGeo()` now emits UVs as the town's terrain does, with one difference that matters:
+a floor quad takes the ground plane (`x, z`), a **wall** takes `(x+z)` horizontally and `y`
+up, so a wall's grain runs vertically and continues into the wall beside it instead of
+restarting at every quad.
+
+Each depth band names its surface in `THEMES[].tex`: `rock` in the wet caves, `paving` in
+the crypts, `rock` in the iron halls, **`lava` in the magma deeps**, `rock` on the dragon's
+floors. Floors 61-80 rendered as flat orange before; they are cracked stone with molten
+veins now. The texture multiplies with the band's vertex palette, so the existing colour
+grading survives.
+
+`loadAssets` now loads every entry in `manifest.textures` into `R3TEX` rather than only
+the ground, since a Keep floor is built later and just needs them in the cache.
+
+### The camera
+The Keep camera has sat at `dist:12, ph:1.30` since the wall-dissolve work — almost on top
+of the party, with no sense of the room. Now `dist:21, ph:1.14`.
+
+### Tests
+`shot3d.py` fails if any of the four surface textures is never requested. Verified by
+deleting the `lava` key: `surface textures never requested: lava.webp`.
+**What it does not prove:** a texture that loads but never reaches a material would still
+pass. The lava band itself was checked by forcing `themeFor` to return `THEMES[3]` on every
+floor and looking at `dist/lava-keep.png`.

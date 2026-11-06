@@ -11,8 +11,11 @@ try:
         b = p.chromium.launch(args=["--use-gl=swiftshader", "--enable-unsafe-swiftshader", "--no-proxy-server"])
         pg = b.new_page(viewport={"width": 1340, "height": 860})
         glbs = []
+        texs = []
         pg.on("response", lambda r: glbs.append(r.url.rsplit("/", 1)[-1])
               if r.url.endswith(".glb") else None)
+        pg.on("response", lambda r: texs.append(r.url.rsplit("/", 1)[-1])
+              if r.url.endswith(".webp") else None)
         pg.on("pageerror", lambda e: errs.append("pageerror: " + str(e)))
         pg.on("console", lambda m: errs.append("console: " + m.text)
                   if m.type == "error" and "TUNNEL" not in m.text and "ERR_" not in m.text else None)
@@ -43,6 +46,12 @@ try:
         missing = want - set(glbs)
         if missing:
             errs.append("mob/creature models never requested: " + ", ".join(sorted(missing)))
+        # Surfaces. A texture that never loads leaves the flat vertex colour behind and
+        # the scene still renders, so nothing on screen says it is missing.
+        wanttex = {"ground.webp", "rock.webp", "paving.webp", "lava.webp"}
+        gone = wanttex - set(texs)
+        if gone:
+            errs.append("surface textures never requested: " + ", ".join(sorted(gone)))
         b.close()
 finally:
     srv.terminate()
