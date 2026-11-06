@@ -1,17 +1,17 @@
 {
-  "_comment": "Peasant Man is a real Mixamo character; the clips under anim/ are Mixamo animation packs converted to glb in-container. All share Mixamo's rig, so they bind by bone name with no retargeting beyond normalisation. Soldier and Xbot remain as stand-ins for roles with no model yet.",
+  "_comment": "Peasant Man and Peasant Girl are real Mixamo characters; the clips under anim/ are Mixamo animation packs converted to glb in-container. All share Mixamo's rig, so they bind by bone name. Soldier is a stand-in for guards until a Castle Guard lands, and only uses its own clips - the loader checks for mixamorig bones before lending the shared set.",
   "cap": 20,
   "buildings": {},
   "characters": {
     "man": "peasant-man.glb",
-    "woman": "Xbot.glb",
+    "woman": "peasant-girl.glb",
     "guard": "Soldier.glb"
   },
   "roles": {
     "adventurer": "guard",
     "nobleman": "man",
     "noblewoman": "woman",
-    "child": "man"
+    "child": "woman"
   },
   "animations": {
     "idle": "anim/idle.glb",

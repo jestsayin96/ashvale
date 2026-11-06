@@ -90,9 +90,12 @@ Other artifacts (do not break): colony https://claude.ai/artifact/BbRBE9rRHmqwS5
 - Buildings: the swap path is written but untested - no building .glb exists yet.
 
 ## The cast, and what is missing
-- Only ONE real character model: peasant-man.glb. Every man, child and noble is him.
-  Women and guards still fall back to Xbot and Soldier, which are not Mixamo rigs and so
-  only have idle/walk/run. More Mixamo characters -> drop the .glb in, add a manifest key.
+- TWO real character models: peasant-man.glb and peasant-girl.glb. Men, children and
+  nobles are the man; women and girls are her. GUARDS are still three's Soldier, which is
+  not a Mixamo rig and so only has idle/walk/run - Castle Guard 01 would fix that, and
+  Knight D Pelegrini would give adventurers their own look.
+  Adding one: download from Mixamo (FBX Binary, With Skin, T-pose), convert with
+  node_modules/fbx2gltf/bin/Linux/FBX2glTF --binary, add a manifest 'characters' key.
 - 238 more clips sit unconverted in the user's folder (sword and shield, magic, creatures,
   zombies, farming, gestures). tools/ has the converter; add a line per clip and rebuild.
 - Monster models and the Keep in 3D are both untouched; the Keep is still the 2D view.
