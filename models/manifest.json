@@ -1,15 +1,15 @@
 {
-  "_comment": "Peasant Man and Peasant Girl are real Mixamo characters; the clips under anim/ are Mixamo animation packs converted to glb in-container. All share Mixamo's rig, so they bind by bone name. Soldier is a stand-in for guards until a Castle Guard lands, and only uses its own clips - the loader checks for mixamorig bones before lending the shared set.",
+  "_comment": "Mixamo characters converted with fbx2gltf then texture-compressed to webp at 1024 (gltf-transform optimize --texture-compress webp --texture-size 1024 --no-compress): 60 MB of raw conversions became 13 MB with no visible loss. Draco was tried and dropped - it needs a separate decoder file the artifact build cannot load.",
   "cap": 20,
   "buildings": {},
   "characters": {
     "man": "peasant-man.glb",
     "woman": "peasant-girl.glb",
-    "guard": "Soldier.glb"
+    "guard": "castle-guard.glb",
+    "adventurer": "knight.glb",
+    "nobleman": "paladin.glb"
   },
   "roles": {
-    "adventurer": "guard",
-    "nobleman": "man",
     "noblewoman": "woman",
     "child": "woman"
   },
@@ -38,5 +38,9 @@
     "cast": "anim/cast.glb",
     "cast_big": "anim/cast_big.glb"
   },
-  "clips": {}
+  "clips": {},
+  "mobs": {
+    "default": "goblin.glb",
+    "boss": "vampire.glb"
+  }
 }

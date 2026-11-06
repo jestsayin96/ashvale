@@ -11,6 +11,7 @@
     "serve": "python3 -m http.server 8080"
   },
   "devDependencies": {
+    "@gltf-transform/cli": "^4.5.1",
     "esbuild": "^0.28.2",
     "fbx2gltf": "^0.9.7-p1",
     "three": "^0.150.1"

@@ -5470,7 +5470,7 @@ function wire3D(){
    Everything here is additive. With no models/manifest.json the game stays exactly
    as it was: procedural boxes and cones, no errors, no console noise. The artifact
    bundle has no models/ to fetch, so it simply never leaves the procedural path. */
-const ASSETS={ base:'models/', on:false, buildings:{}, chars:{}, shared:[], slots:{},
+const ASSETS={ base:'models/', on:false, buildings:{}, chars:{}, mobs:{}, shared:[], slots:{},
   named:null, roles:{}, cap:20, tried:false };
 function roleOf(p){
   if(p.age<ADULT) return 'child';
@@ -5563,6 +5563,13 @@ function loadAssets(S){
       const jobs=[];
       Object.entries(m.buildings||{}).forEach(([kind,file])=>
         jobs.push(get(file).then(g=>{ if(g) swapBuilding(S,kind,g.scene); })));
+      Object.entries(m.mobs||{}).forEach(([kind,file])=>
+        jobs.push(get(file).then(g=>{
+          if(!g) return;
+          let mx=false;
+          g.scene.traverse(o=>{ if(o.isBone&&normBone(o.name).indexOf('mixamorig')===0) mx=true; });
+          ASSETS.mobs[kind]={scene:g.scene, clips:g.animations||[], mixamo:mx};
+        })));
       Object.entries(m.characters||{}).forEach(([role,file])=>
         jobs.push(get(file).then(g=>{
           if(!g) return;
@@ -5581,7 +5588,8 @@ function loadAssets(S){
     })
     .then(()=>{
       if(!man) return;
-      ASSETS.on = Object.keys(ASSETS.chars).length>0 || Object.keys(ASSETS.buildings).length>0;
+      ASSETS.on = Object.keys(ASSETS.chars).length>0 || Object.keys(ASSETS.buildings).length>0
+                  || Object.keys(ASSETS.mobs).length>0;
       if(ASSETS.on) RETARGET=new WeakMap();
       if(ASSETS.on){ rebuildFolk(S);
         logMsg('Models loaded: the town is wearing its proper face.','good'); }
@@ -5637,6 +5645,20 @@ function actionFor(sk,slot){
   return a;
 }
 /* what somebody is visibly doing, in clip terms */
+function makeMobSkin(mo){
+  const C=ASSETS.mobs[mo.boss?'boss':'default']||ASSETS.mobs.default; if(!C) return null;
+  const inner=THREE.skeletonClone(C.scene);
+  inner.traverse(o=>{ if(o.isMesh||o.isSkinnedMesh){ o.castShadow=true; o.frustumCulled=false; } });
+  const want=mo.boss?2.3:1.55;
+  const span=rigSpan(inner);
+  let h=span?span.h:0, foot=span?span.lo:0;
+  if(!h) h=1.7;
+  let sc=Math.max(0.02,Math.min(60, want/h));
+  inner.scale.setScalar(sc); inner.position.y=-foot*sc;
+  const grp=new THREE.Group(); grp.add(inner);
+  return {grp, root:inner, own:C.clips, mixamo:!!C.mixamo,
+          mixer:new THREE.AnimationMixer(inner), actions:{}, cur:null};
+}
 function clipFor(p){
   const f = p.sex==='f';
   if(p.dead) return 'die';
@@ -5704,6 +5726,7 @@ function updateSkins(S,dt){
 
 /* ===================== the Keep, in three dimensions ===================== */
 const KSKINS=new Map();
+const MSKINS=new Map();
 const WALLH=1.95;      // low enough to see over from a steep angle
 let K3=null, k3floor=-1;
 function dungeonGeo(th){
@@ -5752,16 +5775,30 @@ function buildKeep3D(){
   const th=themeFor(dfloor);
   const S=K3;
   // clearing the world orphans the party's meshes, so drop the cache that remembers them
-  KSKINS.clear();
+  KSKINS.clear(); MSKINS.clear();
   while(S.world.children.length) S.world.remove(S.world.children[0]);
   S.torches.length=0; S.lights.length=0;
   const geo=dungeonGeo(th);
   // floors and walls are wound opposite ways here, and a dungeon has no outside worth
   // culling for, so render both faces and let the shader flip the normal
-  const mat=()=>new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide});
-  const fl=new THREE.Mesh(geo.floor,mat());
+  const fl=new THREE.Mesh(geo.floor,
+    new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide}));
   fl.receiveShadow=true; S.world.add(fl);
-  const wl=new THREE.Mesh(geo.wall,mat());
+  // Walls dissolve where they would stand between the camera and the party, so you keep
+  // the sense of being underground without losing sight of the delve.
+  const wm=new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide,
+    transparent:true});
+  wm.onBeforeCompile=sh=>{
+    sh.uniforms.uFade=S.uFade;
+    sh.vertexShader='varying vec3 vWP;\n'+sh.vertexShader.replace(
+      '#include <begin_vertex>',
+      '#include <begin_vertex>\n  vWP=(modelMatrix*vec4(position,1.0)).xyz;');
+    sh.fragmentShader='uniform vec3 uFade;\nvarying vec3 vWP;\n'+sh.fragmentShader.replace(
+      '#include <dithering_fragment>',
+      '#include <dithering_fragment>\n  float fd=distance(vWP.xz,uFade.xy);\n'+
+      '  gl_FragColor.a *= smoothstep(uFade.z*0.45, uFade.z, fd);');
+  };
+  const wl=new THREE.Mesh(geo.wall,wm);
   wl.castShadow=true; wl.receiveShadow=true; S.world.add(wl);
   // torches: a bracket, a flame, and the light it throws
   const flameG=new THREE.SphereGeometry(0.11,7,6);
@@ -5803,6 +5840,7 @@ function initKeep3D(){
   const lamp=new THREE.PointLight(0xffd9a0, 1.5, 14, 1.45);   // the party's own lantern
   scene.add(lamp);
   K3={renderer,scene,cam,world,lamp,torches:[],lights:[],chests:null,mobs:null,
+      uFade:new THREE.Uniform(new THREE.Vector3(0,0,0.001)),
       th:-2.3, ph:1.30, dist:12, tx:DN/2, ty:0.6, tz:DN/2, folk:0};
   buildKeep3D();
   return K3;
@@ -5840,6 +5878,8 @@ function renderKeep3D(){
     }
   });
   // monsters
+  if(ASSETS.mobs.default){ updateMobSkins(S,dt); }
+  else {
   while(S.mobs.children.length) S.mobs.remove(S.mobs.children[0]);
   dmobs.forEach(mo=>{
     const s=mo.boss?1.7:1;
@@ -5856,6 +5896,7 @@ function renderKeep3D(){
       aura.position.set(mo.x,1,mo.y); S.mobs.add(aura); }
     S.mobs.add(g);
   });
+  }
   // the party, as the same skinned people who walk the town
   updateKeepSkins(S,dt);
   // camera follows them unless the player has taken hold of it
@@ -5867,7 +5908,27 @@ function renderKeep3D(){
   const cy=S.ty+Math.sin(S.ph)*S.dist;
   const cz=S.tz+Math.sin(S.th)*Math.cos(S.ph)*S.dist;
   S.cam.position.set(cx,cy,cz); S.cam.lookAt(S.tx,S.ty,S.tz);
+  const ox=cx-S.tx, oz=cz-S.tz, om=Math.hypot(ox,oz)||1;   // the hole sits in front of them
+  S.uFade.value.set(S.tx+ox/om*2.6, S.tz+oz/om*2.6, 5.0);
   S.renderer.render(S.scene,S.cam);
+}
+function updateMobSkins(S,dt){
+  const live=new Set(dmobs);
+  MSKINS.forEach((sk,mo)=>{ if(!live.has(mo)){ S.mobs.remove(sk.grp); MSKINS.delete(mo); } });
+  dmobs.forEach(mo=>{
+    let sk=MSKINS.get(mo);
+    if(!sk){ sk=makeMobSkin(mo); if(!sk) return; S.mobs.add(sk.grp); MSKINS.set(mo,sk);
+      if(mo.boss){ const aura=new THREE.PointLight(0xff6a3c,1.4,6);
+        aura.position.set(mo.x,1.1,mo.y); sk.aura=aura; S.mobs.add(aura); } }
+    sk.grp.position.set(mo.x,0,mo.y);
+    if(sk.aura) sk.aura.position.set(mo.x,1.1,mo.y);
+    if(mo.mfx!==undefined && Math.abs(mo.x-mo.mfx)+Math.abs(mo.y-mo.mfy)>0.004)
+      sk.grp.rotation.y=Math.atan2(mo.x-mo.mfx, mo.y-mo.mfy);
+    const moving=(Math.abs(mo.x-(mo.mfx||mo.x))+Math.abs(mo.y-(mo.mfy||mo.y)))>0.0015;
+    mo.mfx=mo.x; mo.mfy=mo.y;
+    playClip(sk, mo.hp<=0 ? 'die' : (mo.atk>0 ? 'attack' : (moving ? 'walk' : 'idle')));
+    sk.mixer.update(dt);
+  });
 }
 function updateKeepSkins(S,dt){
   const party=activeRun?activeRun.party:[];

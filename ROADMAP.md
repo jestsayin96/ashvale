@@ -19,6 +19,16 @@ Other artifacts (do not break): colony https://claude.ai/artifact/BbRBE9rRHmqwS5
 5. Keep the reply to the user short — they asked for updates on request, not narration.
 
 ## Shipped
+- c7 the real cast + wall dissolve: eight Mixamo characters in (peasant man and girl,
+  castle guard x2, knight, paladin, goblin, vampire). Monsters in the Keep are now the
+  goblin, bosses the vampire, both skinned and animated like the party. Walls dissolve
+  where they would hide the delve, via onBeforeCompile on the wall material.
+  TEXTURE BUDGET: 60 MB of raw fbx2gltf output became 13 MB with
+    npx gltf-transform optimize IN OUT --texture-compress webp --texture-size 1024 \
+        --no-compress --no-simplify
+  Run that on EVERY new character. Draco was tried and dropped: it needs a separate
+  decoder file, which the artifact build cannot load. WebP needs nothing extra and
+  three r150 reads it fine - verified by rendering.
 - c6 the Keep in 3D: the dungeon renders in three.js too. Walls and floors built as two
   vertex-coloured meshes per floor from dty, themed by depth band; torches as flickering
   point lights; a lantern that follows the party; loot beams over unopened chests; mobs as
@@ -105,13 +115,14 @@ Other artifacts (do not break): colony https://claude.ai/artifact/BbRBE9rRHmqwS5
   node_modules/fbx2gltf/bin/Linux/FBX2glTF --binary, add a manifest 'characters' key.
 - 238 more clips sit unconverted in the user's folder (sword and shield, magic, creatures,
   zombies, farming, gestures). tools/ has the converter; add a line per clip and rebuild.
-- Monsters are still capsules with an eye. Mixamo has no mobs worth the name (its bestiary
-  is hero-grade), so the plan is Tripo's free gallery first, credits only for what it lacks.
-  The sword/magic/longbow/axe packs the user downloaded are waiting on those models.
+- Monsters are the goblin and the vampire, which are hero-grade models doing mob duty. Fine
+  for now; a proper bestiary still wants Tripo's free gallery.
+- Still unconverted in the user's folder: Erika Archer, Eve, Maria J J Ong, Yaku J Ignite,
+  Ch10_nonPBR (110 MB), and 238 animation clips across the packs.
 
 ## Known rough edges
-- The Keep's walls can occlude the party. Mitigated by a steep camera (ph 1.30, floor 0.80)
-  and low walls (1.95), not solved. The real fix is fading walls between camera and target.
+- Wall dissolve is a distance fade around a point 2.6 units in front of the party, not a
+  true occlusion test: a wall far off to the side but still in the way will not fade.
 - No fog of war in the 3D Keep; the whole floor is built at once and darkness does the work.
 - Chests and mobs are rebuilt from scratch every frame. Fine at this scale, wasteful later.
 - Placeholder characters render dark red at night; could be Soldier's texture failing to
