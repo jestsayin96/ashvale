@@ -36,11 +36,17 @@ with sync_playwright() as p:
     pg.evaluate("()=>window.__ash.fast(40)")
     day0 = pg.evaluate("()=>window.__ash.clock().mins")
     waited = 0
+    # Budget in GAME DAYS, with a wall-clock cap only as a backstop. Whether anyone
+    # happens to pick a destination beyond the town in a given day is chance, and
+    # c45's outings compete for the same "step outside" slot, so forages are rarer
+    # than they were. Three game-days was luck; eight is the mechanism.
     while waited < secs:
         pg.wait_for_timeout(5000); waited += 5
         e = pg.evaluate("()=>window.__ash.errands()")
         days = (pg.evaluate("()=>window.__ash.clock().mins") - day0) / 1440.0
         if e["far"] > 0 and e["done"] > 0 and w()["chunks"] > boot["chunks"]:
+            break
+        if days > 8:
             break
     days = (pg.evaluate("()=>window.__ash.clock().mins") - day0) / 1440.0
     print("ran    ", waited, "s =", round(days, 1), "game-days")

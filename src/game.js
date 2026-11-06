@@ -3205,8 +3205,23 @@ function mkBuilding(b){
   G.userData={building:b,walls,roof,inner,sill,wh,base,rh};
   return G;
 }
+/* A person is about 0.8 units tall against buildings of three or four. The scale
+   is right; the problem is that at the distance a watcher sits, 0.8 units is a few
+   pixels. So each person stands on a small disc that grows with camera distance -
+   the figure keeps its true size, and what reads from far away is the mark beneath
+   it. One geometry and one material per colour, shared across the whole town. */
+const DISCG=new THREE.CircleGeometry(0.30,14);
+const DISCM={};
+function discMat(col,op){
+  const k=col+'|'+op;
+  if(!DISCM[k]) DISCM[k]=new THREE.MeshBasicMaterial({color:col,transparent:true,
+    opacity:op,depthWrite:false});
+  return DISCM[k];
+}
+const FOLKS=1.25;                       // a little larger, still shorter than a door
 function mkFolk3(p3){
-  const G=new THREE.Group(), s=p3.age<ADULT?0.7:1;
+  const G=new THREE.Group(), s=(p3.age<ADULT?0.7:1)*FOLKS;
+
   const body=new THREE.Mesh(new THREE.BoxGeometry(0.30*s,0.40*s,0.22*s),
     new THREE.MeshStandardMaterial({color:hx(p3.top),roughness:0.9,metalness:0}));
   body.position.y=0.34*s; body.castShadow=true; G.add(body);
@@ -3227,7 +3242,16 @@ function mkFolk3(p3){
 function rebuildFolk(S){
   if(typeof SKINS!=='undefined') SKINS.clear();
   while(S.pG.children.length) S.pG.remove(S.pG.children[0]);
-  people.forEach(p3=>{ if(p3.dead) return; const m=mkFolk3(p3); p3.m3=m; S.pG.add(m); });
+  if(!S.dG){ S.dG=new THREE.Group(); S.scene.add(S.dG); }
+  while(S.dG.children.length) S.dG.remove(S.dG.children[0]);
+  people.forEach(p3=>{ if(p3.dead) return;
+    const m=mkFolk3(p3); p3.m3=m; S.pG.add(m);
+    /* The mark lives in its own layer, not on the figure: `updateSkins` hides a
+       person's whole procedural group the moment it gives them a real model, and
+       that is everyone near the camera. A disc parented to it was never drawn. */
+    const d=new THREE.Mesh(DISCG,discMat(0x14111f,0.34));
+    d.rotation.x=-Math.PI/2; p3.d3=d; S.dG.add(d);
+  });
   S.folk=people.length;
 }
 /* Swap the procedural cones for real trees, and scatter a few props, once the
@@ -3446,6 +3470,17 @@ function render3D(){
       const dx=b.x+b.w/2-S.tx, dz=b.y+b.d/2-S.tz;
       if(dx*dx+dz*dz<r2) autoOpen.add(b.id);
     } }
+  /* Worked out once a frame rather than once a person. */
+  const ovKey = overlay!=='none' ? overlay : null;
+  const ovCol = ({magic:0x8f6fe0,adv:0xc1483f,child:0xe3b64a,noble:0xd2c4a4,work:0x6fae5a})[overlay]||0xffffff;
+  const ovTest = !ovKey ? null : (overlay==='magic' ? (q=>!!q.gift)
+    : overlay==='adv'   ? (q=>!!q.adventurer)
+    : overlay==='child' ? (q=>q.age<ADULT)
+    : overlay==='noble' ? (q=>!!q.noble)
+    : overlay==='work'  ? (q=>!!(q.at&&q.work&&q.at===q.work))
+    : (()=>false));
+  // the mark grows as the camera pulls back, so a person stays findable
+  const discS=Math.max(1,Math.min(4.2,0.55+S.dist*0.045));
   const lamps=(hour>=18||hour<6);
   buildings.forEach(b=>{ const u=b.m3&&b.m3.userData; if(!u) return;
     const op=isOpen(b);
@@ -3468,7 +3503,30 @@ function render3D(){
     m.position.set(p3.x,H(p3.x|0,p3.y|0)*HU,p3.y);
     const bob=p3.moving?Math.abs(Math.sin((p3.f||0)*9))*0.045:0;
     m.userData.body.position.y=(0.34+bob)*m.userData.s;
-    m.rotation.y=p3===selected?tnow*1.6:0; });
+    m.rotation.y=p3===selected?tnow*1.6:0;
+    /* The rail's highlight filters only ever worked in the flat view. Here the disc
+       carries them: whoever matches is marked in the filter's own colour, everyone
+       else loses their mark, so the answer to "which of these is a child" is legible
+       from across the town. */
+  });
+  /* The marks, once per person and independent of whether they are a box or a
+     model. The rail's highlight filters only ever worked in the flat view; here
+     the disc carries them, so "which of these is a child" is answerable from
+     across the town. */
+  for(const q of people){
+    const d=q.d3; if(!d) continue;
+    const shown=!q.dead&&!q.away&&!(q.inside&&!isOpen(q.inside));
+    if(!shown){ d.visible=false; continue; }
+    if(ovKey&&!ovTest(q)){ d.visible=false; continue; }
+    d.visible=true;
+    d.position.set(q.x,H(q.x|0,q.y|0)*HU+0.03,q.y);
+    /* A filtered mark has to carry across a downscaled stream feed, so it is
+       bold and larger. The unfiltered one is a faint shadow that says "someone is
+       here" without turning the town into a field of dots. */
+    d.scale.setScalar(ovKey?discS*1.45:discS);
+    d.material = ovKey ? discMat(ovCol,0.82)
+      : (q===selected ? discMat(0xe3b64a,0.9) : discMat(0x14111f,0.34));
+  }
   const d3t=Math.max(0,Math.min(0.1,tnow-(S.last||tnow))); S.last=tnow;
   updateSkins(S,d3t);
   if(theAltar && tnow-(S.altarT||0)>0.55){ S.altarT=tnow;      // motes over the shrine

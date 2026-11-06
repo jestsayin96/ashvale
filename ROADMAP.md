@@ -1673,3 +1673,52 @@ The owner was right that the town looks empty, but the cause is not that people 
 indoors. At the distance he was watching, **people are simply very small** against
 KayKit buildings. That is a presentation problem — figure scale, outlines, or marking
 who is who — and it is the next thing to try, not more schedule tinkering.
+
+## Cycle 46 — a mark under every person, and the filters finally work in 3D
+
+c45 established that "I don't see any sims" was not about people being indoors. At
+the distance a watcher sits, a 0.8-unit figure against three-unit buildings is a few
+pixels. That is presentation.
+
+### What was done
+- **Figures are 1.25x larger**, still shorter than a door.
+- **Every person stands on a disc** that grows with camera distance
+  (`0.55 + dist*0.045`, capped at 4.2x). The figure keeps its true size; what reads
+  from far away is the mark beneath it. Faint — 0.34 opacity, near-black — so it says
+  "someone is here" without turning the town into a field of dots.
+- **The rail's highlight filters now work in 3D.** They had only ever affected the
+  flat view. Choose *Children* and every child's mark turns gold at 0.82 opacity and
+  1.45x size while everyone else's disappears; the question "which of these are
+  children" is now answerable from across the town. Same for the gifted, the guild,
+  the noble houses, and who is at work right now.
+
+### The bug that made the first attempt invisible
+The disc was a child of the person's group, which is the obvious place for it, and it
+never appeared once. `updateSkins` sets `p.m3.visible=false` the moment a person is
+given a real KayKit model — and that is everyone near the camera, which is everyone
+you would be looking at. The whole group goes dark, disc included.
+
+The marks live in their own layer now (`S.dG`), positioned per person each frame from
+the same "is this person shown at all" test the figures use. **Attaching something to
+an object another system owns the visibility of means that system decides whether you
+are drawn.**
+
+Checked rather than assumed: `snapshot()` builds each person's save record from named
+fields, so `p.d3` never reaches storage, exactly as `p.m3` never did.
+
+### Still ahead
+Camera (follow a villager, WASD and edge pan, presets), the director camera, events
+announcing themselves in the world, and the four kingdoms behind the world-scale
+terrain rules.
+
+### c46 addendum — the world probe was waiting on luck
+`world.py` failed with `started 7, done 7, far 0`: every forage completed, but in the
+2.7 game-days it allowed, nobody happened to pick a destination beyond the town.
+c45's outings compete for the same "step outside" slot, so forages are rarer than when
+the assertion was written. The budget is now **eight game-days** rather than a number
+of wall seconds, with the wall clock kept only as a backstop. It passes in 50 s with
+`far 7` and three people outside the town.
+
+Second time this week an assertion has quietly stopped meaning what it meant because
+the thing underneath it changed. **When behaviour changes, re-read the assertions that
+depended on the old behaviour** — they do not announce themselves.
