@@ -1775,3 +1775,47 @@ That is the third time this week, and the second time in one day, that an assert
 quietly stopped meaning what it meant. The threshold is a named constant now (`AUTOD`)
 and `folkSeen()` reports it, so the probe derives its camera distance from the game
 rather than from a figure typed in when the game behaved differently.
+
+## Cycle 48 — the director camera, and events that announce themselves
+
+For a stream nobody is tending, this is the difference between a screensaver and a
+programme: when something happens, the view goes and looks at it.
+
+### Events gained a place
+Every notable moment already wrote a line to the chronicle. `logMsg` now takes an
+optional `at`, and eleven of the thirty-eight calls got one: parties setting out and
+coming home (the guild), a delver falling and a boss killed and a floor reached first
+(the Keep's mouth), the breach and the guard who dies at it and the bounty paid
+(the east gate), a birth and a death of old age (that household's home), and somebody
+back from the country (wherever they are standing).
+
+An event with a place does two things: it throws a burst of colour at that spot — a
+tight column going up and a wider spray falling away, because one modest puff is not
+an announcement to somebody glancing at a stream — and it joins a short queue the
+director reads from.
+
+### The director defers to the watcher, entirely
+`directorTick` eases the camera to the newest scene and holds for nine seconds. It
+takes the camera **only** if nobody else has it: following somebody, panning, or any
+jump stands it down, and the rail toggle turns it off for good. A new scene arriving
+while the watcher is driving does not steal the view — it is simply not taken up.
+
+### Measured
+```
+event at 71,66   start 25.5   gaps 22.95 20.65 18.58 16.73 15.06 12.20
+after a key press   at: null   drift 0.00
+switched off        on: false  at: null
+```
+Convergence, not distance — eased per frame, and software rendering gives about 1.3
+frames a second. And the event is **forced directly** (`__ash.stage`), not by leaning
+on the probability in front of it, which is c35's lesson.
+
+### One boot failure worth recording
+`Cannot access 'director' before initialization`. The declaration sat beside
+`directorTick` near the end of the file, but `paintRail` reads `director` while
+drawing its toggle, and the rail is painted during boot — long before that line runs.
+Moved up with the other camera state. **A `let` is only in scope after its line has
+executed, and the UI runs earlier than you think.**
+
+### Still ahead
+The Keep has no follow or keyboard camera at all; c47 and c48 are both town-only.

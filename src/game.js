@@ -542,7 +542,7 @@ function formParty(){
   party.forEach(p=>{ p.away=true; p.run=run; p.hp=Math.max(p.hp,p.hpMax*0.8); });
   KEEP.runs.push(run);
   if(!activeRun) loadRun(run);
-  logMsg('<b>'+party.map(p=>p.name).join(', ')+'</b> set out for floor '+target+'.','');
+  logMsg('<b>'+party.map(p=>p.name).join(', ')+'</b> set out for floor '+target+'.','',AT(theGuild));
   return run;
 }
 function endRun(run,ok){
@@ -562,8 +562,9 @@ function endRun(run,ok){
   KEEP.history.unshift({floor:run.floor-1, loot:run.loot, ok,
     who:run.party.map(p=>p.name), day});
   if(KEEP.history.length>12) KEEP.history.pop();
-  if(run.loot>0) logMsg('The party came back from floor '+(run.floor-1)+' with <b>'+run.loot+' gold</b>.','g');
-  else logMsg('The party came back from the Keep empty-handed.','');
+  if(run.loot>0) logMsg('The party came back from floor '+(run.floor-1)+' with <b>'+run.loot+
+    ' gold</b>.','g',AT(theGuild));
+  else logMsg('The party came back from the Keep empty-handed.','',AT(theGuild));
   KEEP.runs.splice(KEEP.runs.indexOf(run),1);
 }
 /* The chronicle scrolls away in seconds. The annals keep what a town would actually
@@ -751,7 +752,8 @@ function foraged(p){
   const n=needsOf(p);
   n.cheer=clamp01(n.cheer-0.18); n.rest=clamp01(n.rest+0.10);
   n.company=clamp01(n.company+0.06); n.spirit=clamp01(n.spirit-0.05);
-  if(rnd()<0.25) logMsg('<b>'+p.name+'</b> came in from the country with '+g+' gold.','');
+  if(rnd()<0.25) logMsg('<b>'+p.name+'</b> came in from the country with '+g+
+    ' gold.','',[p.x,p.y]);
 }
 
 /* ===================== what a person wants =====================
@@ -931,11 +933,33 @@ function bondList(p){
     (l.length>3?l.slice(-2).filter(e=>e[1]<-0.12).map(row).join(''):'');
 }
 
-function logMsg(t,cls){
+/* ===================== things that happen somewhere =====================
+   Every notable moment already wrote a line to the chronicle. For a watcher - and
+   above all for somebody watching a stream, who cannot click a villager or open a
+   panel - a line of text scrolling past in a column is not the same as seeing it.
+   An event with a PLACE throws a burst of colour at that spot and joins a short
+   queue the director camera reads from. */
+const SCENES=[];
+const SCENECOL={d:'#e59a93', g:'#e3c77a', m:'#bda3f0', '':'#cfc6e0'};
+function logMsg(t,cls,at){
   LOGS.unshift('<div class="'+(cls||'')+'">'+t+'</div>');
   if(LOGS.length>9) LOGS.pop();
-  document.getElementById('logList').innerHTML=LOGS.join('');
+  const el=document.getElementById('logList'); if(el) el.innerHTML=LOGS.join('');
+  if(at&&inB(at[0]|0,at[1]|0)){
+    SCENES.unshift({x:at[0], y:at[1], t:tnow, cls:cls||'', txt:t});
+    if(SCENES.length>6) SCENES.pop();
+    /* Two bursts: a tight column that goes up, and a wider spray that falls away.
+       One modest puff of particles is not an announcement - a viewer glancing at a
+       stream has to catch it without reading anything. */
+    try{
+      const col=SCENECOL[cls||'']||'#cfc6e0', base=H(at[0]|0,at[1]|0)*HU+0.5;
+      fxBurst(at[0], at[1], col, 16, 0.22, 5.2, base);
+      fxBurst(at[0], at[1], col, 22, 1.5,  2.2, base);
+    }catch(e){}
+  }
 }
+const AT=b=>b?[b.x+b.w/2, b.y+b.d/2]:null;
+const MOUTH=()=>[tx0(47.5), ty0(19.5)];     // where the Keep opens at the ridge
 const LOGS=[];
 /* the opening line is written at boot, once we know whether a town was picked up */
 
@@ -1422,6 +1446,10 @@ function stepFloor(run,dt){
 /* ===================== camera & drawing ===================== */
 const cv=document.getElementById('view'), g=cv.getContext('2d');
 let camX=0,camY=0,zoom=1.1,CW=0,CH=0,dpr=1,rot=0,follow=null,selected=null,tnow=0;
+/* Declared here rather than beside directorTick: paintRail reads `director` while
+   drawing its toggle, and the rail is painted during boot, long before the camera
+   code further down has run. */
+let director=true, dirSeen=-1, dirUntil=0, dirAt=null;
 let scene='town', GS=N;
 let v3d=false, R3=null, cv3=null;
 const camSave={town:null,keep:null};                                   // grid size of whatever scene is on screen
@@ -2045,7 +2073,7 @@ function tick(ts){
             roll=power+ri(0,14)-danger;
       if(roll<-7){ const v=pick(r.party); v.hp-=ri(4,11);
         if(v.hp<=0){ v.hp=0; v.away=false; r.party.splice(r.party.indexOf(v),1); KEEP.lost++;
-          logMsg('<b>'+v.name+' '+v.last+'</b> fell on floor '+r.floor+'.','d');
+          logMsg('<b>'+v.name+' '+v.last+'</b> fell on floor '+r.floor+'.','d',MOUTH());
           r.lostAny=true; bondLoss(r.party.concat([v]), v);
           bereave(v,'fell on floor '+r.floor); }
         endRun(r,false); return; }
@@ -2055,7 +2083,7 @@ function tick(ts){
         const power=partyPower(r.party);
         if(power < 14+r.floor*2.1){ endRun(r,false);
           logMsg('<b>'+bz[1]+'</b> drove the party back off floor '+r.floor+'.','d'); return; }
-        logMsg('<b>'+bz[1]+'</b> was killed on floor '+r.floor+'.','g');
+        logMsg('<b>'+bz[1]+'</b> was killed on floor '+r.floor+'.','g',MOUTH());
         r.party.forEach(q=>{ const rl=grantRelic(q,r.floor);
           if(rl) logMsg('<b>'+q.name+'</b> took the '+rl.n+'.','m'); });
         r.loot+=Math.round(r.floor*9+40);
@@ -2063,7 +2091,7 @@ function tick(ts){
       r.loot+=Math.round(r.floor*2.2+ri(0,14));
       KEEP.cleared.add(r.floor);
       if(r.floor>KEEP.deepest){ KEEP.deepest=r.floor;
-        logMsg('Floor <b>'+r.floor+'</b> reached for the first time.','g'); }
+        logMsg('Floor <b>'+r.floor+'</b> reached for the first time.','g',MOUTH()); }
       r.party.forEach(p=>{ p.xp+=4+r.floor*0.35;
         while(p.xp>=p.lvl*60){ p.xp-=p.lvl*60; p.lvl++; p.hpMax+=3; p.hp=p.hpMax; } });
       r.floor++;
@@ -2258,7 +2286,7 @@ function openBreach(){
         hp, hpMax:hp, dmg:1.1+f*0.17, floor:f, t:0, took:0,
         x:theGate.x+theGate.w/2, y:theGate.y+theGate.d+0.6 };
   dstir=Math.max(0,dstir-1);                  // it came up; that much pressure is spent
-  logMsg('<b>'+foe.name+'</b> came up the stairs and out the east gate.','d');
+  logMsg('<b>'+foe.name+'</b> came up the stairs and out the east gate.','d',AT(theGate));
   annal('breach','<b>'+foe.name+'</b> broke out of the Keep.');
   snd('boss',1.2);
   fxWord(foe.x, foe.y, foe.name, '#ff8a5a', H(foe.x|0,foe.y|0)*HU);
@@ -2284,13 +2312,14 @@ function foeStep(dt){
   const v=pick(def);
   v.hp-=foe.dmg*(0.6+rnd()*0.8);
   if(v.hp<=0){
-    logMsg('<b>'+v.name+' '+v.last+'</b> was killed at the gate by '+foe.name+'.','d');
+    logMsg('<b>'+v.name+' '+v.last+'</b> was killed at the gate by '+foe.name+'.','d',AT(theGate));
     bereave(v,'was killed at the east gate by '+foe.name);
     snd('die',1);
   } else { v.bubble='fight'; v.bubbleT=4; }
   if(foe.hp<=0){
     const bounty=Math.round(foe.floor*6+30); ECON.treasury+=bounty;
-    logMsg('<b>'+foe.name+'</b> was put down at the gate. <b>'+bounty+' gold</b> in bounty.','g');
+    logMsg('<b>'+foe.name+'</b> was put down at the gate. <b>'+bounty+
+      ' gold</b> in bounty.','g',AT(theGate));
     annal('breach','<b>'+foe.name+'</b> was put down at the east gate.');
     fxWord(foe.x,foe.y,foe.name+' is dead','#ffcf7a',H(foe.x|0,foe.y|0)*HU);
     snd('cleared',0.9);
@@ -2350,7 +2379,7 @@ function birthdays(){
     }
     // the old go quietly, and more often the older they are
     if(p.age>62 && rnd() < (p.age-62)*0.035){
-      logMsg('<b>'+p.name+' '+p.last+'</b> died at '+p.age+'.','d');
+      logMsg('<b>'+p.name+' '+p.last+'</b> died at '+p.age+'.','d',AT(p.home));
       bereave(p,'died of old age');
     }
   });
@@ -2397,7 +2426,8 @@ function births(){
   mum.kids.push(kid); dad.kids.push(kid);
   if(mum.home) mum.home.residents.push(kid);
   kid.x=mum.x; kid.y=mum.y; kid.tx=kid.x; kid.ty=kid.y;
-  logMsg('<b>'+kid.name+' '+kid.last+'</b> was born to '+mum.name+' and '+dad.name+'.','g');
+  logMsg('<b>'+kid.name+' '+kid.last+'</b> was born to '+mum.name+' and '+dad.name+
+    '.','g',AT(mum.home));
   annal('born','<b>'+kid.name+' '+kid.last+'</b> born to '+mum.name+' and '+dad.name+'.');
   remember(mum,'born','<b>'+kid.name+'</b> was born.');
   remember(dad,'born','<b>'+kid.name+'</b> was born.');
@@ -2626,6 +2656,8 @@ function paintRail(){
       '<button class="cbtn wide" data-cam="market">Market</button></div>'+
     '<div class="camrow"><button class="cbtn wide" data-cam="mouth">The mouth</button>'+
       '<button class="cbtn wide" data-cam="follow">Follow</button></div>'+
+    '<div class="camrow"><button class="cbtn wide'+(director?' on':'')+'" data-cam="dir">'+
+      (director?'Director on':'Director off')+'</button></div>'+
     '<div class="camrow"><button class="cbtn wide" data-cam="c">Re-centre</button>'+
       ((scene==='town'||v3d)?'<button class="cbtn wide" data-cam="keep">East gate</button>':'')+'</div>'+
     (v3d
@@ -2706,6 +2738,8 @@ function paintRail(){
     const a=b.dataset.cam;
     if(CAMSPOT[a]){ camJump(a); paintRail(); return; }
     if(a==='follow'){ startFollow(follow?null:selected); paintRail(); return; }
+    if(a==='dir'){ director=!director; if(!director) dirAt=null;
+      else { userPanned=false; follow=null; } paintRail(); return; }
     const V=v3d&&(scene==='keep'?K3:R3);
     if(V){
       if(a==='l') V.th-=Math.PI/6; else if(a==='r') V.th+=Math.PI/6;
@@ -3551,6 +3585,7 @@ function render3D(){
     S.tz+=(follow.y-S.tz)*k;
     S.ty+=(H(follow.x|0,follow.y|0)*HU+0.6-S.ty)*k;
   }
+  directorTick(S,d3t);
   camDrive(S,d3t);
   const cx=S.tx+Math.cos(S.th)*Math.cos(S.ph)*S.dist;
   const cy=S.ty+Math.sin(S.ph)*S.dist;
@@ -4505,6 +4540,27 @@ addEventListener('keydown',e=>{
 });
 /* Places worth looking at, by name. The flat view and the 3D view both answer
    to these, which is why they are coordinates rather than camera states. */
+/* ===================== the director =====================
+   For a stream nobody is tending, this is the difference between a screensaver and
+   a programme: when something happens, the view goes and looks at it. It defers to
+   the watcher entirely - following somebody, panning, or any jump turns it off for
+   that moment, and the toggle turns it off for good. */
+const DIRHOLD=9;                      // seconds to dwell on a scene before letting go
+function directorTick(S,dt){
+  if(!director||scene==='keep'){ dirAt=null; return; }
+  const e=SCENES[0];
+  if(e && e.t!==dirSeen){
+    dirSeen=e.t;
+    // a new scene reclaims the camera only if the watcher is not holding it
+    if(!follow&&!userPanned){ dirAt=[e.x,e.y]; dirUntil=tnow+DIRHOLD; }
+  }
+  if(follow||userPanned){ dirAt=null; return; }
+  if(!dirAt||tnow>dirUntil){ dirAt=null; return; }
+  const k=Math.min(1,dt*2.0);
+  S.tx+=(dirAt[0]-S.tx)*k;
+  S.tz+=(dirAt[1]-S.tz)*k;
+  S.dist+=(30-S.dist)*k*0.6;
+}
 const CAMSPOT={ home:[26,23,34], plaza:[24,19,20], market:[25,25,20],
   mouth:[47,19,22], gate:[43,19,24] };
 /* Taking up with somebody also pulls the camera in. Following from across the
@@ -4613,6 +4669,11 @@ window.__ash={
   cam(){ const S=R3; return S?{tx:+S.tx.toFixed(2),tz:+S.tz.toFixed(2),
     dist:+S.dist.toFixed(1),th:+S.th.toFixed(3),follow:follow?follow.id:null}:null; },
   jump(k){ camJump(k); return this.cam(); },
+  /* Force the event itself, not the probability in front of it. */
+  stage(x,y){ logMsg('<b>A thing happened</b> here.','g',[tx0(x),ty0(y)]);
+    return {x:tx0(x), y:ty0(y), scenes:SCENES.length}; },
+  director(v){ if(v!==undefined){ director=!!v; if(director){ userPanned=false; follow=null; } }
+    return {on:director, at:dirAt?dirAt.slice():null, scenes:SCENES.length}; },
   /* Somebody currently on their feet, so "does the camera keep up" is a question
      about a moving target rather than a stationary one. */
   walker(){ const p=people.find(q=>!q.dead&&!q.away&&q.moving&&!q.inside);
