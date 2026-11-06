@@ -50,6 +50,24 @@ with sync_playwright() as p:
     w, h = flat_size()
     if w < 900 or h < 500:
         errs.append(f"flat Keep canvas collapsed to {w}x{h}")
+
+    # The town must survive a reload. Pause first so the clock cannot drift between
+    # the snapshot and the comparison.
+    pg.click("[data-sp='0']"); pg.wait_for_timeout(400)
+    pg.evaluate("()=>document.dispatchEvent(new Event('visibilitychange'))")
+    pg.wait_for_timeout(300)
+    keys = ["sPop", "sGold", "sFloor"]
+    before = {k: pg.inner_text("#" + k) for k in keys}
+    saved = pg.evaluate("()=>{try{return localStorage.getItem('ashvale.save.v1');}"
+                        "catch(e){return null;}}")
+    if not saved:
+        errs.append("nothing was written to localStorage")
+    else:
+        pg.reload(); pg.wait_for_timeout(2500)
+        pg.click("[data-sp='0']"); pg.wait_for_timeout(400)
+        after = {k: pg.inner_text("#" + k) for k in keys}
+        if before != after:
+            errs.append(f"the town did not survive a reload: {before} -> {after}")
     b.close()
 
 print("stats", stats)

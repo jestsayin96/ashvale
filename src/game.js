@@ -411,7 +411,7 @@ function logMsg(t,cls){
   document.getElementById('logList').innerHTML=LOGS.join('');
 }
 const LOGS=[];
-logMsg('Ashvale wakes. '+people.length+' souls, and the Keep still open.','');
+/* the opening line is written at boot, once we know whether a town was picked up */
 
 /* ===================== coin, trade and the vault ===================== */
 const ECON={ treasury:0, taxed:0, traded:0, wages:0, deposits:0, day:0 };
@@ -1457,6 +1457,7 @@ function newDay(){
   marketDay();
   storyDay();
   ECON.day=day;
+  saveGame('day');
 }
 
 /* ===================== seasons, events and generations =====================
@@ -1596,6 +1597,110 @@ function births(){
   logMsg('<b>'+kid.name+' '+kid.last+'</b> was born to '+mum.name+' and '+dad.name+'.','g');
 }
 
+/* ===================== saving the town =====================
+   The map, the buildings and their layouts all come from a fixed seed, so none of that
+   needs storing - only what has happened since. Everything here is best-effort: storage
+   throws in a private window, comes back empty when site data is cleared, and is per
+   viewer per browser. A failed save is logged once and never blocks the sim. */
+const SAVEKEY='ashvale.save.v1', SAVEVER=1;
+let saveWarned=false, lastSave=0;
+
+function store(){                           // may throw, may not exist at all
+  try{ const s=window.localStorage; s.getItem(SAVEKEY); return s; }catch(e){ return null; }
+}
+const bid=b=>b?b.id:0;
+const pid_=p=>p?p.id:0;
+
+function snapshot(){
+  return {
+    v:SAVEVER, sd, day, hour, minute, seasonI, yearN, weather, dstir, lastEvent, pid,
+    econ:Object.assign({},ECON),
+    keep:{ deepest:KEEP.deepest, lost:KEEP.lost, gold:KEEP.gold,
+           cleared:[...KEEP.cleared], history:KEEP.history.slice(0,12) },
+    tills:buildings.map(b=>b.till||0),
+    logs:LOGS.slice(0,9),
+    people:people.map(p=>({
+      i:p.id, n:p.name, l:p.last, s:p.sex, a:p.age,
+      sk:p.skin, hr:p.hair, tp:p.top,
+      g:p.gold, sv:p.savings||0, hm:p.hpMax, h:p.hp, lv:p.lvl, xp:p.xp,
+      tr:p.trade||'', gi:p.gift||null, ge:p.gear||[],
+      rl:p.relics||null, rd:p.relicDmg||0,
+      f:(p.child?1:0)|(p.adventurer?2:0)|(p.noble?4:0)|(p.guard?8:0)|(p.widowed?16:0),
+      x:Math.round(p.x*100)/100, y:Math.round(p.y*100)/100,
+      ho:bid(p.home), wk:bid(p.work), sp:pid_(p.spouse),
+      kd:(p.kids||[]).map(pid_), pa:(p.parents||[]).map(pid_)
+    }))
+  };
+}
+
+function saveGame(why){
+  const s=store(); if(!s) return false;
+  try{
+    s.setItem(SAVEKEY, JSON.stringify(snapshot()));
+    lastSave=day; return true;
+  }catch(e){
+    if(!saveWarned){ saveWarned=true;
+      logMsg('This browser will not keep a saved town (storage is blocked or full). '+
+             'The sim runs normally, it just will not survive a reload.','d'); }
+    return false;
+  }
+}
+
+function loadGame(){
+  const s=store(); if(!s) return false;
+  let d; try{ const raw=s.getItem(SAVEKEY); if(!raw) return false; d=JSON.parse(raw); }
+  catch(e){ return false; }
+  if(!d||d.v!==SAVEVER||!Array.isArray(d.people)||!d.people.length) return false;
+  try{
+    sd=d.sd|0; day=d.day|0||1; hour=d.hour|0; minute=+d.minute||0;
+    seasonI=Math.max(0,Math.min(3,d.seasonI|0)); yearN=d.yearN|0||1;
+    weather=d.weather||'fair'; dstir=d.dstir|0; lastEvent=d.lastEvent|0; pid=d.pid|0||1;
+    Object.assign(ECON, d.econ||{});
+    KEEP.deepest=d.keep.deepest|0; KEEP.lost=d.keep.lost|0; KEEP.gold=d.keep.gold|0;
+    KEEP.cleared=new Set(d.keep.cleared||[]); KEEP.history=d.keep.history||[];
+    KEEP.runs.length=0; activeRun=null;
+    buildings.forEach((b,i)=>{ b.till=(d.tills&&d.tills[i])||0;
+      b.staff.length=0; b.residents.length=0; });
+    people.length=0;
+    const byId=new Map();
+    d.people.forEach(r=>{
+      const p={ id:r.i, name:r.n, last:r.l, sex:r.s, age:r.a|0,
+        skin:r.sk, hair:r.hr, top:r.tp,
+        gold:r.g|0, savings:r.sv|0, hpMax:r.hm|0||10, hp:r.h|0||1, lvl:r.lv|0||1, xp:r.xp|0,
+        trade:r.tr, gift:r.gi, gear:r.ge||[], relics:r.rl||null, relicDmg:r.rd||0,
+        child:!!(r.f&1), adventurer:!!(r.f&2), noble:!!(r.f&4),
+        guard:!!(r.f&8), widowed:!!(r.f&16),
+        x:r.x, y:r.y, tx:r.x, ty:r.y, path:null, moving:false, fld:null, f:0,
+        goal:null, at:null, inside:null, away:false, run:null,
+        spouse:null, kids:[], parents:[], bubble:'', bubbleT:0, log:[],
+        home:null, work:null, _ho:r.ho, _wk:r.wk, _sp:r.sp, _kd:r.kd||[], _pa:r.pa||[] };
+      people.push(p); byId.set(p.id,p);
+    });
+    const bById=new Map(buildings.map(b=>[b.id,b]));
+    people.forEach(p=>{
+      p.home=bById.get(p._ho)||null; p.work=bById.get(p._wk)||null;
+      p.spouse=byId.get(p._sp)||null;
+      p.kids=p._kd.map(i=>byId.get(i)).filter(Boolean);
+      p.parents=p._pa.map(i=>byId.get(i)).filter(Boolean);
+      if(p.home) p.home.residents.push(p);
+      if(p.work) p.work.staff.push(p);
+      delete p._ho; delete p._wk; delete p._sp; delete p._kd; delete p._pa;
+    });
+    // a spouse who did not survive the round trip leaves a widow, not a dangling link
+    people.forEach(p=>{ if(p.spouse&&p.spouse.spouse!==p){ p.spouse=null; p.widowed=true; } });
+    LOGS.length=0; (d.logs||[]).forEach(l=>LOGS.push(l));
+    applySeason();
+    return true;
+  }catch(e){ return false; }
+}
+
+function wipeSave(){
+  const s=store(); if(!s) return;
+  try{ s.removeItem(SAVEKEY); }catch(e){}
+}
+const hasSave=()=>{ const s=store(); if(!s) return false;
+  try{ return !!s.getItem(SAVEKEY); }catch(e){ return false; } };
+
 /* ===================== UI ===================== */
 const railEl=document.getElementById('rail');
 const OVERLAYS=[['none','Nobody highlighted','#6f6a86'],['magic','The gifted','#8f6fe0'],
@@ -1655,11 +1760,12 @@ function paintRail(){
           'Put them all back</button>'+
         '<div class="tiny">Or click any building to open just that one.</div>')+
       grp('places','k','Places',
-        [['guild','Adventurers\u2019 Guild'],['hall','Town Hall'],['school','Schoolhouse'],
+        '<div class="places">'+
+        [['guild','Guild'],['hall','Town Hall'],['school','School'],
          ['bank','Vault'],['guard','Barracks'],['altar','Altar'],
-         ['tavern','The Bent Lantern'],['rose','The Rosehouse']]
+         ['tavern','Tavern'],['rose','Rosehouse']]
         .map(([k,n])=>'<button class="tool" data-go="'+k+'"><span class="c" style="background:'+
-          BK[k].roof+'"></span>'+n+'</button>').join('')+
+          BK[k].roof+'"></span>'+n+'</button>').join('')+'</div>'+
         '<div class="tiny">Five shops line the market street, one family to each.</div>');
   }
   railEl.querySelectorAll('[data-grp] h4').forEach(h=>h.onclick=()=>{
@@ -3079,6 +3185,27 @@ setTimeout(()=>{const h2=document.getElementById('hint');
 wire3D();
 (function(){ const b3=document.getElementById('sc3D');
   if(b3) b3.onclick=()=>set3D(!v3d); })();
+/* Pick the town back up if this browser has one. Everything in loadGame is guarded;
+   a corrupt or stale save simply starts a fresh town rather than breaking the page. */
+if(loadGame()){
+  logMsg('Picked up where you left off \u00b7 day '+day+', '+season().n+' of year '+yearN+
+         ' \u00b7 '+people.length+' souls.','g');
+} else {
+  logMsg('Ashvale wakes. '+people.length+' souls, and the Keep still open.','');
+}
+(function(){
+  const nb=document.getElementById('newTown'); if(!nb) return;
+  let armed=0;
+  nb.onclick=()=>{
+    if(!armed){ armed=1; nb.textContent='Sure? This erases it'; nb.classList.add('on');
+      setTimeout(()=>{ if(armed){ armed=0; nb.textContent='New town'; nb.classList.remove('on'); } },4000);
+      return; }
+    wipeSave(); location.reload();
+  };
+})();
+addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') saveGame('hide'); });
+addEventListener('pagehide',()=>saveGame('hide'));
+
 paintConsole();
 /* 3D is the view this is built around now; the flat view stays as the map you can
    drop back to, and is also where a browser with no WebGL lands. */

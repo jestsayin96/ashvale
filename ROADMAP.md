@@ -288,3 +288,47 @@ is at least 900x500** after a trip through 3D, in both the town and the Keep.
 Verified by removing the fix and re-running: the suite fails with
 `flat canvas collapsed to 280x200 after a trip through 3D`. Put the guard in before
 trusting it — an assertion never seen to fail is not a test.
+
+## Cycle 19 — the town persists, and the chrome stops shouting (shipped)
+
+### Save/load
+The map, the buildings and their layouts all come from a fixed seed, so none of that is
+stored — only what has happened since. `snapshot()` writes people (scalars plus id refs
+for home/work/spouse/kids/parents), ECON, KEEP, the tills, the clock, season, year,
+`dstir`, `pid` and the RNG seed. `loadGame()` rebuilds `people` and relinks every
+reference by id; `b.residents` and `b.staff` are rebuilt from the people rather than
+stored twice. A spouse that did not survive the round trip leaves a widow, not a
+dangling link. ~20 KB for a 69-soul town.
+
+Everything is best-effort: `store()` returns null rather than throwing where storage is
+blocked, a failed write logs once and never blocks the sim, and a corrupt or stale save
+starts a fresh town instead of breaking the page. Autosaves once an in-game day and on
+`visibilitychange`/`pagehide`. **New town** in the header wipes it, with a confirm step.
+
+### The GUI
+Counted the components and found the actual problem: `.stat`, `.sbtn`, `.seg`, `.tool`,
+`.cbtn`, `.cbtns button`, `.tag`, `.party` and `#log` were **nine different things all
+drawn as "rounded rectangle, panel2 fill, edge stroke."** Nothing was louder than
+anything else, so the eye had nowhere to land. Not a palette problem.
+
+The rule now: **a frame means you can click it.** Readouts lost their boxes and became
+type — the header stats are a figure and the word for it, the way a ledger sets columns.
+Rail items are rows that get a fill on hover. Only buttons and the segmented controls
+keep a border. Also:
+- the header is `flex-wrap:nowrap` and no longer drops the speed controls onto a second row
+- the rail is masked at the foot so a cut-off item reads as "more below", and the eight
+  place names are paired into two columns, which took the rail from 110px of overflow at
+  1440x900 to none
+- the chronicle sits over a bright green afternoon or a black corridor, so it needs a
+  backdrop — a blurred dark wash with one gold rule, not a sixth competing card
+
+**CSS slice hazard, the same shape as the Python one:** replacing
+`css[css.index(A):css.index(B)]` silently swallowed the `#log h4` rules that lived
+between the two anchors, which un-styled the chronicle's heading. Check what is actually
+*inside* a range before replacing it, not just that both anchors exist.
+
+### Tests
+`shot.py` now pauses, saves, reloads and asserts pop/gold/floor are unchanged. Verified
+by forcing `loadGame` to bail and confirming the suite fails with
+`the town did not survive a reload`. Both guards added this session were seen to fail
+before being trusted.
