@@ -42,6 +42,17 @@
     <canvas id="fx"></canvas>
     <div class="float" id="hint"><b>Click anyone</b> for their life: family, trade, gift, gear and coin. Click a building for who works there. Drag to pan, scroll to zoom.</div>
     <div class="float" id="log"><h4 id="logHead">The Ashvale Chronicle<span>hide</span></h4>
+      <section class="now" id="now" aria-live="polite">
+        <div class="now-kicker">Right now</div>
+        <p class="now-beat" id="nowBeat">Ashvale is waking.</p>
+        <p class="now-meta" id="nowMeta">Day 1 &middot; dawn</p>
+        <ul class="now-vitals" id="nowVitals">
+          <li><b id="nowPop">0</b> souls</li>
+          <li><b id="nowGold">0</b> gold</li>
+          <li><b id="nowGift">0</b> gifted</li>
+          <li><b id="nowFloor">0</b> deepest</li>
+        </ul>
+      </section>
       <div id="logList"></div></div>
 
     <aside class="panel" id="who">
@@ -74,7 +85,14 @@
 
   <div id="console">
     <div class="who">
-      <canvas id="portrait" width="120" height="120"></canvas>
+      <div class="badge town" id="badge" title="Ashvale">
+        <div class="badge-mark" aria-hidden="true">
+          <span class="badge-gem"></span>
+          <span class="badge-keep"></span>
+          <span class="badge-letter">A</span>
+        </div>
+        <canvas id="portrait" width="120" height="120"></canvas>
+      </div>
       <div style="min-width:0">
         <h3 id="selName">Ashvale</h3>
         <p id="selSub">A town of twenty-odd families, and the hole in the ground that feeds it.</p>
@@ -90,5 +108,90 @@
 <script src="vendor/three.bundle.js"></script>
 <script src="vendor/music.bundle.js"></script>
 <script src="src/game.js"></script>
+<script>
+/* DOM layer only: standing chronicle beat + town badge crest.
+   Reads nodes the sim already paints; does not touch game.js. */
+(function(){
+  const clock=document.getElementById('sClock');
+  const pop=document.getElementById('sPop');
+  const gold=document.getElementById('sGold');
+  const gift=document.getElementById('sMagic');
+  const floor=document.getElementById('sFloor');
+  const beat=document.getElementById('nowBeat');
+  const meta=document.getElementById('nowMeta');
+  const nowPop=document.getElementById('nowPop');
+  const nowGold=document.getElementById('nowGold');
+  const nowGift=document.getElementById('nowGift');
+  const nowFloor=document.getElementById('nowFloor');
+  const badge=document.getElementById('badge');
+  const selName=document.getElementById('selName');
+  if(!clock||!beat||!meta||!badge||!selName) return;
+
+  function hourBeat(h){
+    if(h<6||h>=22) return {
+      line:'The town is asleep. Windows dark, streets empty.',
+      when:'deep night'
+    };
+    if(h<8) return {
+      line:'Ashvale is stirring. Kitchens first, then the doors.',
+      when:'dawn'
+    };
+    if(h<12) return {
+      line:'Morning work. Shops open, the guild gathers for the Keep.',
+      when:'morning'
+    };
+    if(h<13) return {
+      line:'Midday. Some peel off to the tavern; most stay at their trade.',
+      when:'noon'
+    };
+    if(h<17) return {
+      line:'Afternoon labour. A few with no work head into the country.',
+      when:'afternoon'
+    };
+    if(h<20) return {
+      line:'Evening out. Children free of school; grown folk choosing company.',
+      when:'evening'
+    };
+    return {
+      line:'Turning in. Lamps on, streets thinning toward home.',
+      when:'nightfall'
+    };
+  }
+
+  function paintNow(){
+    const t=clock.textContent||'';
+    const m=/Day\s+(\d+).*?\b(\d{1,2}):(\d{2})\b/.exec(t);
+    const day=m?m[1]:'1';
+    const h=m?+m[2]:6;
+    const season=(/·\s*([a-z]+)\s+y/i.exec(t)||[])[1];
+    const b=hourBeat(h);
+    beat.textContent=b.line;
+    meta.textContent='Day '+day+(season?' · '+season:'')+' · '+b.when;
+    if(nowPop&&pop) nowPop.textContent=pop.textContent||'0';
+    if(nowGold&&gold) nowGold.textContent=gold.textContent||'0';
+    if(nowGift&&gift) nowGift.textContent=gift.textContent||'0';
+    if(nowFloor&&floor) nowFloor.textContent=floor.textContent||'0';
+  }
+
+  function paintBadge(){
+    /* Town idle used to be a faint canvas diamond. Crest covers that only.
+       Person faces and the Keep torch stay on the canvas. */
+    const isTown=(selName.textContent||'').trim()==='Ashvale';
+    badge.classList.toggle('town', isTown);
+    badge.classList.toggle('person', !isTown);
+  }
+
+  function boot(){
+    paintNow();
+    paintBadge();
+    const opts={characterData:true,childList:true,subtree:true};
+    new MutationObserver(paintNow).observe(clock,opts);
+    [pop,gold,gift,floor].forEach(el=>{ if(el) new MutationObserver(paintNow).observe(el,opts); });
+    new MutationObserver(paintBadge).observe(selName,opts);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
+  else boot();
+})();
+</script>
 </body>
 </html>
