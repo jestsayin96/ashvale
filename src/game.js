@@ -5,10 +5,8 @@
    places it at the centre of N so there is land in every direction to walk into. Every
    call site of I(x,y) and inB(x,y) is untouched by this — that was the whole point of
    choosing a larger fixed grid over a coordinate-keyed chunk map (see ROADMAP c36). */
-/* Four kingdoms on the corners of a 260-tile square centred on the map, each the
-   52x52 that Ashvale's PLAN is authored at. 130 tiles between a kingdom and the
-   dungeons out near the edges is about two days' walk at the 65 tiles/day measured
-   in c37.
+/* Four kingdoms on the corners of a KSQ-tile square centred on the map, each the
+   52x52 that Ashvale's PLAN is authored at.
 
    c49, at the owner's instruction: take an RTS map as the reference, not a
    continent. N=364 put the neighbouring capital 260 tiles away - four days on
@@ -24,6 +22,7 @@
    of open country apart - a day and a half on foot, under a day by road - and the
    far corner is 202, about three days. The map holds 61,009 cells instead of
    132,496. */
+const TOWN=52, KSQ=143, N=247, TW=32, TH=16, HZ=10;
 const KINGDOM=[
   {k:0, x0:(N-KSQ)/2-TOWN/2|0,       y0:(N-KSQ)/2-TOWN/2|0      },
   {k:1, x0:(N+KSQ)/2-TOWN/2|0,       y0:(N-KSQ)/2-TOWN/2|0      },
