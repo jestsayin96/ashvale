@@ -49,6 +49,35 @@ time as if it were new.
 
 ---
 
+# Working alongside another assistant
+
+Mr. E runs a second assistant (Cursor, which can read the repo; previously Grok,
+which could not) on the UI in parallel. Two agents pushing to one repo collide, so
+the split is **by file, not by task**:
+
+| | files |
+|---|---|
+| **The other assistant** | `src/style.css`, `index.html` |
+| **This loop** | `src/game.js`, `tools/`, `ROADMAP.md`, `REVIEW.md`, `package.json` |
+
+**`git pull --rebase` at the start of every cycle**, before anything else. Their
+work lands between cycles and will otherwise be clobbered or conflict.
+
+Two things any outside assistant has to be told, because both have been got wrong:
+
+- **The marks under people are WebGL, not DOM.** `.mark` and `.ground-mark` match
+  nothing. Anything about how a person is marked on the ground belongs to this
+  loop, in `game.js`.
+- **The rail is painted by JS.** `.grp`, `.tiny`, `.camrow` exist only at runtime
+  and will not be found by grepping `index.html`. A rule written against a class
+  that does not exist — Grok's `.keep-open` — silently matches everything or
+  nothing. Verify the selector is real before styling it.
+
+Their CSS is **merged, never pasted over**. Grok's first pass dropped ~50 selectors
+including `.float`; diff the selector lists before applying anything.
+
+---
+
 # The register
 
 ### Open
