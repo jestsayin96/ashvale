@@ -94,5 +94,17 @@
     "staff_idle": "Idle",
     "staff_attack": "Spellcast_Shoot",
     "staff_cast": "Spellcast_Shoot"
+  },
+  "dungeon": {
+    "chest": "kay/dungeon/chest.glb",
+    "chest_gold": "kay/dungeon/chest_gold.glb",
+    "torch": "kay/dungeon/torch.glb",
+    "pillar": "kay/dungeon/pillar.glb",
+    "barrel": "kay/dungeon/barrel.glb",
+    "crates": "kay/dungeon/crates.glb",
+    "rubble": "kay/dungeon/rubble.glb",
+    "coins": "kay/dungeon/coins.glb",
+    "table": "kay/dungeon/table.glb",
+    "stairs": "kay/dungeon/stairs.glb"
   }
 }

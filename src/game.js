@@ -2094,7 +2094,7 @@ function wire3D(){
    as it was: procedural boxes and cones, no errors, no console noise. The artifact
    bundle has no models/ to fetch, so it simply never leaves the procedural path. */
 const ASSETS={ base:'models/', on:false, buildings:{}, chars:{}, mobs:{}, props:{},
-  weapons:{},
+  weapons:{}, dung:{},
   shared:[], slots:{},
   named:null, roles:{}, cap:20, tried:false };
 /* Every adventurer fights a particular way, and it decides both what they look like
@@ -2199,6 +2199,8 @@ function loadAssets(S){
         jobs.push(get(file).then(g=>{ if(g) swapBuilding(S,kind,g.scene); })));
       Object.entries(m.weapons||{}).forEach(([kind,file])=>
         jobs.push(get(file).then(g=>{ if(g) ASSETS.weapons[kind]=g.scene; })));
+      Object.entries(m.dungeon||{}).forEach(([kind,file])=>
+        jobs.push(get(file).then(g=>{ if(g) ASSETS.dung[kind]=g.scene; })));
       Object.entries(m.props||{}).forEach(([kind,file])=>
         jobs.push(get(file).then(g=>{ if(g) ASSETS.props[kind]=g.scene; })));
       Object.entries(m.mobs||{}).forEach(([kind,file])=>
@@ -2540,6 +2542,18 @@ function dungeonGeo(th){
     g.setIndex(I); g.computeVertexNormals(); return g; };
   return {floor:mk(fp,fc,fi), wall:mk(wp,wc,wi)};
 }
+function dungProp(kind,x,y,want,rot,yOff){
+  const proto=ASSETS.dung[kind]; if(!proto) return null;
+  const m=proto.clone(true);
+  const b=new THREE.Box3().setFromObject(m), sz=b.getSize(new THREE.Vector3());
+  const big=Math.max(sz.x,sz.y,sz.z)||1;
+  const sc=want/big;
+  m.scale.setScalar(sc);
+  m.position.set(x, (yOff||0) - b.min.y*sc, y);
+  m.rotation.y=rot||0;
+  m.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
+  return m;
+}
 function buildKeep3D(){
   const th=themeFor(dfloor);
   const S=K3;
@@ -2573,6 +2587,8 @@ function buildKeep3D(){
   const flameG=new THREE.SphereGeometry(0.11,7,6);
   const flameM=new THREE.MeshBasicMaterial({color:hx(th.torch)});
   dtorches.forEach(t=>{
+    const stand=dungProp('torch',t.x,t.y+0.08,1.1,0,0);
+    if(stand) S.world.add(stand);
     const f=new THREE.Mesh(flameG,flameM);
     f.position.set(t.x, 1.75, t.y+0.08); S.world.add(f);
     const L=new THREE.PointLight(hx(th.torch), 1.35, 11, 1.5);
@@ -2587,6 +2603,22 @@ function buildKeep3D(){
   dm.position.set(dDownAt[0]+0.5, 0.02, dDownAt[1]+0.5); S.world.add(dm);
   S.scene.fog.color.setHex(hx(th.rock[2]));
   S.scene.background=new THREE.Color(hx(th.rock[2]));
+  if(ASSETS.dung.pillar){
+    const dress=new THREE.Group(); S.world.add(dress);
+    const st=dungProp('stairs',dDownAt[0]+0.5,dDownAt[1]+0.5,1.3,0,0);
+    if(st) dress.add(st);
+    for(let y=0;y<DN;y++)for(let x=0;x<DN;x++){
+      const t=dty[dI(x,y)];
+      const h=dHash(x,y,dfloor*31+7);
+      if(t===DRUBBLE && h>0.35){
+        const p2=dungProp('rubble',x+0.5,y+0.5,0.9,h*6.3,0); if(p2) dress.add(p2);
+      } else if(t===DFLOOR && h>0.981){
+        const kind = h>0.994?'crates' : (h>0.988?'barrel':'pillar');
+        const p2=dungProp(kind,x+0.5,y+0.5,kind==='pillar'?1.9:0.85,h*6.3,0);
+        if(p2) dress.add(p2);
+      }
+    }
+  }
   S.chests=new THREE.Group(); S.world.add(S.chests);
   S.mobs=new THREE.Group();   S.world.add(S.mobs);
   k3floor=dfloor;
@@ -2636,9 +2668,16 @@ function renderKeep3D(){
   // chests
   while(S.chests.children.length) S.chests.remove(S.chests.children[0]);
   dchests.forEach(ch=>{
+    if(ASSETS.dung.chest){
+      const m2=dungProp(ch.open?'chest':'chest_gold', ch.x, ch.y, 0.62,
+        dHash(ch.x|0,ch.y|0,dfloor)*6.3, 0);
+      if(m2) S.chests.add(m2);
+      if(!ch.open){ const c2=dungProp('coins',ch.x+0.38,ch.y+0.2,0.3,0,0);
+        if(c2) S.chests.add(c2); }
+    } else {
     const m=new THREE.Mesh(new THREE.BoxGeometry(0.44,0.3,0.34),
       new THREE.MeshLambertMaterial({color:ch.open?0x4a3a2a:0x7a5a30}));
-    m.position.set(ch.x,0.15,ch.y); m.castShadow=true; S.chests.add(m);
+    m.position.set(ch.x,0.15,ch.y); m.castShadow=true; S.chests.add(m); }
     if(!ch.open){                                     // a loot beam, so you can find them
       const b=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.22,2.6,8,1,true),
         new THREE.MeshBasicMaterial({color:hx(th.glow),transparent:true,opacity:0.18,

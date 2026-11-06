@@ -19,6 +19,13 @@ their local files under /home/claude/colony and /home/claude/village are the onl
 5. Keep the reply to the user short — they asked for updates on request, not narration.
 
 ## Shipped
+- c12 the Keep dressed: KayKit Dungeon Remastered (CC0, 203 props) is cloned and usable.
+  Real chests (gold while shut, plain once forced, with a coin pile beside an unopened one),
+  mounted torches under the flames, and pillars, barrels, crates and rubble scattered from
+  each floor's own seeded hash so a floor looks the same every time you return to it.
+  dungProp(kind,x,y,want,rot,yOff) scales any prop to a target size and sits it on the floor.
+  Unused from that pack: beds, tables, banners, bottles, shelves, coins, keys, wall and
+  floor tiles (a full modular dungeon kit, if the generator is ever rebuilt around it).
 - c11 all KayKit, all CC0: every building kind now maps to a KayKit model (castle for the
   hall, church for the altar, blacksmith, archery range for the fletcher, market, barracks,
   towers for the guild and the vault), and the trees and rocks are KayKit too. The Babylon

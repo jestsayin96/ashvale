@@ -18,6 +18,9 @@ try:
         pg.click("#sc3D"); pg.wait_for_timeout(9000)      # models load, skins spawn
         pg.screenshot(path=str(root / "dist/shot-3d-models.png"))
         pg.click("#scKeep"); pg.wait_for_timeout(6000)       # 3D stays on across the switch
+        for _ in range(4):                                   # pull back so the floor is visible
+            pg.click("[data-cam='out']"); pg.wait_for_timeout(250)
+        pg.wait_for_timeout(1500)
         pg.screenshot(path=str(root / "dist/shot-3d-keep.png"))
         b.close()
 finally:
