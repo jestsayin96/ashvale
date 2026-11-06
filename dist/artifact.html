@@ -4005,25 +4005,33 @@ function bereave(v,how){
 
 /* ===================== the day ===================== */
 let day=1, hour=6, minute=0, speed=1;
+/* People used to re-decide where to be every time their goal cleared, which with a
+   jittered evening choice meant they stepped into a building and straight back out,
+   over and over. Sampling showed `p.inside` was null in ten samples out of ten \u2014 nobody
+   was ever actually anywhere, so every need that keys off being somewhere never moved.
+   A decision now sticks until the hour it was made for has passed. */
 function schedule(p){
   const h=hour;
   if(p.away) return null;
+  if(p.plan && p.plan.b && h===p.plan.h && !foe) return p.plan.b;
   // Something is through the gate: the guard and any adventurer in town go to meet it,
   // whatever the hour says. Everyone else gets off the street.
   if(foe){
     if(p.guard||p.adventurer) return theGate;
     if(p.age>=ADULT||p.child) return p.home;
   }
-  if(h<6||h>=22) return p.home;
-  if(h<8) return p.home;
-  if(h<12) return p.work||p.home;
-  if(h<13) return rnd()<0.4?theTavern:(p.work||p.home);
-  if(h<17) return p.work||p.home;
+  const keep=b=>{ p.plan={b,h}; return b; };
+  if(h<6||h>=22){ p.why='asleep'; return keep(p.home); }
+  if(h<8){ p.why='not up yet'; return keep(p.home); }
+  if(h<12){ p.why=p.work?'at work':'nothing to do'; return keep(p.work||p.home); }
+  if(h<13){ const t=needsOf(p).cheer>0.5&&p.gold>6;
+    p.why=t?'out for dinner':'back at work'; return keep(t?theTavern:(p.work||p.home)); }
+  if(h<17){ p.why=p.work?'at work':'nothing to do'; return keep(p.work||p.home); }
   if(h<20){
-    if(p.child) return rnd()<0.5?p.home:theSchool;
-    return chooseEvening(p);
+    if(p.child){ p.why='let out of school'; return keep(rnd()<0.5?p.home:theSchool); }
+    return keep(chooseEvening(p));
   }
-  return p.home;
+  p.why='turning in'; return keep(p.home);
 }
 /* ===================== what a person wants =====================
    The evening used to be a dice roll: at six o'clock a villager drew a number and went
@@ -4041,31 +4049,54 @@ function needsOf(p){
   if(!p.need) p.need={company:rnd()*0.3, rest:rnd()*0.3, spirit:rnd()*0.3, cheer:rnd()*0.3};
   return p.need;
 }
+/* Occupancy, counted once a frame. needsTick runs per person, so asking "how many are
+   in here with me" inside it would be an O(n^2) scan every frame. */
+let OCCN=new Map(), occnAt=-1;
+function occupancy(){
+  if(occnAt===tnow) return OCCN;
+  occnAt=tnow; OCCN=new Map();
+  for(const q of people){ if(q.away||!q.inside) continue;
+    OCCN.set(q.inside.id,(OCCN.get(q.inside.id)||0)+1); }
+  return OCCN;
+}
+/* Rates are per dt-unit, and the sim advances 22 game-minutes per dt-unit, so a day is
+   1440/22 = 65.5 of them whatever the speed setting. Every number below is chosen
+   against that: a need should take most of a day to build and an evening to answer.
+   The first draft had company RISING even in a crowded tavern, because it asked how
+   many people LIVED in the building rather than how many were standing in it, so every
+   need pinned at 100% within a day and nobody could prefer anything to anything. */
 function needsTick(p,dt){
   const n=needsOf(p), h=hour;
-  const alone=!p.inside || (p.inside.residents||[]).length<2;
-  n.company=clamp01(n.company + dt*(alone?0.014:-0.045));
-  n.rest   =clamp01(n.rest    + dt*((h>=22||h<6)&&p.inside===p.home ? -0.09 : 0.012));
-  n.spirit =clamp01(n.spirit  + dt*(p.inside===theAltar ? -0.12 : 0.007));
+  const here=p.inside?(occupancy().get(p.inside.id)||1):1;
+  n.company=clamp01(n.company + dt*(here>1 ? -0.110 : 0.0055));
+  const abed=(h>=22||h<6)&&p.inside===p.home;
+  n.rest   =clamp01(n.rest    + dt*(abed ? -0.14 : (p.inside===p.home ? -0.012 : 0.0075)));
+  n.spirit =clamp01(n.spirit  + dt*(p.inside===theAltar ? -0.22 : 0.0035));
   // you only fancy a night out if you can pay for one
-  n.cheer  =clamp01(n.cheer   + dt*(p.gold>10 ? 0.013 : -0.02));
+  n.cheer  =clamp01(n.cheer   + dt*(p.gold>10 ? 0.006 : -0.04));
 }
 const clamp01=v=>v<0?0:v>1?1:v;
 
 /* The evening choice. Each place is scored by the need it answers; the best one wins,
    with a small random nudge so two identical neighbours do not march in lockstep. */
+/* Scores are RELATIVE, not absolute. A person whose needs have all climbed to the ceiling
+   has no preference between them, and an absolute score would quietly let whichever need
+   happened to be listed first win every time. Subtracting the mean means only the gap
+   between needs decides, and when there is no gap the jitter honestly admits it. */
 function chooseEvening(p){
   const n=needsOf(p), opts=[];
-  const jit=()=>rnd()*0.12;
-  opts.push([theTavern, n.company*0.9 + n.cheer*0.8 + jit()]);
-  opts.push([theAltar,  n.spirit*1.15 + jit()]);
-  opts.push([p.home,    n.rest*1.1 + (p.kids.length?0.18:0) + jit()]);
-  if(p.gold>8) opts.push([pick(shops), n.cheer*0.55 + jit()]);
+  const base=(n.company+n.rest+n.spirit+n.cheer)/4;
+  const rel=k=>n[k]-base;
+  const jit=()=>(rnd()-0.5)*0.10;
+  opts.push([theTavern, rel('company')*0.9 + rel('cheer')*0.8 + jit()]);
+  opts.push([theAltar,  rel('spirit')*1.3 + jit()]);
+  opts.push([p.home,    rel('rest')*1.2 + (p.kids.length?0.10:0) + jit()]);
+  if(p.gold>8) opts.push([pick(shops), rel('cheer')*0.55 + jit()]);
   if(p.age>=18 && !p.spouse && p.gold>12)
-    opts.push([theRose, n.company*0.55 + n.cheer*0.5 + jit()]);
+    opts.push([theRose, rel('company')*0.55 + rel('cheer')*0.5 + jit()]);
   // somebody they care about being out is a reason of its own
   if(p.spouse && p.spouse.inside && !p.spouse.away)
-    opts.push([p.spouse.inside, n.company*1.0 + 0.25 + jit()]);
+    opts.push([p.spouse.inside, rel('company')*1.0 + 0.12 + jit()]);
   let best=opts[0];
   for(const o of opts) if(o[1]>best[1]) best=o;
   p.why=whyOf(p,best[0]);
@@ -4075,6 +4106,7 @@ function whyOf(p,b){
   const n=needsOf(p);
   if(b===theAltar) return 'looking for meaning';
   if(b===theTavern) return n.company>n.cheer?'lonely':'fancies a drink';
+  if(b===p.work)    return 'at work';
   if(b===theRose)   return 'lonely';
   if(b===p.home)    return n.rest>0.5?'worn out':'home with the family';
   if(p.spouse&&b===p.spouse.inside) return 'went to find '+p.spouse.name;
@@ -5227,7 +5259,7 @@ function tick(ts){
           if(dest!==p.inside && p.inside){            // step back out to the doorway first
             const od=p.inside.door; p.x=od[0]+0.5; p.y=od[1]+0.5;
             p.inside=null; p.slot=null; p.at=null;
-          }
+          } else if(dest!==p.at){ p.at=null; }         // keep the two in step
           const d=dest.door;
           p.goal={x:d[0],y:d[1],b:dest}; p.fld=fieldTo(d[0],d[1]);
         }
@@ -5237,11 +5269,17 @@ function tick(ts){
         const dist=Math.hypot(gx-p.x,gy-p.y);
         if(dist<0.5){
           p.moving=false;
-          if(p.at!==p.goal.b){
+          /* `p.at` and `p.inside` used to fall out of step: stepping back out only
+             cleared `p.at` when `p.inside` happened to be set, so once they diverged
+             this branch never fired again and the person stood in the street all day
+             with `inside` null. Nobody noticed until needs started keying off it \u2014
+             a tracked villager read `inside NONE` for eighteen consecutive hours.
+             Arriving now always puts you inside, whatever `p.at` already said. */
+          if(p.at!==p.goal.b || p.inside!==p.goal.b){
             p.at=p.goal.b;
             if(BK[p.at.kind].shop && p.age>=ADULT && p.gold>1) spendAt(p,p.at);
             const b=p.at;
-            const used=new Set(people.filter(q=>q!==p&&q.at===b&&q.slot!=null).map(q=>q.slot));
+            const used=new Set(people.filter(q=>q!==p&&q.inside===b&&q.slot!=null).map(q=>q.slot));
             let sl=0; while(sl<b.slots.length-1&&used.has(sl)) sl++;
             p.slot=sl; p.inside=b;
             p.x=b.slots[sl][0]; p.y=b.slots[sl][1];
@@ -5250,7 +5288,23 @@ function tick(ts){
         } else {
           const cx=p.x|0, cy=p.y|0;
           let bx=cx,by=cy,bd=p.fld?p.fld[I(cx,cy)]:-1;
-          if(bd===undefined||bd<0){ p.goal=null; }
+          if(bd===undefined||bd<0){
+            /* No flow value where they stand, so there is no direction to take and the
+               goal gets dropped \u2014 then re-planned next frame to the same dead end. A
+               tracked villager sat on one tile for a whole day this way, "moving:false,
+               fld:yes", while the schedule cycled behind them. Nothing noticed because
+               nothing depended on anyone actually arriving; market-day tax had quietly
+               gone to zero. Step them to the nearest tile the field does cover. */
+            let fx=-1, fy=-1, fb=1e9;
+            for(let r=1;r<=3&&fx<0;r++)
+              for(let oy=-r;oy<=r;oy++) for(let ox=-r;ox<=r;ox++){
+                const nx=cx+ox, ny=cy+oy; if(!inB(nx,ny)) continue;
+                const v=p.fld?p.fld[I(nx,ny)]:-1;
+                if(v>=0&&v<fb){ fb=v; fx=nx; fy=ny; }
+              }
+            if(fx>=0){ p.x=fx+0.5; p.y=fy+0.5; }
+            else p.goal=null;
+          }
           else {
             for(let k=0;k<4;k++){
               const nx=cx+[1,-1,0,0][k], ny=cy+[0,0,1,-1][k];

@@ -793,3 +793,39 @@ pass, not a finished system.
 **Not yet verified in play.** Paused mid-cycle at the owner's request; the suite is green
 and the build is clean, but nobody has watched a villager choose the altar because their
 spirit ran low. Verify before trusting it.
+
+## Cycle 33 — the town was frozen, and nobody had noticed (shipped)
+
+Set out to verify the needs from c32. They saturated at 100% on every axis, which meant
+nobody could prefer anything to anything. Chasing that turned up something much worse.
+
+**`p.inside` was null for 0 of 65 people at every hour of the day, including 3am.** A
+tracked villager read `pos 9.5,19.6` at every single hour — the same tile, all day,
+`moving:false`, flow field present, while the schedule cycled altar → manor → altar
+behind them. **The whole town had been standing still.** Confirmed it predated the minds
+work by checking out `196f7c4` and measuring the same thing: 0/65 there too.
+
+The cause: a person standing on a tile the flow field does not cover (a building
+footprint, which is where everyone is placed at startup) has no direction to move in, so
+the goal is dropped — and re-planned next frame to the same dead end, forever. The walk
+branch now steps them to the nearest tile the field does cover instead of giving up.
+
+After the fix, measured hourly: **16 inside / 50 moving at 19:00, 60 / 6 by 03:00,
+65 of 66 home at dawn.** That is the shape a town should have.
+
+**Why nothing caught it.** Every screenshot showed people scattered across the map, so it
+looked alive — they were just never in a *different* place. Market-day tax had quietly
+fallen to `0 gold` because `spendAt` fires on arrival and nobody ever arrived; I had read
+that line in three separate screenshots without asking why it was zero. The needs system
+was the first thing that depended on anyone actually *being* somewhere, which is the only
+reason it surfaced.
+
+With people moving, the needs work: a tracked child reads **company 0, rest 0, meaning
+0.88, a night out 1.0** — rested and sociable, spiritually neglected, itching to spend.
+Scores are also relative now (each need minus the mean), so a person whose needs have all
+climbed has no preference rather than a false one.
+
+### Lesson
+A number that is suspiciously round deserves one question. `0 gold in tax` was on screen
+for three cycles. I read it as a quiet market rather than as evidence that the economy had
+stopped, because I was looking at the thing I had just changed.
