@@ -332,3 +332,31 @@ between the two anchors, which un-styled the chronicle's heading. Check what is 
 by forcing `loadGame` to bail and confirming the suite fails with
 `the town did not survive a reload`. Both guards added this session were seen to fail
 before being trusted.
+
+## Cycle 20 — the Houses of Ashvale (shipped)
+Cycles 17 and 19 gave the town marriages, births and deaths, and there was nowhere to
+read any of it. The chronicle scrolls away in seconds and the dead were spliced out of
+`people` with no record left at all.
+
+- **`ANNALS`** — a slow record beside the fast chronicle, dated by season and year:
+  weddings, births, coming of age, deaths. Capped at 160.
+- **`DEAD`** — `bereave(v,how)` now takes a cause and files the person before removing
+  them, so "was killed by goblin scouts on floor 3, aged 33" survives them. Capped at 120.
+  Every call site passes a cause: the boss kill, the off-screen delve roll, old age.
+- **The Houses panel** (`#housesBtn`) — every household under its roof, nobles first,
+  grown-ups before children, each line carrying trade, spouse, gift and whether they are
+  below in the Keep. Clicking a name opens that person. Then "Gone before", then the annals.
+- Both are persisted in the save alongside everything else.
+
+Design: a household is a heading and the people under it, held by one rule down the left.
+No cards — the indent carries the grouping, which keeps it consistent with the chrome
+rule from c19 (a frame means you can click it; `.kinrow` gets its fill on hover only).
+
+### Tests
+`shot.py` opens the panel and asserts at least 5 households and 20 people. Verified by
+dropping `live` from the panel's innerHTML and confirming
+`the houses panel came up near-empty: {'house': 0, 'kin': 0}`.
+
+**Verifying generations needs the SEASONLEN=1 trick** — `npm test` reaches day 4, which is
+inside the first season, so no birthday pass has run and the annals are nearly empty.
+Drive the shortened build to year 2+ to see marriages and deaths accumulate.

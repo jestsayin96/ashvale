@@ -114,7 +114,8 @@ h1 em{font-style:normal;color:var(--gold)}
 /* Eight place names are short enough to pair up, which keeps the rail from outgrowing
    the window on a laptop. */
 .places{display:grid;grid-template-columns:1fr 1fr;gap:1px 3px}
-.places .tool{margin-bottom:0;padding:5px 6px;font-size:11.5px;gap:6px}
+.places .tool{margin-bottom:0;padding:5px 5px;font-size:11.5px;gap:5px;
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;display:flex}
 .camrow{display:flex;gap:4px;margin-bottom:5px}
 .cbtn{flex:none;width:32px;height:26px;background:transparent;border:1px solid var(--edge);
   border-radius:6px;font-size:12px;line-height:1;padding:0;color:var(--muted)}
@@ -181,6 +182,32 @@ aside.panel.open{transform:none}
 .row:hover{background:var(--panel2)}
 .row .sw{width:12px;height:12px;border-radius:3px;flex:none}
 .row em{font-style:normal;margin-left:auto;color:var(--muted);font-size:12px;text-align:right}
+/* The houses: a household is a heading and the people under it, held by one rule down
+   the left. No cards - the indent carries the grouping. */
+.house{margin-bottom:14px;padding-left:11px;border-left:2px solid #2f2945}
+.house h5{margin:0 0 4px;font-family:var(--fd);font-size:13px;font-weight:700;
+  display:flex;align-items:baseline;gap:8px}
+.house h5 .at{margin-left:auto;font-family:var(--fb);font-size:10.5px;font-weight:400;
+  color:#6b6283;white-space:nowrap}
+.house h5 .nob{font-family:var(--fb);font-size:10.5px;font-weight:400;color:var(--gold)}
+.kinrow{display:flex;align-items:baseline;gap:8px;width:100%;background:none;border:0;
+  border-radius:5px;padding:3px 6px;margin-left:-6px;text-align:left;font-size:12.5px;
+  line-height:1.5;color:var(--ink)}
+.kinrow:hover{background:var(--panel2)}
+.kinrow .sw{width:7px;height:7px;border-radius:2px;flex:none;align-self:center}
+.kinrow b{font-weight:600}
+.kinrow em{font-style:normal;margin-left:auto;color:var(--muted);font-size:11.5px;
+  text-align:right;padding-left:10px}
+.gone{display:flex;align-items:baseline;gap:10px;font-size:12.5px;line-height:1.6;
+  padding:2px 0;color:var(--muted)}
+.gone b{font-weight:600;color:#c9c0da}
+.gone em{font-style:normal;margin-left:auto;color:#6b6283;font-size:11.5px;text-align:right}
+.ann{font-size:12.5px;line-height:1.55;padding:4px 0 4px 9px;border-left:2px solid #2f2945;
+  margin-bottom:2px;color:var(--muted)}
+.ann b{color:var(--ink);font-weight:600}
+.ann em{font-style:normal;display:block;font-size:10.5px;color:#6b6283;letter-spacing:.2px}
+.ann.wed{border-left-color:#6b5420} .ann.born{border-left-color:#3f6b38}
+.ann.death{border-left-color:#6e3330} .ann.age{border-left-color:#3b3354}
 .floorgrid{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;margin-top:6px}
 .fl{aspect-ratio:1;border-radius:3px;background:#1d1a2a;border:1px solid #272338;
   font-size:8.5px;display:flex;align-items:center;justify-content:center;color:#5c5476}

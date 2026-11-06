@@ -373,7 +373,19 @@ function endRun(run,ok){
   else logMsg('The party came back from the Keep empty-handed.','');
   KEEP.runs.splice(KEEP.runs.indexOf(run),1);
 }
-function bereave(v){
+/* The chronicle scrolls away in seconds. The annals keep what a town would actually
+   remember: who was born, who married whom, who died and where. */
+const ANNALS=[], DEAD=[];
+function annal(kind,text){
+  ANNALS.unshift({k:kind, t:text, d:day, s:seasonI, y:yearN});
+  if(ANNALS.length>160) ANNALS.pop();
+}
+function bereave(v,how){
+  DEAD.unshift({ n:v.name, l:v.last, a:v.age, y:yearN, s:seasonI, d:day,
+                 how:how||'died', tr:v.trade||'' });
+  if(DEAD.length>120) DEAD.pop();
+  annal('death', '<b>'+v.name+' '+v.last+'</b> '+(how||'died')+', aged '+v.age+'.');
+
   v.dead=true;
   if(v.spouse){ v.spouse.widowed=true; v.spouse.bubble='gone'; v.spouse.bubbleT=8;
     v.spouse.spouse=null; v.spouse=null; }
@@ -715,7 +727,7 @@ function stepFloor(run,dt){
           party.splice(party.indexOf(tgt),1);
           KEEP.lost++;
           logMsg('<b>'+tgt.name+' '+tgt.last+'</b> was killed by '+m.name+' on floor '+run.floor+'.','d');
-          bereave(tgt);
+          bereave(tgt,'was killed by '+m.name+' on floor '+run.floor);
           if(!party.length){ endRun(run,false); return; }
         }
       }
@@ -1364,7 +1376,8 @@ function tick(ts){
             roll=power+ri(0,14)-danger;
       if(roll<-7){ const v=pick(r.party); v.hp-=ri(4,11);
         if(v.hp<=0){ v.hp=0; v.away=false; r.party.splice(r.party.indexOf(v),1); KEEP.lost++;
-          logMsg('<b>'+v.name+' '+v.last+'</b> fell on floor '+r.floor+'.','d'); bereave(v); }
+          logMsg('<b>'+v.name+' '+v.last+'</b> fell on floor '+r.floor+'.','d');
+          bereave(v,'fell on floor '+r.floor); }
         endRun(r,false); return; }
       if(roll<2){ endRun(r,false); return; }
       const bz=bossFor(r.floor);
@@ -1548,11 +1561,13 @@ function birthdays(){
       if(rnd()<0.3){ p.adventurer=true; p.work=theGuild; p.trade='adventurer';
         p.hpMax=13; p.hp=13; p.gear=[pick(['arming sword','shortbow'])];
       } else p.trade=pick(TRADES);
+      annal('age','<b>'+p.name+' '+p.last+'</b> came of age'+
+        (p.adventurer?' and signed the guild roll':' as a '+p.trade)+'.');
     }
     // the old go quietly, and more often the older they are
     if(p.age>62 && rnd() < (p.age-62)*0.035){
       logMsg('<b>'+p.name+' '+p.last+'</b> died at '+p.age+'.','d');
-      bereave(p);
+      bereave(p,'died of old age');
     }
   });
   if(came) logMsg('<b>'+came+'</b> came of age this spring.','');
@@ -1577,6 +1592,7 @@ function marriages(){
   });
   logMsg('<b>'+a.name+' '+a.last+'</b> and <b>'+b.name+' '+b.last+
     '</b> were married at the altar.','g');
+  annal('wed','<b>'+a.name+' '+a.last+'</b> married <b>'+b.name+' '+b.last+'</b>.');
 }
 function births(){
   if(rnd()>0.16) return;
@@ -1595,6 +1611,7 @@ function births(){
   if(mum.home) mum.home.residents.push(kid);
   kid.x=mum.x; kid.y=mum.y; kid.tx=kid.x; kid.ty=kid.y;
   logMsg('<b>'+kid.name+' '+kid.last+'</b> was born to '+mum.name+' and '+dad.name+'.','g');
+  annal('born','<b>'+kid.name+' '+kid.last+'</b> born to '+mum.name+' and '+dad.name+'.');
 }
 
 /* ===================== saving the town =====================
@@ -1618,6 +1635,7 @@ function snapshot(){
     keep:{ deepest:KEEP.deepest, lost:KEEP.lost, gold:KEEP.gold,
            cleared:[...KEEP.cleared], history:KEEP.history.slice(0,12) },
     tills:buildings.map(b=>b.till||0),
+    annals:ANNALS.slice(0,120), dead:DEAD.slice(0,80),
     logs:LOGS.slice(0,9),
     people:people.map(p=>({
       i:p.id, n:p.name, l:p.last, s:p.sex, a:p.age,
@@ -1689,6 +1707,8 @@ function loadGame(){
     // a spouse who did not survive the round trip leaves a widow, not a dangling link
     people.forEach(p=>{ if(p.spouse&&p.spouse.spouse!==p){ p.spouse=null; p.widowed=true; } });
     LOGS.length=0; (d.logs||[]).forEach(l=>LOGS.push(l));
+    ANNALS.length=0; (d.annals||[]).forEach(a=>ANNALS.push(a));
+    DEAD.length=0; (d.dead||[]).forEach(a=>DEAD.push(a));
     applySeason();
     return true;
   }catch(e){ return false; }
@@ -1763,7 +1783,7 @@ function paintRail(){
         '<div class="places">'+
         [['guild','Guild'],['hall','Town Hall'],['school','School'],
          ['bank','Vault'],['guard','Barracks'],['altar','Altar'],
-         ['tavern','Tavern'],['rose','Rosehouse']]
+         ['tavern','Tavern'],['rose','Roses']]
         .map(([k,n])=>'<button class="tool" data-go="'+k+'"><span class="c" style="background:'+
           BK[k].roof+'"></span>'+n+'</button>').join('')+'</div>'+
         '<div class="tiny">Five shops line the market street, one family to each.</div>');
@@ -2055,7 +2075,72 @@ function showKeep(){
     closePanel('keep'); setScene('keep');
   });
 }
+/* ===================== the houses =====================
+   The sim has been marrying people off and burying them for two cycles with nowhere to
+   read any of it. This is that record: every household under its roof, and the annals. */
+const SEASONNAME=i=>SEASONS[i]?SEASONS[i].n:'spring';
+const whenOf=e=>SEASONNAME(e.s)+' of year '+e.y;
+
+function houseOf(p){ return p.home; }
+function showHouses(){
+  const byHome=new Map();
+  people.forEach(p=>{ const h=houseOf(p); if(!h) return;
+    if(!byHome.has(h)) byHome.set(h,[]); byHome.get(h).push(p); });
+
+  // a household reads best as its grown-ups first, then the children by age
+  const rank=p=>(p.age<ADULT?2:0)-(p.noble?1:0);
+  const households=[...byHome.entries()].map(([h,ps])=>{
+    ps.sort((a,b)=>rank(a)-rank(b)||b.age-a.age);
+    return {h, ps, name:ps[0]?ps[0].last:'—'};
+  }).sort((a,b)=> (BK[b.h.kind].noble?1:0)-(BK[a.h.kind].noble?1:0)
+                || a.name.localeCompare(b.name));
+
+  const lineOf=p=>{
+    const bits=[];
+    if(p.age<ADULT) bits.push('age '+p.age);
+    else bits.push(p.trade||'no trade');
+    if(p.spouse) bits.push('married to '+esc(p.spouse.name));
+    else if(p.widowed) bits.push('widowed');
+    if(p.gift) bits.push(p.gift.school.toLowerCase());
+    if(p.away) bits.push('below');
+    return '<button class="kinrow" data-who="'+p.id+'">'+
+      '<span class="sw" style="background:'+p.top+'"></span>'+
+      '<b>'+esc(p.name)+'</b><em>'+bits.join(' · ')+'</em></button>';
+  };
+
+  const live='<div class="sec"><h4>'+households.length+' households</h4>'+
+    households.map(g=>'<div class="house">'+
+      '<h5>'+esc(g.name)+(BK[g.h.kind].noble?' <span class="nob">of the manor</span>':'')+
+        '<span class="at">'+esc(BK[g.h.kind].n.replace('&amp;','&'))+'</span></h5>'+
+      g.ps.map(lineOf).join('')+'</div>').join('')+'</div>';
+
+  const dead=DEAD.length
+    ? '<div class="sec"><h4>Gone before · '+DEAD.length+'</h4>'+
+      DEAD.slice(0,40).map(d=>'<div class="gone"><b>'+esc(d.n+' '+d.l)+'</b>'+
+        '<em>'+esc(d.how)+', aged '+d.a+' · '+whenOf(d)+'</em></div>').join('')+
+      (DEAD.length>40?'<div class="tiny">and '+(DEAD.length-40)+' more.</div>':'')+'</div>'
+    : '<div class="sec"><h4>Gone before</h4><div class="sum">Nobody has been buried yet.</div></div>';
+
+  const ann=ANNALS.length
+    ? '<div class="sec"><h4>The annals</h4>'+
+      ANNALS.slice(0,50).map(e=>'<div class="ann '+e.k+'"><em>'+whenOf(e)+'</em>'+e.t+'</div>').join('')+
+      '</div>'
+    : '<div class="sec"><h4>The annals</h4><div class="sum">Nothing has happened yet worth '+
+      'writing down. Weddings, births and deaths are recorded here as they come.</div></div>';
+
+  document.getElementById('hSub').textContent =
+    people.length+' living · '+DEAD.length+' buried · '+
+    SEASONNAME(seasonI)+' of year '+yearN;
+  document.getElementById('hBody').innerHTML = ann + live + dead;
+  document.getElementById('hBody').querySelectorAll('[data-who]').forEach(b=>{
+    b.onclick=()=>{ const q=people.find(x=>x.id===+b.dataset.who);
+      if(q){ closePanel('houses'); showPerson(q); openPanel('who'); } };
+  });
+  openPanel('houses');
+}
+
 document.getElementById('keepBtn').onclick=showKeep;
+const hb=document.getElementById('housesBtn'); if(hb) hb.onclick=showHouses;
 document.getElementById('scTown').onclick=()=>setScene('town');
 document.getElementById('scKeep').onclick=()=>setScene('keep');
 document.getElementById('logHead').onclick=()=>{

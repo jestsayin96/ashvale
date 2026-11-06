@@ -51,6 +51,15 @@ with sync_playwright() as p:
     if w < 900 or h < 500:
         errs.append(f"flat Keep canvas collapsed to {w}x{h}")
 
+    # The houses panel must render households, not an empty shell.
+    pg.click("#housesBtn"); pg.wait_for_timeout(900)
+    counts = pg.evaluate("()=>({house:document.querySelectorAll('.house').length,"
+                         "kin:document.querySelectorAll('.kinrow').length})")
+    if counts["house"] < 5 or counts["kin"] < 20:
+        errs.append(f"the houses panel came up near-empty: {counts}")
+    pg.screenshot(path=str(root / "dist/shot-houses.png"))
+    pg.click("[data-close='houses']"); pg.wait_for_timeout(400)
+
     # The town must survive a reload. Pause first so the clock cannot drift between
     # the snapshot and the comparison.
     pg.click("[data-sp='0']"); pg.wait_for_timeout(400)
