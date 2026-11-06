@@ -84,7 +84,8 @@ including `.float`; diff the selector lists before applying anything.
 
 | # | Defect | Where | First seen |
 |---|---|---|---|
-| 10 | **Trees are identical cones** — one shape, one green, one size, scattered evenly across the whole map. The single loudest "this is a prototype" signal in any frame. | everywhere, all distances | c49 review |
+| 16 | The canopy hides **42.7%** of the town's visible people at dist 26 (12.8% at dist 16). Measured c50; this is defect 1's cause. Needs clearings, thinning near the town, or shorter trees on the town edge. | town, dist 26 | c50 |
+| ~~10~~ | ~~Trees are identical cones~~ — one shape, one green, one size, scattered evenly across the whole map. The single loudest "this is a prototype" signal in any frame. | everywhere, all distances | c49 review |
 | 11 | The ground is a visible checkerboard — hard-edged tile squares in the grass, a grid you can count. | town, noon, dist 40 | c49 review |
 | 12 | No subject. The frame is an even field of stuff; the eye lands nowhere. The plaza is the only candidate and it is empty. | town, dist 40 | c49 review |
 | 13 | At the boot camera distance (40) there is nobody on screen at all. c49 fixed legibility; the first thing a watcher sees is still an empty town. | town, boot | c49 review |
@@ -104,4 +105,5 @@ including `.float`; diff the selector lists before applying anything.
 
 | # | Defect | Fixed | Re-reviewed |
 |---|---|---|---|
+| 10 | The canopy was striped into rows of one model: `(x*3+y*7)%3` — x*3 is divisible by 3 for every x, so the prototype came from y alone. Three real KayKit trees read as one cone copied forever. | c50, real 2D hash + height, lean and tint variation | 6 shapes, 6 canopy colours, height spread 1.32 → 6.52, even 33/33/33 split |
 | 0 | People were 0.25% of the frame — six readable figures in a town of 58 outdoors, biggest 29x41px. | c49, folkScale swept to 1.6 | 3.26% / 18 figures at dist 20 |

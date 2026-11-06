@@ -7286,21 +7286,69 @@ function dressPut(S,proto,x,y,want,rot){
   m.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
   S.grove.add(m);
 }
+/* c50. `(x*3+y*7) % 3` chose the tree. x*3 is divisible by 3 for every x, so x
+   contributed nothing and the prototype came from y alone: the whole map was
+   striped into rows of one model, period three, which is why a canopy of three
+   real KayKit trees read as one cone copied forever.
+
+       000000      what the old expression gave, x across, y down
+       111111
+       222222
+
+   A hash is not a hash because it has multiplications in it. This one mixes and
+   shifts, so neighbours disagree and no axis drops out. */
+function h2(x,y){
+  let n=(x*374761393+y*668265263)|0;
+  n=Math.imul(n^(n>>>13),1274126177)|0;
+  return (n^(n>>>16))>>>0;
+}
+/* Clones share their material, so every tree on the map was the same green. One
+   cloned material per (material, bucket) keeps that to a few dozen rather than
+   one per tree, and shifts hue, saturation and lightness together - a forest
+   varies in all three at once, and shifting only hue reads as a colour error. */
+const TREETINTS=9, TINTM=new Map();
+function tintMat(mat,bucket){
+  if(!mat||!mat.color) return mat;
+  const k=mat.uuid+'|'+bucket;
+  let c=TINTM.get(k);
+  if(!c){
+    c=mat.clone();
+    const hsl={}; c.color.getHSL(hsl);
+    const t=(bucket/(TREETINTS-1))*2-1;              // -1 .. 1
+    c.color.setHSL(
+      (hsl.h + t*0.028 + 1)%1,
+      Math.max(0,Math.min(1, hsl.s + t*0.13)),
+      Math.max(0.02,Math.min(0.96, hsl.l + t*0.12)));
+    TINTM.set(k,c);
+  }
+  return c;
+}
 function dressCell(S,x,y,kinds){
   const i=I(x,y);
   if(!GEN[i]||S.dressedAt[i]) return 0;
   S.dressedAt[i]=1;
   if(tree[i]){
-    const proto=kinds[(x*3+y*7)%kinds.length];
+    const hp=h2(x,y);
+    const proto=kinds[hp%kinds.length];
     const m=proto.clone(true);
     fitModel(m,0,0,true);
     const b=new THREE.Box3().setFromObject(m), sz=b.getSize(new THREE.Vector3());
-    const want=2.6+((x*5+y*11)%7)*0.22;
+    /* 2.6 to 3.9 was a 20% spread - every tree the same tree. A real stand runs
+       saplings to giants, so this is 1.9 to 5.8, and squaring the roll puts more
+       of them short, the way a wood that is still growing actually looks. */
+    const r=(h2(x+101,y+57)%1000)/1000;
+    const want=1.9+r*r*3.9;
     const sc=sz.y>0.01?want/sz.y:1;
     m.scale.setScalar(sc);
     m.position.set(x+0.5, H(x,y)*HU - b.min.y*sc, y+0.5);
-    m.rotation.y=((x*13+y*29)%360)*Math.PI/180;
-    m.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
+    m.rotation.y=(h2(x+7,y+13)%3600)/10*Math.PI/180;
+    // nothing in a wood stands perfectly plumb
+    const lean=((h2(x+29,y+31)%1000)/1000-0.5)*0.15;
+    m.rotation.z=lean;
+    m.rotation.x=((h2(x+53,y+71)%1000)/1000-0.5)*0.15;
+    const bucket=h2(x+311,y+173)%TREETINTS;
+    m.traverse(o=>{ if(o.isMesh){ o.material=tintMat(o.material,bucket);
+      o.castShadow=true; o.receiveShadow=true; } });
     S.grove.add(m);
     return 1;
   }
@@ -8591,6 +8639,36 @@ window.__ash={
      per person near the camera, which of the three possible bodies they have -
      a real model, the procedural box, or nothing at all - and how tall it
      measures in world units. */
+  /* c50. What the canopy actually is, counted off the scene graph rather than
+     off the code that built it: how many trees, which prototype each one took,
+     how tall they ended up, and how many distinct canopy colours are in play.
+     `groveLayer(false)` takes the trees away so a probe can diff two frames and
+     see what the canopy was hiding. */
+  grove(){ const S=R3; if(!S||!S.grove) return null;
+    const box=new THREE.Box3(), sz=new THREE.Vector3();
+    const kinds={}, cols={}, hs=[];
+    for(const m of S.grove.children){
+      box.setFromObject(m); if(box.isEmpty()) continue;
+      box.getSize(sz); hs.push(+sz.y.toFixed(2));
+      let tag='?'; m.traverse(o=>{ if(tag==='?'&&o.isMesh&&o.geometry) tag=o.geometry.uuid.slice(0,6); });
+      kinds[tag]=(kinds[tag]||0)+1;
+      m.traverse(o=>{ if(o.isMesh&&o.material&&o.material.color){
+        const k=o.material.color.getHexString(); cols[k]=(cols[k]||0)+1; } });
+    }
+    hs.sort((a,b)=>a-b);
+    return {trees:S.grove.children.length, kinds, shapes:Object.keys(kinds).length,
+      colours:Object.keys(cols).length,
+      h:{min:hs[0]||0, max:hs[hs.length-1]||0,
+         med:hs[hs.length>>1]||0, spread:+((hs[hs.length-1]||0)-(hs[0]||0)).toFixed(2)}}; },
+  groveLayer(v){ const S=R3; if(!S||!S.grove) return null;
+    S.grove.visible=!!v; return S.grove.visible; },
+  /* Which prototype each cell WOULD take, straight from the selection
+     expression, so a lattice shows up as a lattice instead of as a vibe. */
+  groveRows(n){ const out=[];
+    for(let y=0;y<(n||6);y++){ const row=[];
+      for(let x=0;x<(n||6);x++) row.push(h2(x,y)%3);
+      out.push(row.join('')); }
+    return out; },
   folkSize(k){ if(typeof k==='number') folkScale=Math.max(0.2,Math.min(6,k));
     return folkScale; },
   folkLayer(v){ const S=R3; if(!S) return null;
