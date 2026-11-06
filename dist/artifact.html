@@ -7448,22 +7448,32 @@ function discMat(col,op){
    completely illegible. `folkScale` is the live multiplier a tuning pass sweeps; the
    per-frame loop applies it to whichever body a person currently has. */
 const FOLKS=1.25;                       // a little larger, still shorter than a door
-let folkScale=1.6;   // swept 1.0/1.4/1.8/2.2; see ROADMAP c49
+let folkScale=1.35;  // c49 swept 1.0/1.4/1.8/2.2 and took 1.6; c50's review cut it
+                     // back - at 1.6 an adult is 2.3 units against a 4-5 unit house,
+                     // half a house tall, and the town read as giants. See c50.
 function mkFolk3(p3){
   const G=new THREE.Group(), s=(p3.age<ADULT?0.7:1)*FOLKS;
 
-  const body=new THREE.Mesh(new THREE.BoxGeometry(0.30*s,0.40*s,0.22*s),
+  /* c50. These proportions were drawn for a figure a third of this size, where a
+     big head read as stylised. c49 scaled everyone 1.6x so they could be seen at
+     all, and at that size a head 36% of total height reads as a bald orange
+     balloon - which is what the whole town looked like beyond the twenty nearest
+     people, who are the only ones with real models. Head is now ~22% of height,
+     about what KayKit's own figures use, so the box and the model agree.
+
+     More pixels on screen was not the same as a better picture. Again. */
+  const body=new THREE.Mesh(new THREE.BoxGeometry(0.30*s,0.46*s,0.22*s),
     new THREE.MeshStandardMaterial({color:hx(p3.top),roughness:0.9,metalness:0}));
-  body.position.y=0.34*s; body.castShadow=true; G.add(body);
+  body.position.y=0.37*s; body.castShadow=true; G.add(body);
   const legs=new THREE.Mesh(new THREE.BoxGeometry(0.22*s,0.26*s,0.18*s),
     new THREE.MeshStandardMaterial({color:0x2b2738,roughness:0.9,metalness:0}));
   legs.position.y=0.13*s; G.add(legs);
-  const head=new THREE.Mesh(new THREE.SphereGeometry(0.145*s,10,8),
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.098*s,12,9),
     new THREE.MeshStandardMaterial({color:hx(p3.skin),roughness:0.72,metalness:0}));
-  head.position.y=0.655*s; head.castShadow=true; G.add(head);
-  const hair=new THREE.Mesh(new THREE.SphereGeometry(0.152*s,10,6,0,Math.PI*2,0,Math.PI*0.62),
+  head.position.y=0.675*s; head.castShadow=true; G.add(head);
+  const hair=new THREE.Mesh(new THREE.SphereGeometry(0.105*s,12,7,0,Math.PI*2,0,Math.PI*0.66),
     new THREE.MeshStandardMaterial({color:hx(p3.hair),roughness:0.8,metalness:0}));
-  hair.position.y=0.662*s; G.add(hair);
+  hair.position.y=0.681*s; G.add(hair);
   if(p3.gift){ const w=new THREE.Mesh(new THREE.SphereGeometry(0.075,8,6),
       new THREE.MeshBasicMaterial({color:hx(p3.gift.col)}));
     w.position.set(0.2,0.78*s,0); G.add(w); }

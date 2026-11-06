@@ -100,6 +100,7 @@ including `.float`; diff the selector lists before applying anything.
 | 13 | At the boot camera distance (40) there is nobody on screen at all. c49 fixed legibility; the first thing a watcher sees is still an empty town. | town, boot | c49 review |
 | 14 | The chronicle carries dev chatter as though it were a world event — "Models loaded: the town is wearing its proper face". | chronicle, boot | c49 review |
 | 15 | The Ashvale badge, bottom left, is an empty diamond placeholder. | footer | c49 review |
+| 17 | People are too big close in and too small far out — one global `folkScale` cannot serve both. At 1.6 an adult was 2.3 units against a 4–5 unit house. Cut to 1.35 as a compromise, which is right at neither end. Needs distance-dependent scaling, the way the ground disc already does it. **Check first whether the HOUSES are the ones out of scale**: `fitModel` fits each building to its plot, so a KayKit house may be inflated well past the scale its own characters were drawn for. | town, dist 12–16 | c50 review |
 | 1 | Only 6 of 58 outdoor people are in frame at all; size fixed legibility, not presence. Canopy is the untested suspect. | town, dist 20, any hour | c49 |
 | 2 | The conga line: whole town walks single file to one spot, strands out there after dark, chasing a frontier that recedes as it is approached. | open country, 17:00 onward | c49 |
 | 4 | Left rail clips its own last line; no scroll at 860px viewport height. | left rail, short viewports | c48 |
