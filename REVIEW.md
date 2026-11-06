@@ -10,6 +10,26 @@ whether the thing is good; `npm test` only measures whether it does what the las
 cycle claimed. The 0.25%-of-the-frame finding was invisible to ten green probes and
 obvious in one screenshot.
 
+## Looking on real hardware
+
+This container has no GPU: every probe drives a browser through software rendering
+at about 1.3 fps, so the frames reviewed here are an approximation and can only ever
+be **stills**. Motion — whether the town moves like somewhere people live — has
+never once been reviewed.
+
+The owner's machine can close both gaps. `Claude_Browser__preview_start` on
+<https://jestsayin96.github.io/ashvale/> renders on his GPU at real speed, and
+`__ash` is available in that page exactly as it is in the probes, so the camera can
+be driven from JavaScript. Confirmed working c52.
+
+Two limits found straight away: the pane opens narrow (~507px), which shows the
+responsive collapse rather than the stream layout — set a viewport with
+`resize_window` and reset it to `desktop` afterwards — and screenshots come back
+scaled to the pane, so fine detail is better judged close in than wide.
+
+Note also that `github.io` is **not** on this container's egress allowlist. The live
+build can only be fetched from his machine, never from here.
+
 ## How a review is done
 
 Open the build. Take the frame at **dist 12, 22 and 40**, at **08:00, 13:00 and
@@ -96,7 +116,8 @@ including `.float`; diff the selector lists before applying anything.
 | 18 | Occlusion moved rather than went away: people-pixels at dist 20 fell 17,359 → 6,578 after the buildings grew, while the canopy's share of hiding dropped 43.8% → 12.6%. The **buildings** now hide the town. Do not book this as a win. | town, dist 20–26 | c51 |
 | ~~16~~ | ~~The canopy hides 42.7%~~ of the town's visible people at dist 26 (12.8% at dist 16). Measured c50; this is defect 1's cause. Needs clearings, thinning near the town, or shorter trees on the town edge. | town, dist 26 | c50 |
 | ~~10~~ | ~~Trees are identical cones~~ — one shape, one green, one size, scattered evenly across the whole map. The single loudest "this is a prototype" signal in any frame. | everywhere, all distances | c49 review |
-| 11 | The ground is a visible checkerboard — hard-edged tile squares in the grass, a grid you can count. | town, noon, dist 40 | c49 review |
+| ~~11~~ | ~~The ground is a visible checkerboard~~ — struck c52 | | |
+| 11x | The ground was a visible checkerboard — hard-edged tile squares in the grass, a grid you can count. | town, noon, dist 40 | c49 review |
 | 12 | No subject. The frame is an even field of stuff; the eye lands nowhere. The plaza is the only candidate and it is empty. | town, dist 40 | c49 review |
 | 13 | At the boot camera distance (40) there is nobody on screen at all. c49 fixed legibility; the first thing a watcher sees is still an empty town. | town, boot | c49 review |
 | 14 | The chronicle carries dev chatter as though it were a world event — "Models loaded: the town is wearing its proper face". | chronicle, boot | c49 review |
@@ -110,7 +131,6 @@ including `.float`; diff the selector lists before applying anything.
 | 6 | Ground mark is near-black at 34% opacity and vanishes on grass. Needs a rim, not more opacity — and it is WebGL, so it cannot be fixed in CSS. | town, all distances | c49 |
 | 7 | `genChunk`'s terrain rules are Ashvale-relative (`u>=46` is a half-plane, not a ridge). Replayed over the map they make 81.9% impassable rock, which is what blocks the other three kingdoms. | the whole map | c41 |
 | 8 | Four Lambert materials remain in the Keep; the wall one carries an `onBeforeCompile` patch that must be read before it is touched. | the Keep | c38 |
-| 9 | No normal maps. Needs ambientCG textures that are not in this repo. | everywhere | c38 |
 
 ### Struck
 
@@ -121,4 +141,6 @@ including `.float`; diff the selector lists before applying anything.
 | 15 | The Ashvale badge was an empty diamond placeholder. | c50, Cursor's crest + `paintBadge` town/person toggle | pending visual re-review |
 | 16 | The canopy hid 43.8% of visible people at dist 26. | c51, as a side effect of the building rescale — not by fixing the trees | 12.6% at dist 26, 9.9% at 16; but see defect 18, the hiding moved to the buildings |
 | 17 | Every building took a different scale factor (×1.29 hall to ×3.38 guild) because `fitModel` stretched each to fill its plot, while characters were fitted by height. A school at 3.38 units was barely two people tall, which is why villagers looked like giants beside one. | c51, `fitBuilding`: height target per kind, plot as a limit with 1.35× overspill | hall 5.11→6.90, school 3.38→4.56, guild→9.00 on target, people steady ~1.8; hall:person 3.02 → 4.06 |
+| 9 | No normal maps; needed ambientCG textures not in the repo. | c52, owner supplied the packs on his machine; 8 maps staged, downscaled and vendored at 610 KB | ground has colour + normal at scale 0.65, confirmed on GPU |
+| 11 | The ground was a visible checkerboard — `((x*7+y*13)^(x*3+y*11))%7`, an XOR of two linear forms mod 7, which is a lattice. Three discrete buckets meant three discrete greens. | c52, the h2 mixing hash, continuous tint | gone; confirmed by eye on the GPU build, ground reads as mottled grass |
 | 0 | People were 0.25% of the frame — six readable figures in a town of 58 outdoors, biggest 29x41px. | c49, folkScale swept to 1.6 | 3.26% / 18 figures at dist 20 |
