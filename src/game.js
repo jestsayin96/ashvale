@@ -414,11 +414,13 @@ function endRun(run,ok){
     const next=KEEP.runs.find(r=>r!==run);
     if(next) loadRun(next);            // follow the next party down; never yank the view
   }
-  bondDelve(run.party, ok);
+  bondDelve(run.party, ok, !!run.lostAny);
   run.party.forEach(p=>{ p.away=false; p.run=null;
     const cut=Math.round(run.loot/Math.max(1,run.party.length));
     p.gold+=cut;
-    if(ok&&run.floor>1) remember(p,'boss','Came back up from floor '+(run.floor-1)+'.'); });
+    // a run that buried someone is remembered for that, not for the climb out
+    if(ok&&run.floor>1&&!run.lostAny)
+      remember(p,'boss','Came back up from floor '+(run.floor-1)+'.'); });
   const cut=Math.round(run.loot*0.2);
   KEEP.gold+=cut; ECON.treasury+=cut; ECON.taxed+=cut;
   KEEP.history.unshift({floor:run.floor-1, loot:run.loot, ok,
@@ -624,10 +626,15 @@ function bondTick(){
       bondBoth(list[i],list[j],0.012);
   });
 }
-/* A delve is worth more than a hundred evenings in the tavern. */
-function bondDelve(party,ok){
+/* A delve is worth more than a hundred evenings in the tavern — unless somebody did not
+   come back. The first version handed out the full camaraderie bonus regardless, which
+   cancelled the loss penalty to the decimal: a tracked pair went 0.04 -> -0.14 -> 0.00
+   across a death, so a party could lose a member and feel exactly the same about each
+   other afterwards. A run that buried someone warms almost nothing. */
+function bondDelve(party,ok,lost){
+  const v = lost ? 0.015 : (ok?0.10:0.04);
   for(let i=0;i<party.length;i++) for(let j=i+1;j<party.length;j++)
-    bondBoth(party[i],party[j], ok?0.10:0.04);
+    bondBoth(party[i],party[j], v);
 }
 /* Somebody did not come back. The survivors wear it, and each other. */
 function bondLoss(party,lost){
@@ -1021,7 +1028,7 @@ function stepFloor(run,dt){
           party.splice(party.indexOf(tgt),1);
           KEEP.lost++;
           logMsg('<b>'+tgt.name+' '+tgt.last+'</b> was killed by '+m.name+' on floor '+run.floor+'.','d');
-          bondLoss(party.concat([tgt]), tgt);
+          run.lostAny=true; bondLoss(party.concat([tgt]), tgt);
           bereave(tgt,'was killed by '+m.name+' on floor '+run.floor);
           if(!party.length){ endRun(run,false); return; }
         }
@@ -1746,7 +1753,7 @@ function tick(ts){
       if(roll<-7){ const v=pick(r.party); v.hp-=ri(4,11);
         if(v.hp<=0){ v.hp=0; v.away=false; r.party.splice(r.party.indexOf(v),1); KEEP.lost++;
           logMsg('<b>'+v.name+' '+v.last+'</b> fell on floor '+r.floor+'.','d');
-          bondLoss(r.party.concat([v]), v);
+          r.lostAny=true; bondLoss(r.party.concat([v]), v);
           bereave(v,'fell on floor '+r.floor); }
         endRun(r,false); return; }
       if(roll<2){ endRun(r,false); return; }

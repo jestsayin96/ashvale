@@ -860,3 +860,30 @@ something she wants, not because a die came up under 0.38.
 **Not yet seen in play:** a grudge. Bonds only sour when somebody dies in a party, which
 needs a bad delve; nothing has been watched refusing to walk beside anyone. The veto path
 is written but unexercised — treat it as untested.
+
+## Cycle 35 — the grudge, proven and then repaired (shipped)
+Verifying the veto from c34 turned up a flaw that would have made the whole bond system
+pointless, and it took two attempts to even test it honestly.
+
+**Attempt one was not a test.** Forcing `bondAdd(a,b,-0.9)` produced a bond of **-0.53**,
+not -0.9, because the pair had already warmed to +0.37 from delving together and the add
+is cumulative. -0.53 sits *above* the -0.55 veto, so the veto never fired — the pair were
+kept apart by the scoring penalty alone and the run looked like a pass. Pinning the bond
+to exactly -1.00 and holding it there was the real test: **seven parties formed, Merrick
+and Jessa never once together**, while each appeared separately in several. The guild had
+split into two crews around the grudge.
+
+**Then the flaw.** Forcing a party death showed the survivors' bond going 0.04 → **-0.00**.
+`bondLoss` applied its -0.14, and then `endRun` handed out the full +0.10 camaraderie
+bonus to every surviving pair, cancelling it almost exactly. **Losing a comrade and
+surviving together were worth the same amount**, so a party could bury someone and feel
+no differently about each other. `bondDelve` now takes a `lost` flag and warms 0.015
+instead of 0.10 when the run buried somebody. Re-measured: 0.02 → **-0.10**, and it holds.
+Also stopped writing the "came back up from floor N" memory on a run that lost someone —
+that is not what anybody remembers about that day.
+
+### What this says about testing
+Both problems hid behind a result that looked correct. The pair *were* kept apart; the
+penalty *was* applied. Only checking the actual number — the bond, not the outcome —
+showed that neither was happening for the reason I thought. **Assert on the mechanism,
+not on the thing the mechanism was supposed to cause.**
