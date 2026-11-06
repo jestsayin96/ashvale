@@ -37,7 +37,16 @@
   "default": "kay/skeleton_minion.glb",
   "boss": "kay/skeleton_warrior.glb",
   "rogue": "kay/skeleton_rogue.glb",
-  "mage": "kay/skeleton_mage.glb"
+  "mage": "kay/skeleton_mage.glb",
+  "rat": "quat/rat.glb",
+  "bat": "quat/bat.glb",
+  "spider": "quat/spider.glb",
+  "slime": "quat/slime.glb",
+  "snake_angry": "quat/snake_angry.glb",
+  "wasp": "quat/wasp.glb",
+  "frog": "quat/frog.glb",
+  "dragon": "quat/dragon.glb",
+  "skelly": "kay/skeleton_minion.glb"
  },
  "weapons": {
   "sword": "kay/weapons/sword_1handed.glb",

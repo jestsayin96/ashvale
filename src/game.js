@@ -329,6 +329,15 @@ people.forEach(p=>{ const d=p.home.door; p.x=d[0]+0.5; p.y=d[1]+0.5; p.tx=p.x; p
 
 /* ===================== Dragon's Keep ===================== */
 const KEEP={ deepest:0, cleared:new Set(), runs:[], history:[], lost:0, gold:0 };
+/* What lives at each depth, and what it looks like. MKIND still decides how a thing
+   behaves; this decides which body it wears, so a rogue-shaped spider is still a spider
+   that closes fast. The dragon on floor 100 is finally a dragon. */
+const MOBART=[
+  [1,'rat'],[7,'bat'],[13,'spider'],[21,'slime'],[31,'snake_angry'],
+  [46,'wasp'],[61,'frog'],[76,'skelly'],[100,'dragon']
+];
+function artFor(f){ let a='rat'; for(const [d,k] of MOBART) if(f>=d) a=k; return a; }
+
 const MONSTER=[
  [1 ,'cave rats'],[3,'goblin scouts'],[6,'kobold diggers'],[10,'giant spiders'],
  [15,'bandit deserters'],[21,'ghouls'],[28,'ogres'],[36,'wraiths'],[45,'basilisks'],
@@ -587,7 +596,8 @@ function genFloor(f){
     const q=drooms[drooms.length-1];
     const hpv=40+f*5.5;
     dmobs.push({x:q.cx+0.5,y:q.cy+1.5,hx:q.cx+0.5,hy:q.cy+1.5,hp:hpv,hpMax:hpv,
-      dmg:2.2+f*0.24, awake:false, name:bs[1], col:bs[2], f:0, atk:0, boss:true, kind:'brute'});
+      dmg:2.2+f*0.24, awake:false, name:bs[1], col:bs[2], f:0, atk:0, boss:true,
+      kind:'brute', art:(f>=100?'dragon':artFor(f))});
   }
   const count=4+Math.round(f/7)+rI(0,3);
   for(let i=0;i<count;i++){
@@ -598,7 +608,7 @@ function genFloor(f){
     const hpv=Math.round((6+f*1.3+rI(0,6))*K.hpM);
     dmobs.push({x:mx+0.5,y:my+0.5,hx:mx+0.5,hy:my+0.5,hp:hpv,hpMax:hpv,
       dmg:(0.75+f*0.145)*K.dmgM, awake:false, name:monsterFor(f), col:th.mob,
-      f:0, atk:0, kind});
+      f:0, atk:0, kind, art:artFor(f)});
   }
   for(let i=0;i<rI(2,4);i++){
     const q=drooms[rI(1,Math.max(1,drooms.length-1))];
@@ -1906,9 +1916,27 @@ function paintRail(){
           ' \u00b7 '+activeRun.loot+' gold so far<br>'+
           dmobs.filter(m=>m.awake).length+' roused, '+dmobs.length+' on the floor \u00b7 '+
           dchests.filter(c=>!c.open).length+' chests unopened</div>'+
-          party.map(p=>'<button class="tool" data-who="'+p.id+'">'+
-            '<span class="c" style="background:'+p.top+'"></span>'+p.name+
-            '<span class="k">'+Math.ceil(p.hp)+'/'+p.hpMax+'</span></button>').join('')
+          party.map(p=>{
+            const st=styleOf(p)||'sword', S=PSTYLE[st]||PSTYLE.sword;
+            const frac=Math.max(0,Math.min(1,p.hp/p.hpMax));
+            const col=frac>0.6?'#6fae5a':frac>0.3?'#e3b64a':'#c1483f';
+            // a caster who has run dry fights at a third strength; that has to be visible
+            const charges=S.cast
+              ? '<span class="mana'+(p.mana<S.cost?' dry':'')+'">'+
+                '\u25cf'.repeat(Math.max(0,Math.floor(p.mana===undefined?4:p.mana)))+
+                '\u25cb'.repeat(Math.max(0,4-Math.floor(p.mana===undefined?4:p.mana)))+'</span>'
+              : '';
+            const relics=(p.relics&&p.relics.length)
+              ? '<span class="rel" title="'+esc(p.relics.map(r=>r.n).join(', '))+'">\u2726'+
+                (p.relics.length>1?p.relics.length:'')+'</span>' : '';
+            return '<button class="delver" data-who="'+p.id+'">'+
+              '<span class="nm"><span class="c" style="background:'+p.top+'"></span>'+
+                esc(p.name)+relics+'</span>'+
+              '<span class="st '+st+'">'+st+'</span>'+charges+
+              '<span class="hpn">'+Math.ceil(p.hp)+'/'+p.hpMax+'</span>'+
+              '<span class="hpb"><i style="width:'+(frac*100).toFixed(0)+'%;background:'+col+'"></i></span>'+
+            '</button>';
+          }).join('')
         : '<div class="tiny">Nobody is below. Parties form between seven and eleven in the morning.</div>')+
       grp('other','','Other parties',
         KEEP.runs.filter(r=>r!==activeRun).length
@@ -2670,7 +2698,7 @@ function charFor(p){
   for(const k of chain) if(k&&ASSETS.chars[k]) return ASSETS.chars[k];
   return null;
 }
-const CLIPWORDS={ idle:['idle','breathing','stand'], walk:['walk'],
+const CLIPWORDS={ idle:['idle','breathing','stand'], walk:['walk','flying','fly','slither','hop'],
   run:['run','jog'], attack:['slash','attack','punch','swing','shoot','stab'],
   die:['death','dying','die','fall'] };
 /* Exporters disagree about bone names: three's Xbot carries 'mixamorigLeftHand',
@@ -2873,13 +2901,18 @@ function actionFor(sk,slot){
 /* what somebody is visibly doing, in clip terms */
 function makeMobSkin(mo){
   const K=MKIND[mo.kind]||MKIND.minion;
-  const C=ASSETS.mobs[mo.boss?'boss':K.model]||ASSETS.mobs.default; if(!C) return null;
+  const C=(mo.art&&ASSETS.mobs[mo.art])
+        || ASSETS.mobs[mo.boss?'boss':K.model]
+        || ASSETS.mobs.default; if(!C) return null;
   // a boss grows with the depth it guards: the Pitmaster is big, the Dragon fills the room
   const inner=THREE.skeletonClone(C.scene);
   inner.traverse(o=>{ if(o.isMesh||o.isSkinnedMesh){ o.castShadow=true; o.frustumCulled=false;
     o.material=o.material.clone();   // so a flash is this body's alone
   } });
-  const want = mo.boss ? 1.9 + Math.min(1.9, dfloor*0.022) : K.sz;
+  const BEAST={rat:0.75, bat:0.8, spider:1.0, slime:0.85, snake_angry:1.1,
+               wasp:0.9, frog:0.95, dragon:2.4};
+  const base=(mo.art&&BEAST[mo.art]!==undefined)?BEAST[mo.art]:K.sz;
+  const want = mo.boss ? base*1.5 + Math.min(1.6, dfloor*0.018) : base;
   const span=rigSpan(inner);
   const bb=new THREE.Box3().setFromObject(inner), bs=bb.getSize(new THREE.Vector3());
   const boxH=(isFinite(bs.y)&&bs.y>0.05)?bs.y:0, boneH=span?span.h:0;

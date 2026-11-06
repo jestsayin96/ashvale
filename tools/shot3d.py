@@ -35,10 +35,14 @@ try:
         # Every mob kind must actually pull its own model. A wrong manifest key falls
         # back to the minion silently and nothing on screen says so.
         want = {"skeleton_minion.glb", "skeleton_warrior.glb",
-                "skeleton_rogue.glb", "skeleton_mage.glb"}
+                "skeleton_rogue.glb", "skeleton_mage.glb",
+                # the bestiary: a wrong manifest key here falls back to a skeleton and
+                # nothing on screen says the creature is missing
+                "rat.glb", "bat.glb", "spider.glb", "slime.glb",
+                "snake_angry.glb", "wasp.glb", "frog.glb", "dragon.glb"}
         missing = want - set(glbs)
         if missing:
-            errs.append("mob models never requested: " + ", ".join(sorted(missing)))
+            errs.append("mob/creature models never requested: " + ", ".join(sorted(missing)))
         b.close()
 finally:
     srv.terminate()

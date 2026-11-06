@@ -497,3 +497,45 @@ breakpoint: `header overflows by 56px at 1440px wide / by 217px at 1280px wide`.
 What it does not prove: nothing checks the *styles* numerically — PSTYLE was verified by
 running a delve and reading the screenshot, and the archer's hold-at-range behaviour is
 visible there but not asserted.
+
+## Cycle 25 — a real bestiary, and a legible party (shipped)
+
+### The creatures
+The owner connected `C:\Users\morta\village_assets` — 4,467 models across 50 packs with
+an `asset_index.json` mapping name to path. The Quaternius creatures were FBX, which the
+vendored `node_modules/fbx2gltf/bin/Linux/FBX2glTF` converts in-container; no Blender
+needed. Eight creatures, each rigged with its own idle/walk/attack/death, compressed with
+gltf-transform at 512px: **2.7 MB for the whole bestiary.**
+
+`MOBART` maps depth to body — rat from floor 1, bat from 7, spider 13, slime 21, snake 31,
+wasp 46, frog 61, the KayKit skeletons from 76, **and the dragon at 100.** `MKIND` still
+decides *behaviour*, so a rogue-shaped spider is a spider that closes fast. `BEAST` sizes
+each creature on its own terms rather than as a scaled humanoid.
+
+`CLIPWORDS.walk` gained `flying`, `fly`, `slither`, `hop` — the flyers name their
+locomotion clip `_Flying`, and without that a bat hangs in bind pose.
+
+### The delver rail
+`PSTYLE` started mattering a lot in c24 and nothing showed it. Each party member is now a
+row carrying the style word in its own colour, a health bar, and — for a caster — the
+remaining charges as `\u25cf\u25cf\u25cf\u25cb`, because a dry caster fights at a third
+strength and that has to be visible. Relics show as a gold mark with the names on hover.
+
+### Tests
+`shot3d.py` now requires all twelve creature and skeleton models to be fetched. Verified
+by deleting the `dragon` key: `mob/creature models never requested: dragon.glb`.
+**What it does not prove:** `loadAssets` pulls the whole manifest up front, so this catches
+a wrong key, not that a given creature ever spawns. Depth-specific art was checked by
+forcing `artFor` to return `spider` and looking.
+
+### Licences
+Quaternius is CC0, same as KayKit. Nothing from `C:\ashvale-assests` (Mixamo) was touched.
+
+### Not needed, and worth writing down
+Blender and Godot were offered. **Godot is a different engine** — it cannot improve a
+three.js page, only replace it. **Blender was not needed** either: the creatures existed
+as FBX. Blender's real jobs here would be `.blend`-only assets, decimating the 9 MB
+`Imp.glb`/`Puglin.glb`, and baking AO. The two biggest wins in that library need neither:
+`hdri/spruit_sunrise_2k.hdr` as a three.js environment map, and the twelve `ambientcg/`
+PBR sets — `Ground037/054/068` for the fields, `Rock023/030/035/051` for the ridge,
+`Lava004/005` for the magma deeps, which currently render as flat orange.

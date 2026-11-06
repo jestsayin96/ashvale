@@ -127,6 +127,28 @@ h1 em{font-style:normal;color:var(--gold)}
 .places{display:grid;grid-template-columns:1fr 1fr;gap:1px 3px}
 .places .tool{margin-bottom:0;padding:5px 5px;font-size:11.5px;gap:5px;
   overflow:hidden;white-space:nowrap;text-overflow:ellipsis;display:flex}
+/* A delver in the rail: who, how they fight, what the gift has left, and how hurt.
+   The style word carries the colour, so the row needs no icon set. */
+.delver{display:grid;grid-template-columns:1fr auto;grid-template-areas:'nm st' 'hp hpn';
+  gap:1px 8px;width:100%;background:none;border:1px solid transparent;border-radius:6px;
+  padding:5px 7px;margin-bottom:2px;text-align:left;color:var(--ink);font-size:12.5px;
+  transition:background .13s}
+.delver:hover{background:var(--panel2)}
+.delver .nm{grid-area:nm;display:flex;align-items:center;gap:7px;font-weight:600;
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.delver .nm .c{width:8px;height:8px;border-radius:2px;flex:none}
+.delver .st{grid-area:st;font-size:10px;letter-spacing:.5px;color:#6b6283;align-self:center}
+.delver .st.bow{color:#9ab86a} .delver .st.axe{color:#d08a5a}
+.delver .st.staff{color:#a98fe0} .delver .st.sword{color:#9aa6b8}
+.delver .mana{grid-area:st;display:none}
+.delver .st.staff ~ .mana{display:block}
+.delver .hpn{grid-area:hpn;font-size:10.5px;color:#6b6283;align-self:center}
+.delver .hpb{grid-area:hp;align-self:center;height:4px;border-radius:2px;background:#191527;
+  overflow:hidden;display:block;margin-top:2px}
+.delver .hpb i{display:block;height:100%}
+.delver .rel{color:var(--gold);font-size:10px;flex:none}
+.mana{font-size:9px;letter-spacing:1px;color:#a98fe0}
+.mana.dry{color:#6e5a3a}
 .camrow{display:flex;gap:4px;margin-bottom:5px}
 .cbtn{flex:none;width:32px;height:26px;background:transparent;border:1px solid var(--edge);
   border-radius:6px;font-size:12px;line-height:1;padding:0;color:var(--muted)}
