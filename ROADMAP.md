@@ -1622,3 +1622,54 @@ A second candidate worth trying before more roof tricks: make a building's **mod
 semi-transparent** when the camera is close, instead of swapping it for a stub. That
 keeps the silhouette and shows the life. Watch out that the GLB clones may share
 materials — setting opacity on a shared material would fade every building at once.
+
+## Cycle 45 — correcting c44, which was measuring a stopped town
+
+### The finding in c44 was false
+c44 reported **"68 of 69 people are indoors at EVERY hour"** and wrote it into the
+roadmap, a commit message and two loop prompts. It is not true, and the reason is the
+probe: `folk.py` set the hour with `__ash.noon(h)` and read the census immediately.
+Setting `hour` does not run the simulation. Nobody ever commuted; everyone sat where
+they had been at boot, which is indoors. **It measured a stopped town.**
+
+With the sim actually running, and before adding anything at all:
+
+```
+BASELINE, no outings, sim running
+07:00  69 indoors      13:00  36      17:00  18
+08:00  13 indoors      14:00  44      18:00  12
+09:00  13 indoors      16:00  51      19:00  16
+```
+
+The town empties into the street twice a day as work and evening change, and fills
+again as people arrive. It was never dead. The real shape is an **afternoon lull** —
+51 indoors at four o'clock — not a permanent emptiness.
+
+This is the third time in two days that a probe measured the wrong world: c41's
+pathing numbers were cheap because the grid was unwalkable, c43's clock probe measured
+the software renderer, and now this. **Setting a value the simulation owns is not the
+same as letting the simulation reach it.**
+
+### A real bug the correction uncovered
+Driving the probe at a high speed left **7 of 69 indoors at every hour** — because at
+a large `dt` a walker's step can exceed the distance to the tile they are walking to.
+They overshoot, oscillate around their own door and never satisfy `dist<0.5`. The game
+never hit this (at 8x a step is 0.19 tiles) but it made the sim unmeasurable above it,
+and it is a latent fragility. A step is now clamped so it cannot pass its target. The
+sim behaves the same at any speed, which is what makes it measurable at all.
+
+### Outings, kept but modest
+The street machinery is still worth having: it fills the afternoon lull, which is the
+one part of the day the commutes do not cover. `outing()` sends children out after
+school, idle adults into the lanes, and workers out at midday and in the evening, to a
+road or plaza tile **within nine tiles** — a walker covers 4.6 tiles a game-hour, so an
+eighteen-tile spot was a three-hour round trip, and the first tuning emptied the town
+the other way (six indoors at four in the afternoon). Rates were cut to about a third
+and the dwell shortened to 20-90 minutes. Midday now reads 17 indoors against a
+baseline 36.
+
+### What this means for "I don't see any sims"
+The owner was right that the town looks empty, but the cause is not that people are
+indoors. At the distance he was watching, **people are simply very small** against
+KayKit buildings. That is a presentation problem — figure scale, outlines, or marking
+who is who — and it is the next thing to try, not more schedule tinkering.

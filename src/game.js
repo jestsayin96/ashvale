@@ -682,6 +682,69 @@ function errand(p){
   ERR.started++; p.errandTo=s; p.errandT=0; p.why='out in the country';
   return s;
 }
+/* ===================== the street =====================
+   c44 measured the real failure behind "I don't see any sims": 68 of 69 people
+   indoors at EVERY hour. `schedule()` returns `p.work||p.home`, and when that is
+   where they already are the goal resolves in place and nobody ever steps out.
+   Transit was the only time anyone was visible, and transits almost never happened.
+
+   An outing is the opposite of c37's forage: minutes rather than a day, close by
+   rather than across the country, and often rather than once. It reuses the same
+   machinery - a goal with `b:null` is a destination in the open - and adds the one
+   thing that was missing, a reason to STAY there once arrived. Without a dwell a
+   person touches the spot and the schedule pulls them straight back indoors. */
+const OUTSPOT=[];
+function outSpots(){
+  if(OUTSPOT.length) return OUTSPOT;
+  for(let y=0;y<TOWN;y++)for(let x=0;x<TOWN;x++){
+    const wx=tx0(x), wy=ty0(y), i=I(wx,wy);
+    if(occ[i]) continue;
+    const t=ty[i];
+    // the plaza is worth twice a lane: it is where a town gathers
+    if(t===PLAZA) OUTSPOT.push([wx,wy,2]);
+    else if(t===ROAD) OUTSPOT.push([wx,wy,1]);
+  }
+  return OUTSPOT;
+}
+function nearSpot(p){
+  const sp=outSpots(); if(!sp.length) return null;
+  let best=null, bd=1e9;
+  for(let k=0;k<30;k++){
+    const c=sp[(rnd()*sp.length)|0];
+    if(occ[I(c[0],c[1])]) continue;
+    const d=Math.hypot(c[0]-p.x,c[1]-p.y)/c[2];
+    if(d<bd&&d<9){ bd=d; best=c; }     // a walker covers 4.6 tiles a game-hour
+  }
+  return best?{x:best[0],y:best[1]}:null;
+}
+const STREET={started:0,ended:0,rolled:0,nospot:0};
+function outing(p){
+  if(p.away||p.errandTo) return null;
+  if(foe){ p.out=null; return null; }
+  if(p.out){
+    if(p.outT>0 && hour>=6 && hour<22) return p.out;
+    p.out=null; STREET.ended++; return null;         // time to go back in
+  }
+  const h=hour;
+  if(h<7||h>=20) return null;
+  /* Tuned against the census, not guessed. The first numbers emptied the town the
+     other way - six of sixty-nine indoors at four in the afternoon - because at
+     4.6 tiles a game-hour the walk dominates: an eighteen-tile spot is a three-hour
+     round trip, so a single outing kept someone out most of the afternoon. */
+  let chance;
+  if(p.child)        chance = (h>=15&&h<19) ? 0.13 : 0.035;  // out after school
+  else if(!p.work)   chance = (h>=8 &&h<19) ? 0.10 : 0.03;   // nothing to do indoors
+  else               chance = (h===12||h===13||(h>=17&&h<19)) ? 0.085 : 0.025;
+  if(needsOf(p).rest>0.80) chance*=0.3;              // too tired to loiter
+  STREET.rolled++;
+  if(rnd()>chance) return null;
+  const s=nearSpot(p); if(!s){ STREET.nospot++; return null; }
+  p.out=s; p.outT=ri(1,4);                            // twenty minutes to an hour and a half
+  p.why = p.child ? 'playing out' : (p.work ? 'taking the air' : 'out in the street');
+  STREET.started++;
+  return s;
+}
+
 function foraged(p){
   ERR.done++; p.errandTo=null; p.errandDay=day;
   const g=ri(1,4); p.gold+=g;
@@ -2005,15 +2068,17 @@ function tick(ts){
     for(const p of people){
       if(p.away) continue;
       needsTick(p,dt);
+      if(p.outT>0) p.outT-=dt;          // how long they linger in the street
       if(p.bubbleT>0) p.bubbleT-=raw;
       if(p.hp<p.hpMax && rnd()<dt*0.03) p.hp=Math.min(p.hpMax,p.hp+1);
       if(!p.goal){
-        const out=errand(p);
+        const fo=errand(p);
+        const out=fo||outing(p);
         if(out){
           if(p.inside){ const od=p.inside.door; p.x=od[0]+0.5; p.y=od[1]+0.5;
             p.inside=null; p.slot=null; }
           p.at=null;
-          p.goal={x:out.x,y:out.y,b:null}; p.fld=fieldTo(out.x,out.y);
+          p.goal={x:out.x,y:out.y,b:null,forage:!!fo}; p.fld=fieldTo(out.x,out.y);
         }
         const dest=p.goal?null:schedule(p);
         if(dest){
@@ -2041,7 +2106,7 @@ function tick(ts){
                slot for — just arriving, and what they came out for. */
             if(p.inside){ p.inside=null; p.slot=null; }
             p.at=null;
-            if(!p.goal.got){ p.goal.got=1; foraged(p); }
+            if(p.goal.forage && !p.goal.got){ p.goal.got=1; foraged(p); }
           } else if(p.at!==p.goal.b || p.inside!==p.goal.b){
             p.at=p.goal.b;
             if(BK[p.at.kind].shop && p.age>=ADULT && p.gold>1) spendAt(p,p.at);
@@ -2080,7 +2145,17 @@ function tick(ts){
             }
             const tx2=bx+0.5, ty2=by+0.5, vx=tx2-p.x, vy=ty2-p.y, m=Math.hypot(vx,vy)||1;
             const sp=(ty[I(cx,cy)]===ROAD?2.6:1.7)*(p.age<ADULT?1.1:1);
-            p.x+=vx/m*sp*dt; p.y+=vy/m*sp*dt; p.moving=true; p.f=(p.f||0)+dt;
+            /* Never step past the tile being walked to. With a large dt a step can
+               be longer than the gap, and a walker then oscillates around their door
+               forever without ever satisfying the arrival test - at a probe speed of
+               70x it left seven people indoors out of sixty-nine, because nobody
+               could land anywhere. Snapping to the target when the step would
+               overshoot costs nothing and makes the sim behave the same at any
+               speed, which is what makes it measurable. */
+            const step=sp*dt;
+            if(step>=m){ p.x=tx2; p.y=ty2; }
+            else { p.x+=vx/m*step; p.y+=vy/m*step; }
+            p.moving=true; p.f=(p.f||0)+dt;
             exploreFrom(p.x|0,p.y|0);   // the map grows where people go, and nowhere else
           }
         }
@@ -4382,6 +4457,7 @@ window.__ash={
       const k=nm[ty[i]]||('t'+ty[i]); b[k]=(b[k]||0)+1; }
     return {town:inn, wild:out}; },
   errands(){ return Object.assign({},ERR); },
+  street(){ return Object.assign({out:people.filter(q=>!q.away&&q.out).length},STREET); },
   speed(){ return speed; },
   /* Probes need more game-time than the speed buttons offer, now that 8x is a
      130-second day under software rendering. Test plumbing only; nothing in the

@@ -19,22 +19,29 @@ try:
             pg.click("#sc3D")
         pg.wait_for_timeout(9000)
         worst = None; indoors_log = {}
-        for hour in (9, 13, 19, 23):
-            pg.evaluate("h=>window.__ash.noon(h)", hour)
-            for dist in (18, 40, 70):
-                pg.evaluate("d=>{const S=window.__ash; S.look(26,23,d);}", dist)
+        # Let the sim RUN to each hour instead of teleporting the clock. Setting
+        # `hour` directly and reading straight away measures a town that never
+        # commuted: everyone is still indoors where they were at boot. That is how
+        # c44 concluded "68 of 69 indoors at every hour", which is false - a running
+        # town empties into the street twice a day as work and evening change.
+        pg.evaluate("()=>window.__ash.fast(25)")
+        want = [9, 13, 19]
+        for hour in want:
+            for _ in range(90):
+                if pg.evaluate("()=>window.__ash.clock().hour") == hour: break
                 pg.wait_for_timeout(500)
-                r = pg.evaluate("()=>window.__ash.folkSeen()")
-                indoors_log["%02d:00" % hour] = "%d/%d" % (r["indoors"], r["alive"])
-                frac = r["shown"] / max(1, r["alive"])
-                print("%02d:00 dist %-3d  alive %-3d indoors %-3d  SEEN %-3d (%.0f%%)  auto %d"
-                      % (hour, dist, r["alive"], r["indoors"], r["shown"], frac*100, r["auto"]))
-                # Close in, looking at a street, you should see its life. Further out
-                # the town keeps its roofs on purpose - opening a building hides its
-                # model, and a town of roofless stubs looks worse than an empty one.
-                if dist <= 18 and (worst is None or frac < worst[0]):
-                    worst = (frac, hour, dist, r)
-        print("NOTE indoors at each hour:", indoors_log)
+            r = pg.evaluate("()=>window.__ash.folkSeen()")
+            indoors_log["%02d:00" % hour] = "%d/%d" % (r["indoors"], r["alive"])
+            print("%02d:00  alive %-3d indoors %-3d outdoors %-3d"
+                  % (hour, r["alive"], r["indoors"], r["outdoors"]))
+            pg.wait_for_timeout(1500)
+        pg.evaluate("()=>window.__ash.fast(8)")
+        st = pg.evaluate("()=>window.__ash.street()")
+        print("street:", json.dumps(st))
+        assert st["started"] > 0, ("nobody took an outing", st)
+        # The town must not be entirely indoors at midday, nor entirely in the street.
+        mid = int(indoors_log["13:00"].split("/")[0])
+        assert 8 <= mid <= 58, ("midday is implausible - all in or all out", indoors_log)
 
         # Assert the MECHANISM, not a town-wide fraction. Pointing the camera at the
         # plaza and counting heads measures where the people happen to be, which is
@@ -50,9 +57,12 @@ try:
         after = pg.evaluate("()=>window.__ash.folkSeen()")
         print("busiest %s holds %d; seen far %d -> seen close %d (auto %d)"
               % (tgt["kind"], tgt["n"], b4["shown"], after["shown"], after["auto"]))
+        # Only the first of these is a guarantee. "More than far out" held when the
+        # whole town was indoors; with people in the street the far view already
+        # shows plenty, and the close view need not beat it.
         assert after["shown"] >= tgt["n"], ("moving the camera onto an occupied "
                                             "building did not reveal its people", tgt, after)
-        assert after["shown"] > b4["shown"], ("close in showed no more than far out", b4, after)
+        assert after["auto"] > 0, ("close in opened nothing", after)
         pg.evaluate("()=>{window.__ash.noon(9); window.__ash.look(26,23,26);}")
         pg.wait_for_timeout(700)
         pg.screenshot(path=str(root / "dist/shot-folk.png"))
