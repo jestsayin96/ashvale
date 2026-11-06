@@ -17,15 +17,16 @@ try:
         pg.click("[data-sp='8']"); pg.wait_for_timeout(3000)
         pg.click("#sc3D"); pg.wait_for_timeout(9000)      # models load, skins spawn
         pg.screenshot(path=str(root / "dist/shot-3d-models.png"))
-        try:                                                  # lift every roof: see inside
-            pg.click("#xrayT"); pg.wait_for_timeout(2500)
-            pg.screenshot(path=str(root / "dist/shot-3d-inside.png"))
-            pg.click("#xrayT"); pg.wait_for_timeout(400)
-        except Exception as e:
-            print("interior shot skipped:", e)
+        # the rail repaints on a cadence, so a located element can detach mid-click.
+        # go through the DOM instead of Playwright's actionability checks.
+        tap = lambda sel: pg.evaluate(
+            "s => { const e = document.querySelector(s); if (e) e.click(); }", sel)
+        tap("#xrayT"); pg.wait_for_timeout(2500)
+        pg.screenshot(path=str(root / "dist/shot-3d-inside.png"))
+        tap("#xrayT"); pg.wait_for_timeout(400)
         pg.click("#scKeep"); pg.wait_for_timeout(6000)       # 3D stays on across the switch
         for _ in range(4):                                   # pull back so the floor is visible
-            pg.click("[data-cam='out']"); pg.wait_for_timeout(250)
+            tap("[data-cam='out']"); pg.wait_for_timeout(250)
         pg.wait_for_timeout(1500)
         pg.screenshot(path=str(root / "dist/shot-3d-keep.png"))
         b.close()

@@ -19,6 +19,14 @@ their local files under /home/claude/colony and /home/claude/village are the onl
 5. Keep the reply to the user short — they asked for updates on request, not narration.
 
 ## Shipped
+- c15 the crypts: dungeon dressing is themed by depth band now. BANDPROPS gives each of the
+  five bands its own vocabulary - rubble and crates in the wet caves, coffins, graves,
+  gravestones, skulls and ribcages in the crypts, lanterns in the iron halls, shrines on
+  the dragon's floors. 12 props from KayKit Halloween Bits (CC0).
+  The test only ever reaches floor 2, so the crypt band was verified by temporarily
+  forcing bandProps(25) and looking. Worth repeating for any band-specific work.
+  Also: tools/shot3d.py clicks through the DOM now. The rail repaints on a cadence and
+  Playwright's actionability checks hung forever on an element that detached mid-click.
 - c14 interiors and a cheaper loop: 17 KayKit furniture models drive the interiors, so
   lifting a roof shows real beds, tables, barrels, shelves and chests instead of coloured
   boxes. Chests in the Keep are built once per floor and rebuilt only when one is forced,

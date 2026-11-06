@@ -105,7 +105,19 @@
     "rubble": "kay/dungeon/rubble.glb",
     "coins": "kay/dungeon/coins.glb",
     "table": "kay/dungeon/table.glb",
-    "stairs": "kay/dungeon/stairs.glb"
+    "stairs": "kay/dungeon/stairs.glb",
+    "coffin": "kay/crypt/coffin.glb",
+    "crypt": "kay/crypt/crypt.glb",
+    "grave": "kay/crypt/grave.glb",
+    "grave2": "kay/crypt/grave2.glb",
+    "gravestone": "kay/crypt/gravestone.glb",
+    "marker": "kay/crypt/marker.glb",
+    "skull": "kay/crypt/skull.glb",
+    "ribcage": "kay/crypt/ribcage.glb",
+    "bone": "kay/crypt/bone.glb",
+    "shrine": "kay/crypt/shrine.glb",
+    "lantern": "kay/crypt/lantern.glb",
+    "cpillar": "kay/crypt/cpillar.glb"
   },
   "furniture": {
     "bed": "kay/furn/bed.glb",

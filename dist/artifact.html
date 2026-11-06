@@ -6039,6 +6039,21 @@ function dungeonGeo(th){
     g.setIndex(I); g.computeVertexNormals(); return g; };
   return {floor:mk(fp,fc,fi), wall:mk(wp,wc,wi)};
 }
+/* What a floor is littered with depends on how deep it is. The wet caves have rubble
+   and old crates; the crypts have coffins and bones; the dragon's floors have shrines. */
+const BANDPROPS=[
+  {big:[['cpillar',1.9]], small:[['barrel',0.85],['crates',0.95],['rubble',0.9],['bone',0.5]]},
+  {big:[['crypt',2.2],['coffin',1.4]], small:[['grave',0.9],['grave2',0.9],['gravestone',0.8],
+     ['marker',0.7],['skull',0.4],['ribcage',0.8],['bone',0.5]]},
+  {big:[['cpillar',2.0],['lantern',1.1]], small:[['crates',0.95],['barrel',0.85],['rubble',0.9]]},
+  {big:[['cpillar',1.9]], small:[['rubble',1.0],['bone',0.5],['skull',0.4],['ribcage',0.8]]},
+  {big:[['shrine',1.5],['crypt',2.2]], small:[['skull',0.45],['bone',0.5],['gravestone',0.8],
+     ['ribcage',0.8]]}
+];
+function bandProps(f){
+  const i=THEMES.findIndex(t=>f<=t.to);
+  return BANDPROPS[i<0?4:i];
+}
 function dungProp(kind,x,y,want,rot,yOff){
   const proto=ASSETS.dung[kind]; if(!proto) return null;
   const m=proto.clone(true);
@@ -6100,18 +6115,21 @@ function buildKeep3D(){
   dm.position.set(dDownAt[0]+0.5, 0.02, dDownAt[1]+0.5); S.world.add(dm);
   S.scene.fog.color.setHex(hx(th.rock[2]));
   S.scene.background=new THREE.Color(hx(th.rock[2]));
-  if(ASSETS.dung.pillar){
+  if(ASSETS.dung.cpillar||ASSETS.dung.pillar){
     const dress=new THREE.Group(); S.world.add(dress);
     const st=dungProp('stairs',dDownAt[0]+0.5,dDownAt[1]+0.5,1.3,0,0);
     if(st) dress.add(st);
     for(let y=0;y<DN;y++)for(let x=0;x<DN;x++){
       const t=dty[dI(x,y)];
       const h=dHash(x,y,dfloor*31+7);
+      const bp=bandProps(dfloor);
       if(t===DRUBBLE && h>0.35){
-        const p2=dungProp('rubble',x+0.5,y+0.5,0.9,h*6.3,0); if(p2) dress.add(p2);
-      } else if(t===DFLOOR && h>0.981){
-        const kind = h>0.994?'crates' : (h>0.988?'barrel':'pillar');
-        const p2=dungProp(kind,x+0.5,y+0.5,kind==='pillar'?1.9:0.85,h*6.3,0);
+        const pick2=bp.small[(h*997|0)%bp.small.length];
+        const p2=dungProp(pick2[0],x+0.5,y+0.5,pick2[1],h*6.3,0); if(p2) dress.add(p2);
+      } else if(t===DFLOOR && h>0.978){
+        const set = h>0.993 ? bp.big : bp.small;
+        const pick2 = set[(h*1409|0)%set.length];
+        const p2=dungProp(pick2[0],x+0.5,y+0.5,pick2[1],h*6.3,0);
         if(p2) dress.add(p2);
       }
     }
