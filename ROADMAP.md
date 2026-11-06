@@ -19,6 +19,11 @@ their local files under /home/claude/colony and /home/claude/village are the onl
 5. Keep the reply to the user short — they asked for updates on request, not narration.
 
 ## Shipped
+- c16 bosses with presence: a boss grows with the depth it guards (1.9 up to ~4 units by
+  floor 100), carries a point light and a slow-pulsing ring on the floor in its own colour
+  from BOSSES[], and the Keep announces it by name the moment it wakes.
+  Verified the way the crypts were: bossFor() temporarily forced to BOSSES[4] so a boss
+  appeared on floor 2, looked at, reverted. The test never reaches floor 10.
 - c15 the crypts: dungeon dressing is themed by depth band now. BANDPROPS gives each of the
   five bands its own vocabulary - rubble and crates in the wet caves, coffins, graves,
   gravestones, skulls and ribcages in the crypts, lanterns in the iron halls, shrines on
