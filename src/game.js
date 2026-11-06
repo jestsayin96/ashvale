@@ -3109,15 +3109,35 @@ function rebuildFolk(S){
 }
 /* Swap the procedural cones for real trees, and scatter a few props, once the
    models have arrived. Clones share geometry and material, so this is cheap. */
-function dressTown(S){
-  if(S.dressed||!ASSETS.props.tree) return;
-  S.dressed=true;
-  if(S.trunks){ S.scene.remove(S.trunks); S.scene.remove(S.leaves); }
-  const kinds=[ASSETS.props.tree,ASSETS.props.tree2,ASSETS.props.tree3].filter(Boolean);
-  const grove=new THREE.Group(); S.scene.add(grove); S.grove=grove;
-  let i=0;
-  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
-    if(!tree[I(x,y)]) continue;
+/* The town's models, and the country's. Two bugs lived here.
+
+   `ty.fill(ROCK)` at boot makes every cell outside the authored town ROCK, and
+   the boulder pass walked the whole grid looking for ROCK - so 2,785 boulders
+   stood scattered across land that does not exist, up to 53 tiles beyond the
+   made world. Nothing showed it while the void rendered near-black; the moment
+   c39 made the sky bright they were a field of grey blocks hanging over nothing.
+   Everything placed here is now gated on `isMade`.
+
+   And this ran once, removing the procedural tree instances as it went, so any
+   country generated afterwards had no trees of either kind. It is re-entrant
+   now: `dressedAt` marks a cell done, and regrow3D dresses whatever is new. */
+function dressPut(S,proto,x,y,want,rot){
+  if(!proto) return;
+  const m=proto.clone(true);
+  fitModel(m,0,0,true);
+  const b=new THREE.Box3().setFromObject(m), sz=b.getSize(new THREE.Vector3());
+  const big=Math.max(sz.x,sz.y,sz.z)||1, sc=want/big;
+  m.scale.setScalar(sc);
+  m.position.set(x, H(x|0,y|0)*HU - b.min.y*sc, y);
+  m.rotation.y=rot||0;
+  m.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
+  S.grove.add(m);
+}
+function dressCell(S,x,y,kinds){
+  const i=I(x,y);
+  if(!GEN[i]||S.dressedAt[i]) return 0;
+  S.dressedAt[i]=1;
+  if(tree[i]){
     const proto=kinds[(x*3+y*7)%kinds.length];
     const m=proto.clone(true);
     fitModel(m,0,0,true);
@@ -3128,34 +3148,43 @@ function dressTown(S){
     m.position.set(x+0.5, H(x,y)*HU - b.min.y*sc, y+0.5);
     m.rotation.y=((x*13+y*29)%360)*Math.PI/180;
     m.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
-    grove.add(m); i++;
+    S.grove.add(m);
+    return 1;
   }
-  // boulders on the rocky ridge, a well on the plaza, a mill out by the fields
-  const put=(proto,x,y,want,rot)=>{
-    if(!proto) return;
-    const m=proto.clone(true);
-    fitModel(m,0,0,true);
-    const b=new THREE.Box3().setFromObject(m), sz=b.getSize(new THREE.Vector3());
-    const big=Math.max(sz.x,sz.y,sz.z)||1, sc=want/big;
-    m.scale.setScalar(sc);
-    m.position.set(x, H(x|0,y|0)*HU - b.min.y*sc, y);
-    m.rotation.y=rot||0;
-    m.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
-    grove.add(m);
-  };
-  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
-    if(ty[I(x,y)]!==ROCK) continue;
+  if(ty[i]===ROCK){
     const h=((x*17+y*29)%100)/100;
-    if(h>0.86) put(ASSETS.props.rock, x+0.5, y+0.5, 1.5+h, h*6.3);
+    if(h>0.86) dressPut(S,ASSETS.props.rock, x+0.5, y+0.5, 1.5+h, h*6.3);
   }
+  return 0;
+}
+const dressKinds=()=>[ASSETS.props.tree,ASSETS.props.tree2,ASSETS.props.tree3].filter(Boolean);
+/* Land appeared after the models were in. Only made, undressed cells are touched. */
+function dressNew(S){
+  if(!S.dressed) return 0;
+  const kinds=dressKinds(); if(!kinds.length) return 0;
+  const b=genBounds(); let n=0;
+  for(let y=b.y0;y<=b.y1;y++)for(let x=b.x0;x<=b.x1;x++) n+=dressCell(S,x,y,kinds);
+  return n;
+}
+function dressTown(S){
+  if(S.dressed||!ASSETS.props.tree) return;
+  S.dressed=true;
+  S.dressedAt=new Uint8Array(N*N);
+  if(S.trunks){ S.scene.remove(S.trunks); S.scene.remove(S.leaves); }
+  const kinds=dressKinds();
+  const grove=new THREE.Group(); S.scene.add(grove); S.grove=grove;
+  let i=0;
+  const b=genBounds();
+  for(let y=b.y0;y<=b.y1;y++)for(let x=b.x0;x<=b.x1;x++) i+=dressCell(S,x,y,kinds);
+  // a well on the plaza, a mill out by the fields
   let plaza=null;
-  for(let y=0;y<N&&!plaza;y++)for(let x=0;x<N;x++)
-    if(ty[I(x,y)]===PLAZA&&!occ[I(x,y)]){ plaza=[x,y]; break; }
-  if(plaza) put(ASSETS.props.well, plaza[0]+0.5, plaza[1]+0.5, 1.6, 0.4);
+  for(let y=b.y0;y<=b.y1&&!plaza;y++)for(let x=b.x0;x<=b.x1;x++)
+    if(isMade(x,y)&&ty[I(x,y)]===PLAZA&&!occ[I(x,y)]){ plaza=[x,y]; break; }
+  if(plaza) dressPut(S,ASSETS.props.well, plaza[0]+0.5, plaza[1]+0.5, 1.6, 0.4);
   let field=null;
-  for(let y=N-1;y>=0&&!field;y--)for(let x=0;x<N;x++)
-    if(ty[I(x,y)]===FIELD&&!occ[I(x,y)]){ field=[x,y]; break; }
-  if(field) put(ASSETS.props.mill, field[0]+0.5, field[1]+0.5, 4.2, 2.2);
+  for(let y=b.y1;y>=b.y0&&!field;y--)for(let x=b.x0;x<=b.x1;x++)
+    if(isMade(x,y)&&ty[I(x,y)]===FIELD&&!occ[I(x,y)]){ field=[x,y]; break; }
+  if(field) dressPut(S,ASSETS.props.mill, field[0]+0.5, field[1]+0.5, 4.2, 2.2);
   return i;
 }
 function init3D(){
@@ -3240,6 +3269,7 @@ function fitWater(S){
 function regrow3D(S){
   syncGround(S);
   fitWater(S);
+  dressNew(S);              // trees and boulders for the country that just appeared
   const leafCol=S.leaves?S.leaves.material.color.getHex():undefined;
   [S.trunks,S.leaves].forEach(m=>{ if(m){ S.scene.remove(m);
     m.geometry.dispose(); m.material.dispose(); } });
@@ -4251,6 +4281,32 @@ window.__ash={
   out(){ return people.filter(p=>!p.away&&p.errandTo).length; },
   /* What the generator actually lays down, counted inside the town and beyond it
      separately. Guessing at a screenshot four times is what this replaces. */
+  /* What is drawn beyond the made world. Three guesses at a screenshot is three
+     too many: walk the graph, take each object's world-space centre, and name
+     whatever sits outside the bounding box of ground that exists. */
+  strays(){ const S=R3; if(!S) return null;
+    const b=genBounds(), out={}, box=new THREE.Box3(), c=new THREE.Vector3();
+    let inside=0;
+    S.scene.traverse(o=>{
+      if(!(o.isMesh||o.isInstancedMesh)) return;
+      box.setFromObject(o); if(box.isEmpty()) return;
+      box.getCenter(c);
+      if(c.x>=b.x0-1&&c.x<=b.x1+2&&c.z>=b.y0-1&&c.z<=b.y1+2){ inside++; return; }
+      let tag=o.name||'', q=o.parent, hop=0;
+      while(q&&hop<4){ if(q.name){ tag=q.name+'/'+tag; break; } q=q.parent; hop++; }
+      const k=(tag||'(unnamed)')+' '+o.type+' '+(o.material&&o.material.type||'-')+
+        (o.isInstancedMesh?' x'+o.count:'');
+      if(!out[k]) out[k]={n:0, far:0, at:null, vis:0, geo:null};
+      out[k].n++;
+      if(!out[k].at){ out[k].at=[Math.round(c.x),Math.round(c.y),Math.round(c.z)];
+        out[k].geo=o.geometry&&o.geometry.type; }
+      let shown=o.visible, q2=o.parent;
+      while(shown&&q2){ if(!q2.visible) shown=false; q2=q2.parent; }
+      if(shown) out[k].vis++;
+      out[k].far=Math.max(out[k].far, Math.round(Math.max(
+        b.x0-c.x, c.x-b.x1, b.y0-c.z, c.z-b.y1)));
+    });
+    return {bounds:b, inside, outside:out}; },
   hist(){ const nm=['grass','road','plaza','water','dirt','field','rock'];
     const inn={}, out={};
     for(let y=0;y<N;y++)for(let x=0;x<N;x++){ const i=I(x,y); if(!GEN[i]) continue;

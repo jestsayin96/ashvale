@@ -39,6 +39,16 @@ try:
                 ("a Lambert material is back in the town scene", cen["byType"])
             assert cen["tone"] == 4, ("tone mapping is not ACES filmic", cen)
             assert cen["enc"] == 3001, ("the renderer is not writing sRGB", cen)
+            # nothing may be drawn on land that does not exist. Every cell outside the
+            # authored town is ROCK by default, and the boulder pass used to scatter
+            # 2785 of them across the void.
+            st = pg.evaluate("()=>window.__ash.strays()")
+            # effective visibility: a mesh whose group is hidden is not on screen
+            stray = sum(v["vis"] for v in st["outside"].values())
+            print(tag, "strays", stray, json.dumps(
+                {k: (v["n"], v["vis"]) for k, v in sorted(st["outside"].items(),
+                 key=lambda kv: -kv[1]["n"])[:4]}))
+            assert stray == 0, ("objects are standing outside the made world", st)
         # a close look at one building, where a lighting model shows most
         pg.evaluate("()=>window.__ash.look&&window.__ash.look(26,23,14)")
         pg.wait_for_timeout(900)

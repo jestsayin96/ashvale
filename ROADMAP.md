@@ -1197,3 +1197,65 @@ instead of near-black. Next cycle starts from those three eliminations rather th
 from scratch. Also still open: the Keep's four Lambert materials, the frontier's
 rectangular lip, and normal maps — which need the ambientCG normal textures that are
 not in this repo.
+
+## Cycle 40 — 2,785 boulders standing on land that does not exist
+
+### Found by naming it, not by looking at it
+c39 left a field of pale tiles with grey blocks beyond the town and three things
+ruled out. Rather than guess a fourth time, `__ash.strays()` now walks the scene
+graph, takes each object's world-space centre, and names anything sitting outside
+the bounding box of ground that exists. One run:
+
+```
+bounds 52,52..103,103   inside 734
+  Scene/rock_single_A  Mesh MeshStandardMaterial   n=2785  far=53
+```
+
+**`ty.fill(ROCK)` at boot makes every cell outside the authored town ROCK**, and
+`dressTown`'s boulder pass walked the whole 156x156 grid looking for ROCK. 21,632
+unmade cells, a hash letting through about one in seven: 2,785 boulders hanging over
+nothing, up to 53 tiles out. They had been there since the props landed. Nothing
+showed it while the void rendered near-black; c39 made the sky bright and there they
+were.
+
+### A second bug hiding behind the first
+`dressTown` ran once (`S.dressed=true`) and removed the procedural tree instances as
+it went. So **any country generated after the models loaded had no trees of either
+kind** — the instanced ones were gone and the GLB ones were never placed. It is
+re-entrant now: `dressedAt` marks a cell done, `dressCell` does one cell, and
+`regrow3D` calls `dressNew` for whatever just appeared.
+
+### Removing the fix, and removing the wrong one first
+The rule says remove the fix and confirm it fails. I removed the `isMade` gate in
+`dressCell` and **the suite stayed green** — because the gate is not what fixes this.
+The loop now runs over `genBounds()` instead of `0..N`, and that is what keeps the
+boulders home. Restoring the whole-grid walk *and* dropping the gate reproduced the
+bug exactly — 2,785 visible strays, guard fires.
+
+Stated plainly: **the bounds loop is tested, the `GEN` gate is not.** The gate earns
+its place when the frontier stops being a rectangle, because `genBounds` is a box and
+will contain unmade cells; but the probe that loads models does not grow the world,
+so I have not exercised that path. Next cycle can grow the world inside `render.py`
+and close it.
+
+### The guard had to be told what it meant
+First version asserted zero objects outside the bounds and failed at 250 — person
+boxes and gift spheres parked at the origin. They are pooled models for people who
+are away, and they are **effectively hidden**: `o.visible` was true but a parent
+group's was not. The check now walks the parent chain and counts only what would
+actually be on screen. An assertion about what is visible has to mean visible.
+
+### Measured
+```
+before   3884 meshes in the scene, 2785 of them boulders over the void
+after    1071 meshes, strays 0
+```
+A 72% cut in the scene graph, which should matter more on a real GPU than anything
+else this cycle did — swiftshader reported 1.3 fps either way, and that remains weak
+evidence for the reasons c39 gave.
+
+### Still open
+- The Keep's four Lambert materials; the wall one carries an `onBeforeCompile` patch.
+- Normal maps need the ambientCG normal textures, which are **not in this repo**.
+- The frontier's rectangular cliff lip.
+- The ridge boulders read dense from some angles. Tuning, not correctness.
