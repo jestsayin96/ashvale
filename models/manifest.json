@@ -1,5 +1,5 @@
 {
- "_comment": "100% CC0. Everything under models/kay/ is KayKit by Kay Lousberg - characters, monsters, weapons, buildings and trees. No attribution required, redistribution permitted. No Mixamo asset is committed here: Mixamo allows use but not redistribution, and a public repo is redistribution.",
+ "_comment": "100% CC0. Everything under models/kay/ is KayKit by Kay Lousberg - characters, monsters, weapons, buildings and trees. Ground, rock and paving textures are ambientCG (CC0). No attribution required, redistribution permitted. No Mixamo asset is committed here: Mixamo allows use but not redistribution, and a public repo is redistribution.",
  "cap": 20,
  "buildings": {
   "hall": "kay/build/castle.glb",
@@ -150,9 +150,16 @@
   "stool": "kay/furn/stool.glb"
  },
  "textures": {
-  "ground": "tex/ground.webp",
+  "ground": "tex/grass.webp",
   "rock": "tex/rock.webp",
   "lava": "tex/lava.webp",
-  "paving": "tex/paving.webp"
+  "paving": "tex/paving.webp",
+  "ground_n": "tex/grass_n.webp",
+  "dirt": "tex/dirt.webp",
+  "dirt_n": "tex/dirt_n.webp",
+  "paving2": "tex/paving2.webp",
+  "paving2_n": "tex/paving2_n.webp",
+  "rock2": "tex/rock2.webp",
+  "rock2_n": "tex/rock2_n.webp"
  }
 }

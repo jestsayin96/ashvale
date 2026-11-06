@@ -3198,8 +3198,15 @@ function chunkWalk(cx,cy,quad){
   for(let y=y0;y<y0+CSZ;y++)for(let x=x0;x<x0+CSZ;x++){
     if(!inB(x,y)||!GEN[I(x,y)]) continue;
     const i=I(x,y), t=ty[i], h0=lev(x,y);
-    let c=C3[t]; const n=((x*7+y*13)^(x*3+y*11))%7;
-    if(n===0) c=shd(c,0.965); else if(n===4) c=shd(c,1.035);
+    /* c52. This was `((x*7+y*13)^(x*3+y*11))%7` with two of the seven buckets
+       tinted - the same mistake as c50's trees wearing different clothes. An XOR
+       of two linear forms, taken mod 7 over integer coordinates, is a LATTICE:
+       it laid a visible check across every open field in the town. Three discrete
+       buckets also means three discrete greens, and the eye finds a repeat in
+       three far faster than in a continuum. h2 is the mixing hash from c50, and
+       the tint is now continuous. */
+    let c=C3[t];
+    c=shd(c, 0.955 + (h2(x,y)%1000)/1000 * 0.09);
     quad([x,h0,y],[x+1,h0,y],[x+1,h0,y+1],[x,h0,y+1],c);
     const dE=h0-lev(x+1,y), dS=h0-lev(x,y+1);
     if(dE>0.004) quad([x+1,h0,y],[x+1,h0-dE,y],[x+1,h0-dE,y+1],[x+1,h0,y+1],shd(c,0.76));
@@ -3902,12 +3909,20 @@ function loadAssets(S){
         Object.entries(m.textures).forEach(([key,file])=>{
           jobs.push(new Promise(res=>TL.load(ASSETS.base+file, t=>{
             t.wrapS=t.wrapT=THREE.RepeatWrapping; t.anisotropy=4;
-            t.encoding=THREE.sRGBEncoding;     // albedo, not data
+            /* A normal map is DATA, not colour. Decoding it as sRGB bends every
+               vector in it and the lighting comes out subtly wrong everywhere,
+               which is the kind of error that looks like "the art is a bit off"
+               rather than like a bug. */
+            t.encoding = /_n$|^n_/.test(key) ? THREE.LinearEncoding : THREE.sRGBEncoding;
             R3TEX[key]=t;
             // the town's ground material is already on screen; the rest are read when a
             // Keep floor is built, so they only need to be in the cache
             if(key==='ground'&&R3TEX.groundMat){
               R3TEX.groundMat.map=t; R3TEX.groundMat.needsUpdate=true; }
+            if(key==='ground_n'&&R3TEX.groundMat){
+              R3TEX.groundMat.normalMap=t;
+              R3TEX.groundMat.normalScale=new THREE.Vector2(0.65,0.65);
+              R3TEX.groundMat.needsUpdate=true; }
             res(null);
           }, undefined, ()=>res(null))));
         });
