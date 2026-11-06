@@ -679,3 +679,66 @@ delver hanging back, then reverted.
 No deterministic guard, same reason as c29: whether a delver drops below 26% inside a test
 window is down to dice. The behaviour is legible in the UI instead, which is what made it
 observable at all.
+
+---
+
+# THE NORTH STAR (stated by the owner, 2026-11-06 ~02:00)
+Three directions, in his words and my reading of them. **These outrank polish.** If a
+cycle is choosing between one of these and a cosmetic improvement, take these.
+
+## 1. The people must think, not follow a timetable
+"these npcs are supposed to be able to think on their own... without me having to push a
+button for them to do so."
+
+Autonomy of *action* is already true — nothing in Ashvale waits for input; parties form,
+people marry, seasons turn, with the page untouched. Autonomy of *mind* is not. Today
+`schedule(p)` is a clock lookup with dice:
+```js
+if(h<20){ const r=rnd(); if(r<0.26) return theTavern; if(r<0.38) return theAltar; ... }
+```
+A villager at six in the evening rolls a number. There is no reason behind the choice and
+no consequence to it tomorrow. What is missing:
+- **Drives.** Nobody wants anything — no hunger, ambition, loneliness, fear — so no option
+  can be better than another and dice are the only honest way to pick.
+- **Memory.** Every person already carries `log: []`, created in `mkPerson` and **never
+  written to**. Nobody remembers a brother lost on floor nine or who they drank with.
+- **Relationships** beyond blood. Families exist; friendship, debt and grudge do not.
+  `formParty` picks by level and health, never by who trusts whom.
+
+The target: a villager goes to the tavern because they are lonely and a friend is there; a
+girl signs the guild roll because her sister never came back up; a delver refuses the party
+containing the man who left him on floor twelve. Utility scoring over drives, with memory
+feeding the scores, replaces `rnd()`.
+
+## 2. The map must grow as people explore
+"dont forget about map expansion and how it generates as people explore its not all about
+the dungeon."
+
+Today the overworld is a fixed `N x N` grid generated once from the seed; `ty`, `hh`,
+`tree` and `occ` are flat arrays of that size and the 3D terrain is one mesh built once.
+There is no beyond. Everything outward-facing — the east gate, the roads — leads nowhere.
+
+This is the largest architectural item in the project. It needs chunked terrain generated
+on demand around where people actually are, a reveal/known state per chunk, and a 3D
+terrain that rebuilds per chunk instead of wholesale. Scouts, traders and adventurers
+walking out is what should trigger it, not a button.
+
+## 3. It must look good — but after the systems
+"Its also okay for us just to get everything done first before making it look visually
+appraling." Aspiration stated as "at least Diablo 3".
+
+Honest gap, measured rather than guessed — the material census across the whole game:
+```
+16  MeshLambertMaterial      7  MeshBasicMaterial      0  MeshStandardMaterial
+```
+Every surface uses a lighting model with no specular, no normal maps and no environment
+response. That single fact is why it reads flat regardless of model quality, and why the
+c26 note said the HDRI could not help. The renderer pass, when it comes, is: Lambert to
+MeshStandardMaterial, the normal maps already staged and unused
+(`Ground037_1K-JPG_NormalGL.jpg`), ACES tone mapping and bloom — which is the largest
+perceptual jump for the least work — and only then the HDRI, behind a quality toggle
+because Standard plus bloom is a real cost on a laptop.
+
+**Diablo 3 is not reachable** and should not be promised: native engine, large art team,
+gigabytes of authored assets. The reachable target is the difference between a flat-shaded
+toy and a lit scene. Say that plainly rather than implying otherwise.

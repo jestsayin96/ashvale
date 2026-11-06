@@ -4558,6 +4558,24 @@ function drawCell(vx,vy){
   poly(P,top);
   g.strokeStyle=t===WATER?'rgba(255,255,255,.03)':'rgba(0,0,0,.07)';g.lineWidth=1;g.stroke();
 }
+/* What came up the stairs, standing in the lane outside the east gate. */
+function drawFoe(){
+  if(!foe) return;
+  const z=H(foe.x|0,foe.y|0), [sx,sy]=scr(foe.x,foe.y,z), zm=zoom;
+  const pulse=0.25+Math.sin(tnow*2.6)*0.12;
+  g.save(); g.globalAlpha=pulse; g.fillStyle='#c1483f';
+  g.beginPath(); g.arc(sx,sy-12*zm,30*zm,0,7); g.fill(); g.restore();
+  g.save(); g.globalAlpha=.32; g.fillStyle='#000';
+  g.beginPath(); g.ellipse(sx,sy,9*zm,4*zm,0,0,7); g.fill(); g.restore();
+  g.fillStyle='#7a3c33'; rr(sx-8*zm, sy-26*zm, 16*zm, 23*zm, 4*zm); g.fill();
+  g.fillStyle='#e0c07a'; g.fillRect(sx-4*zm, sy-20*zm, 2.6*zm, 2.6*zm);
+  g.fillRect(sx+1.6*zm, sy-20*zm, 2.6*zm, 2.6*zm);
+  // a health bar, because the whole point is whether the guard is winning
+  const w=26*zm, f=Math.max(0,foe.hp/foe.hpMax);
+  g.fillStyle='rgba(10,8,14,.8)'; g.fillRect(sx-w/2, sy-34*zm, w, 4*zm);
+  g.fillStyle=f>0.5?'#c1483f':'#e3b64a'; g.fillRect(sx-w/2, sy-34*zm, w*f, 4*zm);
+  plate(sx, sy-44*zm, foe.name, '#f0b2aa', 11);
+}
 function drawTree(x,y){
   const z=hh[I(x,y)], [sx,sy]=scr(x+0.5,y+0.5,z), s=zoom, sw=Math.sin(tnow*1.1+x)*1.1*s;
   g.save();g.globalAlpha=.22;g.fillStyle='#000';g.beginPath();g.ellipse(sx,sy,7*s,3.2*s,0,0,7);g.fill();g.restore();
@@ -5019,6 +5037,7 @@ function render(){
       if(tree[I(x,y)]) drawTree(x,y);
       const b=bAt.get(x+','+y); if(b) drawBuilding(b);
       const g2=pb.get(x+','+y); if(g2) for(const p of g2) drawPerson(p);
+      if(foe && (foe.x|0)===x && (foe.y|0)===y) drawFoe();
     }
   }
   // night
@@ -5155,6 +5174,7 @@ function tick(ts){
     camX+=(f[0]-camX)*Math.min(1,raw*3); camY+=(f[1]-camY)*Math.min(1,raw*3);
   } else if(follow&&scene==='town'){ const v=vpt(follow.x,follow.y), f=flat(v[0],v[1],H(follow.x|0,follow.y|0));
     camX+=(f[0]-camX)*Math.min(1,raw*3); camY+=(f[1]-camY)*Math.min(1,raw*3); }
+  foeStep(dt);
   fxStep(raw);
   if(v3d) (scene==='keep'?renderKeep3D():render3D()); else render();
   if(((tnow*10)|0)%4===0){
@@ -5209,10 +5229,71 @@ const EVENTS=[
   {n:'a good year for the guild', when:()=>true, w:2, go(){
     const g=ri(30,70); ECON.treasury+=g;
     return ['The guild paid its dues in full: <b>'+g+' gold</b>.','g']; }},
+  {n:'a breach', when:()=>true, w:3, go(){
+    if(foe||rnd()>breachOdds()) return ['The watch reported nothing from the gate.',''];
+    openBreach();
+    return ['The east gate is open and something is through it.','d']; }},
   {n:'the Keep stirs', when:()=>true, w:1, go(){
     dstir=(dstir||0)+1;
     return ['Something turned over down in the Keep. The ground felt it.','m']; }}
 ];
+/* ===================== the Keep bites back =====================
+   The hole in the ground was pure profit: parties went down, gold came up, and pushing to
+   floor forty cost the town nothing. Now the depth has a price. What the guild rouses
+   down there sometimes follows it home, and the guard - who until now only stood in the
+   barracks - has to meet it at the east gate. */
+let foe=null;
+function breachOdds(){
+  // shallow delving is safe; the deeper the town has pushed, the more it has woken
+  return Math.min(0.42, Math.max(0, (KEEP.deepest-8)*0.012) + dstir*0.06);
+}
+function openBreach(){
+  const f=Math.max(6, Math.min(100, KEEP.deepest));
+  const hp=26+f*3.4;
+  foe={ name:monsterFor(f), art:artFor(f), kind:'brute',
+        hp, hpMax:hp, dmg:1.1+f*0.17, floor:f, t:0, took:0,
+        x:theGate.x+theGate.w/2, y:theGate.y+theGate.d+0.6 };
+  dstir=Math.max(0,dstir-1);                  // it came up; that much pressure is spent
+  logMsg('<b>'+foe.name+'</b> came up the stairs and out the east gate.','d');
+  annal('breach','<b>'+foe.name+'</b> broke out of the Keep.');
+  snd('boss',1.2);
+  fxWord(foe.x, foe.y, foe.name, '#ff8a5a', H(foe.x|0,foe.y|0)*HU);
+}
+/* The guard meets it, and any adventurer who happens to be in town joins in. Resolved
+   as a trade of blows every couple of seconds, the way an off-screen delve is. */
+function foeStep(dt){
+  if(!foe) return;
+  foe.t+=dt; if(foe.t<2.0) return; foe.t=0;
+  const def=people.filter(p=>(p.guard||p.adventurer)&&!p.away&&p.hp>1&&p.age>=ADULT);
+  if(!def.length){
+    // nobody to stand in its way
+    const g=Math.min(ECON.treasury, ri(8,22)); ECON.treasury-=g; foe.took+=g;
+    const v=pick(people.filter(p=>!p.away));
+    if(v){ v.hp=Math.max(1,v.hp-ri(1,3)); v.bubble='run'; v.bubbleT=6; }
+    if(foe.took>90){ logMsg('<b>'+foe.name+'</b> had its fill and went back down.','d'); foe=null; }
+    return;
+  }
+  const power=def.reduce((a,p)=>a+1.4+p.lvl*0.8+(p.gift?p.gift.power:0)+(p.guard?1.1:0),0);
+  foe.hp-=power*0.55;
+  fxBurst(foe.x,foe.y,'#ffc98a',6,1.8,2.0,H(foe.x|0,foe.y|0)*HU);
+  // it answers
+  const v=pick(def);
+  v.hp-=foe.dmg*(0.6+rnd()*0.8);
+  if(v.hp<=0){
+    logMsg('<b>'+v.name+' '+v.last+'</b> was killed at the gate by '+foe.name+'.','d');
+    bereave(v,'was killed at the east gate by '+foe.name);
+    snd('die',1);
+  } else { v.bubble='fight'; v.bubbleT=4; }
+  if(foe.hp<=0){
+    const bounty=Math.round(foe.floor*6+30); ECON.treasury+=bounty;
+    logMsg('<b>'+foe.name+'</b> was put down at the gate. <b>'+bounty+' gold</b> in bounty.','g');
+    annal('breach','<b>'+foe.name+'</b> was put down at the east gate.');
+    fxWord(foe.x,foe.y,foe.name+' is dead','#ffcf7a',H(foe.x|0,foe.y|0)*HU);
+    snd('cleared',0.9);
+    foe=null;
+  }
+}
+
 const hex6=n=>'#'+(n>>>0).toString(16).padStart(6,'0');
 /* the ground, the crops and the canopy all turn with the year */
 function applySeason(){
@@ -5334,6 +5415,7 @@ function snapshot(){
     keep:{ deepest:KEEP.deepest, lost:KEEP.lost, gold:KEEP.gold,
            cleared:[...KEEP.cleared], history:KEEP.history.slice(0,12) },
     tills:buildings.map(b=>b.till||0),
+    foe:foe?Object.assign({},foe):null,
     annals:ANNALS.slice(0,120), dead:DEAD.slice(0,80),
     logs:LOGS.slice(0,9),
     people:people.map(p=>({
@@ -5406,6 +5488,7 @@ function loadGame(){
     // a spouse who did not survive the round trip leaves a widow, not a dangling link
     people.forEach(p=>{ if(p.spouse&&p.spouse.spouse!==p){ p.spouse=null; p.widowed=true; } });
     LOGS.length=0; (d.logs||[]).forEach(l=>LOGS.push(l));
+    foe=d.foe||null;
     ANNALS.length=0; (d.annals||[]).forEach(a=>ANNALS.push(a));
     DEAD.length=0; (d.dead||[]).forEach(a=>DEAD.push(a));
     applySeason();
