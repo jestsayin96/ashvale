@@ -13,18 +13,43 @@ with sync_playwright() as p:
     pg.on("pageerror", lambda e: errs.append("pageerror: " + str(e)))
     pg.on("console", lambda m: errs.append("console: " + m.text)
           if m.type == "error" and "TUNNEL" not in m.text and "ERR_" not in m.text else None)
-    pg.goto((root / target).as_uri()); pg.wait_for_timeout(1500)
+    pg.goto((root / target).as_uri()); pg.wait_for_timeout(1800)
     (root / "dist").mkdir(exist_ok=True)
+
+    def view2d():
+        """Make sure the flat canvas is the one on screen."""
+        if pg.evaluate("()=>document.getElementById('view3d').style.display==='block'"):
+            pg.click("#sc3D"); pg.wait_for_timeout(900)
+
+    def view3d():
+        if not pg.evaluate("()=>document.getElementById('view3d').style.display==='block'"):
+            pg.click("#sc3D"); pg.wait_for_timeout(1600)
+
+    def flat_size():
+        return pg.evaluate("""()=>{const r=document.getElementById('view')
+            .getBoundingClientRect(); return [Math.round(r.width),Math.round(r.height)];}""")
+
+    # 3D is the default view on load
+    view3d(); pg.screenshot(path=str(root / "dist/shot-3d.png"))
+    pg.click("[data-sp='8']"); pg.wait_for_timeout(3000)
+
+    view2d(); pg.wait_for_timeout(800)
     pg.screenshot(path=str(root / "dist/shot-town.png"))
-    pg.click("[data-sp='8']")
-    pg.wait_for_timeout(3000)                      # ~09:00, people out and about
-    pg.click("#sc3D"); pg.wait_for_timeout(2000)   # 3D in daylight
-    pg.screenshot(path=str(root / "dist/shot-3d.png"))
-    pg.click("#sc3D"); pg.wait_for_timeout(secs * 1000)
+    w, h = flat_size()
+    # A hidden canvas measures 0 and used to be clamped to 280x200, stranding both flat
+    # views in the corner of the stage for the rest of the session. Never again.
+    if w < 900 or h < 500:
+        errs.append(f"flat canvas collapsed to {w}x{h} after a trip through 3D")
+
+    pg.wait_for_timeout(secs * 1000)
     pg.screenshot(path=str(root / "dist/shot-run.png"))
     stats = {k: pg.inner_text("#" + k) for k in ["sPop", "sGold", "sFloor", "sClock"]}
+
     pg.click("#scKeep"); pg.wait_for_timeout(3000)
     pg.screenshot(path=str(root / "dist/shot-keep.png"))
+    w, h = flat_size()
+    if w < 900 or h < 500:
+        errs.append(f"flat Keep canvas collapsed to {w}x{h}")
     b.close()
 
 print("stats", stats)

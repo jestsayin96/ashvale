@@ -256,3 +256,35 @@ path is invisible to it. Verified instead by building a throwaway `SEASONLEN=1` 
 into the scratchpad and driving it at 8x until autumn and winter, then *looking* at
 `dist/shot-3d-autumn.png` and `dist/shot-3d-winter.png`. Keep that trick: a test
 build with the period shortened is the only cheap way to see long-period behaviour.
+
+## Cycle 18 — the flat views work again, and 3D is the default (shipped)
+The 2D Keep had been rendering as a 280x200 scrap in the top-left corner of the stage
+for several cycles. Not neglect — a bug.
+
+**Cause.** The 2D canvas is `display:none` whenever the 3D view is up, and a hidden
+element measures 0x0. `resize()` clamped that to its minimum and then *wrote it back*
+as the element's real CSS size:
+```js
+CW=Math.max(280,Math.floor(r.width));   // r.width is 0 when hidden -> 280
+cv.style.width=CW+'px';                 // the canvas is now a 280px element
+```
+One trip through the 3D view shrank the flat canvas permanently; nothing re-measured
+on the way back because the ResizeObserver had already fired while it was hidden.
+
+**Fix.** `resize()` ignores a zero measurement and keeps the last good size; it is also
+called explicitly the moment the flat canvas becomes visible (`set3D`) and on every
+`setScene`. `loadRun` now snaps the Keep camera for both views and writes `camSave.keep`,
+so arriving on a floor never starts off-screen.
+
+**3D is the default view on load.** `set3D(true)` at boot, wrapped in try/catch; a
+browser with no WebGL falls back to the flat view exactly as before. The flat views stay
+as the map you can drop back to.
+
+### The test was blind to this, and now isn't
+`tools/shot.py` clicked `#sc3D` positionally, which inverted once 3D became the default —
+`shot-town.png` was silently capturing the 3D view. It now asks which view is on screen
+(`view2d()`/`view3d()` helpers) rather than toggling blind, and **asserts the flat canvas
+is at least 900x500** after a trip through 3D, in both the town and the Keep.
+Verified by removing the fix and re-running: the suite fails with
+`flat canvas collapsed to 280x200 after a trip through 3D`. Put the guard in before
+trusting it — an assertion never seen to fail is not a test.

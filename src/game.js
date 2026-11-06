@@ -659,9 +659,12 @@ function loadRun(run){
     p.dgoal=null; p.dtarget=null; p.atk=0; p.dfld=null;
   });
   dReveal(dUpAt[0],dUpAt[1],7);
-  if(scene==='keep'){
+  {
+    // snap whichever view you are in, so arriving on a floor never starts off-screen
     const v=vpt(dUpAt[0]+0.5,dUpAt[1]+0.5), f=flat(v[0],v[1],0);
-    camX=f[0]; camY=f[1];
+    if(scene==='keep'){ camX=f[0]; camY=f[1]; }
+    camSave.keep={camX:f[0], camY:f[1], zoom:(camSave.keep&&camSave.keep.zoom)||1.6};
+    userPanned=false;
   }
   if(typeof paintRail==='function') paintRail();
 }
@@ -845,7 +848,11 @@ function pickCell(sx,sy){
   return wcell(vx,vy);
 }
 function centre(){ const p=flat(N/2,N/2,0); camX=p[0]; camY=p[1]; }
-function resize(){ const r=cv.getBoundingClientRect(); dpr=Math.min(2,window.devicePixelRatio||1);
+function resize(){
+  const r=cv.getBoundingClientRect(); dpr=Math.min(2,window.devicePixelRatio||1);
+  // a display:none canvas measures 0x0. Clamping that to the minimum left the 2D views
+  // stranded at 280x200 in the corner of the stage after any trip through the 3D view.
+  if(r.width<8||r.height<8){ if(CW&&CH) return; }
   CW=Math.max(280,Math.floor(r.width)); CH=Math.max(200,Math.floor(r.height));
   cv.width=CW*dpr;cv.height=CH*dpr;cv.style.width=CW+'px';cv.style.height=CH+'px'; }
 new ResizeObserver(resize).observe(cv); resize();
@@ -2233,6 +2240,7 @@ function set3D(on){
   const c2=document.getElementById('view3d');
   if(c2) c2.style.display=v3d?'block':'none';
   cv.style.display=v3d?'none':'';
+  if(!v3d) resize();                      // measure now, not on the observer's next tick
   const hintEl=document.getElementById('hint'); if(hintEl&&v3d) hintEl.remove();
   ['scTown','scKeep','sc3D'].forEach(id=>{ const e=document.getElementById(id);
     if(e) e.classList.toggle('on', id==='sc3D'?v3d:scene===(id==='scTown'?'town':'keep')); });
@@ -3002,6 +3010,7 @@ function setScene(sc){
   if(sc===scene) return;
   camSave[scene]={camX,camY,zoom};
   scene=sc; GS = sc==='keep' ? DN : N; follow=null; userPanned=false;
+  if(!v3d) resize();
   const sv=camSave[sc];
   if(sv){ camX=sv.camX; camY=sv.camY; zoom=sv.zoom; }
   else if(sc==='keep'){ zoom=1.6; const f=flat(DN/2,DN/2,0); camX=f[0]; camY=f[1]; }
@@ -3070,5 +3079,9 @@ setTimeout(()=>{const h2=document.getElementById('hint');
 wire3D();
 (function(){ const b3=document.getElementById('sc3D');
   if(b3) b3.onclick=()=>set3D(!v3d); })();
-paintConsole(); requestAnimationFrame(tick);
+paintConsole();
+/* 3D is the view this is built around now; the flat view stays as the map you can
+   drop back to, and is also where a browser with no WebGL lands. */
+try{ set3D(true); }catch(e){ v3d=false; cv.style.display=''; }
+requestAnimationFrame(tick);
 })();
