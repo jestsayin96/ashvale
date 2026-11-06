@@ -5383,7 +5383,11 @@ function visibleRange(){
 let overlay='none';
 const opened=new Set();
 let xray=false;
-const isOpen=b=>xray||opened.has(b.id);
+/* Rebuilt every 3D frame from where the camera is looking. A watcher should be able
+   to see that the town is alive without pressing anything: at 09:25 nearly everyone
+   is indoors, and with solid models that is an empty street and a few specks. */
+const autoOpen=new Set();
+const isOpen=b=>xray||opened.has(b.id)||autoOpen.has(b.id);
 function drawFurn(b,it){
   const F=FURN[it.f];
   const wx=b.x+it.x, wy=b.y+it.y, z=hh[I(b.x,b.y)];
@@ -5460,6 +5464,7 @@ function drawInterior(b){
   }
 }
 function render(){
+  autoOpen.clear();            // the flat view lifts roofs its own way
   if(scene!=='keep'&&fxg) fxg.clearRect(0,0,fxW,fxH);
   if(scene==='keep') return renderKeep();
   g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,CW,CH);
@@ -6922,6 +6927,23 @@ function render3D(){
   S.scene.background=sky; S.scene.fog.color=sky;
   S.scene.fog.near=weather==='bitter'?22:46; S.scene.fog.far=weather==='bitter'?92:165;
   S.water.material.opacity=0.68+0.14*dayAmt;
+  /* Lift the roofs of whatever the camera is right on top of, and nothing more.
+     A wider radius was tried and measured well - 71% of the town visible instead of
+     1% - and looked far worse: a building that opens hides its model and shows a
+     roofless stub, so the whole town became flat slabs and lost its silhouette.
+     The numbers went up and the thing got worse, which is what happens when the
+     only instrument is a counter.
+
+     So this is the close-in look-inside gesture only. Making the town read as alive
+     at the distance you actually watch from is not a rendering problem: 96% of the
+     population is indoors at every hour of the day. That is the sim's to fix. */
+  autoOpen.clear();
+  const aR=S.dist<24 ? 10 : 0;
+  if(aR>1){ const r2=aR*aR;
+    for(const b of buildings){
+      const dx=b.x+b.w/2-S.tx, dz=b.y+b.d/2-S.tz;
+      if(dx*dx+dz*dz<r2) autoOpen.add(b.id);
+    } }
   const lamps=(hour>=18||hour<6);
   buildings.forEach(b=>{ const u=b.m3&&b.m3.userData; if(!u) return;
     const op=isOpen(b);
@@ -7938,6 +7960,29 @@ window.__ash={
      130-second day under software rendering. Test plumbing only; nothing in the
      game calls it and the UI still offers 0/1/3/8. */
   fast(n){ setSpeed(n); return speed; },
+  /* How many of the town's people a viewer can actually see. Effective visibility,
+     walking the parent chain - `o.visible` on a person's own mesh says nothing
+     about whether the group holding it is shown. */
+  /* The building with the most people in it right now, so a probe can point the
+     camera somewhere there is life instead of at an empty plaza. */
+  busiest(){ let best=null, n=0;
+    const occ2=new Map();
+    for(const p of people){ if(p.dead||p.away||!p.inside) continue;
+      const c=(occ2.get(p.inside.id)||0)+1; occ2.set(p.inside.id,c);
+      if(c>n){ n=c; best=p.inside; } }
+    return best?{x:best.x+best.w/2-OFF, y:best.y+best.d/2-OFF, n, kind:best.kind}:null; },
+  folkSeen(){ const S=R3; if(!S) return null;
+    let alive=0, indoors=0, shown=0;
+    for(const p of people){
+      if(p.dead) continue; alive++;
+      if(p.inside) indoors++;
+      const m=p.m3; if(!m||p.away) continue;
+      let v=m.visible, q=m.parent;
+      while(v&&q){ if(!q.visible) v=false; q=q.parent; }
+      if(v) shown++;
+    }
+    return {alive, indoors, outdoors:alive-indoors, shown, hour,
+      dist:Math.round(S.dist), opened:opened.size, auto:autoOpen.size, xray}; },
   /* `tnow` is simulated seconds, the sum of every frame's clamped delta. Wall time
      is the wrong denominator here: `raw` is capped at 50 ms a frame, so under
      software rendering at ~1.3 fps the sim advances 65 ms per real second and a

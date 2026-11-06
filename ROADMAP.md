@@ -1560,3 +1560,65 @@ two people outside the town, the world grown from 16 chunks to 20.
 **Wall time was the wrong denominator in both of today's probes** — the clock probe
 measured the software renderer, and this one measured a pace that had just changed.
 When a probe waits, it should wait on the thing the game measures time in.
+
+## Cycle 44 — the town is indoors, and that is not a rendering problem
+
+Verdict 2 was "I don't see any sims". The obvious reading was that solid KayKit models
+hide the people inside. Measured first, and the obvious reading was the smaller half.
+
+### What the measurement said
+`tools/folk.py` counts **effective** visibility — walking the parent chain, because a
+person's own mesh can be `visible` inside a group that is not. Before any change:
+
+```
+09:00  alive 69  indoors 69   SEEN 0
+13:00  alive 69  indoors 68   SEEN 1
+19:00  alive 69  indoors 68   SEEN 1
+23:00  alive 69  indoors 68   SEEN 0
+```
+
+**Sixty-eight or sixty-nine of sixty-nine are indoors at every hour of the day.** Not
+morning, not noon, not evening. The street is empty because the town is never in it.
+`schedule()` returns `p.work||p.home`, and when that is where they already are the
+goal resolves instantly and they never step outside. Transit is the only time anyone
+is visible, and transits almost never happen.
+
+### The rendering fix that measured well and looked worse
+Auto-lifting the roofs the camera looks at, with a radius covering the whole town at
+the default distance, took visibility from 1% to **71-96% at every hour**. The
+screenshot was *worse*: opening a building hides its model and shows a roofless stub,
+so the town became a field of flat slabs with no silhouette at all — the handsome
+buildings gone, a construction site in their place.
+
+**The number went up and the thing got worse.** This is exactly the case the working
+rules warn about: no probe here measures whether the game is a pleasure to look at,
+and this cycle it took a screenshot to overrule a counter that said success.
+
+So auto-open is now the close-in gesture only — `dist < 24`, radius 10, look at a
+house and see inside it. The town keeps its roofs at every distance you actually watch
+from.
+
+### What the guard asserts now
+Not a town-wide fraction: pointing the camera at the plaza and counting heads measures
+where people happen to be, which is the sim's business. It asserts the **mechanism** —
+put the camera on a building that has people in it and you can see them:
+```
+busiest manor holds 5;  seen far 0  ->  seen close 9  (3 buildings opened)
+```
+and it prints the indoors census on every run, so the real problem cannot quietly go
+unnoticed again.
+
+### The actual fix, for the next cycle
+**Give the town street life.** For a watcher this is the whole point — an empty street
+at nine in the morning is the failure, not the roofs. Candidates, cheapest first:
+- Children out of school should play outside rather than teleport home.
+- Shoppers should walk the market street, not appear inside a shop.
+- Idle adults with no trade should stroll, sit in the plaza, stand and talk.
+- A market day should actually fill the market.
+The errand machinery from c37 already does the hard part: a goal with `p.goal.b===null`
+is a destination in the open. It needs more reasons to fire and shorter trips.
+
+A second candidate worth trying before more roof tricks: make a building's **model
+semi-transparent** when the camera is close, instead of swapping it for a stub. That
+keeps the silhouette and shows the life. Watch out that the GLB clones may share
+materials — setting opacity on a shared material would fade every building at once.
