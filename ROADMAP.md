@@ -8,8 +8,8 @@ Pages:    https://jestsayin96.github.io/ashvale/  LIVE, redeploys on every push 
 Edit src/game.js, src/style.css, src/body.html. Never edit dist/ by hand.
   node --check src/game.js && node tools/build.mjs && python3 -I tools/shot.py
 Publish the artifact from dist/artifact.html (the build already escapes non-ASCII).
-Other artifacts (do not break): colony https://claude.ai/artifact/BbRBE9rRHmqwS53yvBHuk6
-                                village https://claude.ai/artifact/R5JgMUce2ScVDYwqDgdfS3
+The earlier colony and village artifacts were deleted at the user's request on 5 Nov;
+their local files under /home/claude/colony and /home/claude/village are the only copies.
 
 ## Working rules for each cycle
 1. Pick ONE coherent theme. No half-finished systems left in the file.
