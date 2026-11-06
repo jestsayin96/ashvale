@@ -106,5 +106,24 @@
     "coins": "kay/dungeon/coins.glb",
     "table": "kay/dungeon/table.glb",
     "stairs": "kay/dungeon/stairs.glb"
+  },
+  "furniture": {
+    "bed": "kay/furn/bed.glb",
+    "bunk": "kay/furn/bunk.glb",
+    "table": "kay/furn/table.glb",
+    "chair": "kay/furn/chair.glb",
+    "bar": "kay/furn/bar.glb",
+    "counter": "kay/furn/counter.glb",
+    "shelf": "kay/furn/shelf.glb",
+    "rack": "kay/furn/rack.glb",
+    "books": "kay/furn/books.glb",
+    "barrel": "kay/furn/barrel.glb",
+    "crate": "kay/furn/crate.glb",
+    "desk": "kay/furn/desk.glb",
+    "vault": "kay/furn/vault.glb",
+    "coins": "kay/furn/coins.glb",
+    "chest": "kay/furn/chest.glb",
+    "hearth": "kay/furn/hearth.glb",
+    "stool": "kay/furn/stool.glb"
   }
 }

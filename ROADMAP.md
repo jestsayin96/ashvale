@@ -19,6 +19,15 @@ their local files under /home/claude/colony and /home/claude/village are the onl
 5. Keep the reply to the user short — they asked for updates on request, not narration.
 
 ## Shipped
+- c14 interiors and a cheaper loop: 17 KayKit furniture models drive the interiors, so
+  lifting a roof shows real beds, tables, barrels, shelves and chests instead of coloured
+  boxes. Chests in the Keep are built once per floor and rebuilt only when one is forced,
+  rather than cloned from scratch every frame. The test now lifts every roof and captures
+  dist/shot-3d-inside.png, because interiors were never in any screenshot before.
+  PYTHON SLICE WARNING, AGAIN: s[s.index(A):s.index(B)] silently gives '' when B occurs
+  BEFORE A, and str.replace('',new,1) then inserts at position 0. A render block landed at
+  the top of the file outside the IIFE. Anchor on line numbers for blocks whose comment
+  text repeats elsewhere in the file.
 - c13 town effects and dressing: gold floats over a shop when somebody spends there, motes
   drift over the altar, boulders stand on the rocky ridge, a well sits on the plaza and a
   windmill out by the fields. The Keep was relit after the torch models dimmed it.
