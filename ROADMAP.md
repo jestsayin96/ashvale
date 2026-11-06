@@ -393,3 +393,43 @@ Behaviour was checked by forcing `bandMobs` to return `BANDMOBS[1]` on every flo
 page out of the scratchpad, so `models/` was not beside it, nothing loaded, and the
 screenshots showed a bare procedural floor that looked like a rendering failure. The glb
 fetch list is what settled it.
+
+## Cycle 22 — sound, from the owner's own studio (shipped)
+The owner pointed at https://github.com/jestsayin96/music-studio. It is a browser music
+studio in TypeScript with **no runtime dependencies** — plain Web Audio — which is exactly
+the argument for not bundling tone.js (~400KB for a footstep).
+
+- `vendor/music-studio/src/` is a **verbatim snapshot** of that repo's `src/` at `c236907`
+  (v3.4.2). **Never edit anything under it.** Changes belong upstream; they arrive here by
+  re-copying the tree. `PROVENANCE.md` beside it says so. The upstream clone at
+  /home/claude/music-studio was never modified — `git status` clean throughout.
+- `vendor/music-studio/entry.ts` is Ashvale's own file and the only one we write. It
+  re-exports `playSfx` and the catalogue, nothing else — no sequencer, no UI, no sampler.
+- `npm run build:music` bundles it to `vendor/music.bundle.js` with esbuild, exactly as
+  three.js became `vendor/three.bundle.js`. **10 KB minified, 3.4 KB gzipped.** The only
+  unresolvable imports are `node:fs/promises` / `node:path`, dynamic imports in
+  `src/samples/library.ts` for the studio's headless CLI; marked external, never executed.
+- `SFXMAP` maps game events onto the studio's catalogue: `impact` for a blow, `shimmer`
+  for a spell and for a wedding, `kill_sting` when a delver falls, `sub_drop` when a boss
+  wakes, `riser` on descending, `victory_fanfare` on clearing a floor, `death_fall` for a
+  death in the town. Rate-limited to one of each kind per 70ms — a busy floor asks for
+  twenty hits in a frame.
+- **Off by default.** No `AudioContext` is constructed until the speaker is pressed, which
+  is also the gesture browsers require. Muting suspends the context rather than tearing it
+  down. The preference is remembered, but a remembered "on" only relabels the button; it
+  never starts audio without a click.
+
+### Tests
+`shot.py` proxies the `AudioContext` constructor from an init script and fails if one
+exists before the speaker is pressed, or if pressing it makes anything other than exactly
+one. Verified by calling `sndStart()` at boot and watching it fail with
+`1 AudioContext(s) existed before the speaker was pressed`.
+
+### Two self-inflicted detours worth remembering
+1. **Playwright's `add_init_script` takes a bare body, not an arrow function.** Passing
+   `"()=>{...}"` defines a function and discards it, so the probe never installed and the
+   first run reported zero effects played — which read as "sound is broken" when sound was
+   fine. The second probe, counting calls via `console.log` from inside `snd()`, settled it
+   in one run. When a probe says nothing happened, suspect the probe.
+2. The first bundling attempt failed on `node:fs/promises`. That is the studio's headless
+   render path, not a real dependency — `--external:` is the whole fix.

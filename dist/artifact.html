@@ -247,6 +247,7 @@ aside.panel.open{transform:none}
       <button class="segb" id="sc3D">3D</button>
     </div>
     <div class="right">
+      <button class="sbtn" id="sndBtn" title="Turn sound on">♪ Muted</button>
       <button class="sbtn" id="housesBtn">Houses</button>
       <button class="sbtn keep" id="keepBtn">Ledger</button>
       <button class="sbtn" id="newTown" title="Forget this town and start a fresh one">New town</button>
@@ -3515,6 +3516,10 @@ three/build/three.module.js:
 
 </script>
 <script>
+var MUSIC=(()=>{var T=Object.defineProperty;var U=Object.getOwnPropertyDescriptor;var j=Object.getOwnPropertyNames;var G=Object.prototype.hasOwnProperty;var q=(n,o)=>{for(var e in o)T(n,e,{get:o[e],enumerable:!0})},$=(n,o,e,t)=>{if(o&&typeof o=="object"||typeof o=="function")for(let r of j(o))!G.call(n,r)&&r!==e&&T(n,r,{get:()=>o[r],enumerable:!(t=U(o,r))||t.enumerable});return n};var K=n=>$(T({},"__esModule",{value:!0}),n);var ie={};q(ie,{SFX_NAMES:()=>M,listSfxNames:()=>V,playSfx:()=>H});var X={sub_drop:{hz:2200,ms:5,gain:.9,floorHz:80},jumpscare_hit:{hz:4200,ms:4,gain:1,floorHz:80}},z={hz:3500,ms:6,gain:1,floorHz:80};function C(n){return X[n]??z}var v=["impact","stinger_a","stinger_b","stinger_c","kill_sting","jumpscare_hit","sub_drop"];var N=new Set(v);function g(n,o){return n==="riser"||n==="reverse_cymbal"||n==="death_fall"?Math.max(0,o):n==="whoosh_up"||n==="whoosh_down"?Math.max(0,o*.5):N.has(n)?.001:0}function I(n){return N.has(n)}function _(n,o,e){let t=1.1155781513508523,r=.22+Math.max(0,Math.min(1,e))*.12;return Math.min(.9,r*t**Math.max(0,n))}function S(n){let o=n>>>0;return()=>{o=o+1831565813|0;let e=Math.imul(o^o>>>15,1|o);return e=e+Math.imul(e^e>>>7,61|e)^e,((e^e>>>14)>>>0)/4294967296}}function c(n){return 440*Math.pow(2,(n-69)/12)}var M=["whoosh_up","whoosh_down","riser","impact","sub_drop","stinger_a","stinger_b","stinger_c","kill_sting","combo_tick","death_fall","record_scratch","sad_trombone","boing","blip","funny_blips","victory_fanfare","jumpscare_hit","reverse_cymbal","tick","glitch","shimmer"];function D(n,o){return g(n,o)}var w=new WeakMap;function Z(n,o){let e=w.get(n);e||(e=new Map,w.set(n,e));let t=o.toFixed(2),r=e.get(t);if(r)return r;let s=new Float32Array(32),a=new Float32Array(32);for(let i=1;i<32;i++)a[i]=Math.sin(i*Math.PI*o)*2/(i*Math.PI);let u=n.createPeriodicWave(s,a,{disableNormalization:!1});return e.set(t,u),u}function L(n,o){return Math.max(20,Math.min(n.sampleRate*.45,o))}function J(n,o,e,t,r){let s=n.createGain(),a=Math.max(2e-4,t);return s.gain.setValueAtTime(2e-4,e),s.gain.linearRampToValueAtTime(a,e+.001),s.gain.exponentialRampToValueAtTime(2e-4,e+Math.max(.02,r)),s.connect(o),s}function y(n,o,e,t,r,s,a){let u=J(n,o,e,s,r),i=n.createOscillator();return typeof a=="string"?i.type=a:i.setPeriodicWave(a),i.frequency.setValueAtTime(L(n,t),e),i.connect(u),i.start(e),i.stop(e+Math.max(.03,r)+.02),i}function R(n,o,e,t,r,s){let a=Math.max(2e-4,Math.min(1,s))*.5,u=Math.max(.02,Math.min(1.5,r.decay));return t==="kick808"?[y(n,o,e,L(n,55*2**(r.tuneSemis/12)),u,a,"sine")]:t==="shaker"?[y(n,o,e,6e3,Math.min(u,.08),a*.4,"square")]:t==="crash"?[y(n,o,e,320,Math.min(u,.8),a*.35,"sawtooth")]:t==="chipNoise"?[y(n,o,e,1800,Math.min(u,.06),a*.3,Z(n,.12))]:t==="snareTight"?[y(n,o,e,180,Math.min(u,.1),a,"triangle")]:[y(n,o,e,100,u,a,"sine")]}var O=new WeakMap;function E(n){let o=O.get(n);if(o)return o;let e=Math.max(1,Math.floor(n.sampleRate*2)),t=n.createBuffer(1,e,n.sampleRate),r=t.getChannelData(0),s=S(2654435769);for(let a=0;a<e;a++)r[a]=s()*2-1;return O.set(n,t),t}function f(n,o){return Math.max(20,n*Math.pow(2,o/12))}function h(n,o,e,t,r){let s=n.createGain(),a=e+Math.max(.02,r);return s.gain.setValueAtTime(0,e),s.gain.linearRampToValueAtTime(Math.max(1e-4,t),e+.001),s.gain.exponentialRampToValueAtTime(.001,Math.max(e+.004,a-.004)),s.gain.linearRampToValueAtTime(0,a),s.connect(o),s}function k(n,o,e,t){let r=n.createBufferSource();return r.buffer=E(n),r.loop=!0,r.connect(o),r.start(e),r.stop(t),r}function Q(n,o,e,t){let r=n.createOscillator();r.type="sine";let s=f(150,t.tuneSemis),a=f(45,t.tuneSemis),u=Math.max(.05,t.decay);r.frequency.setValueAtTime(s,e),r.frequency.exponentialRampToValueAtTime(a,e+Math.min(.09,u*.6));let i=n.createBiquadFilter();i.type="lowpass",i.frequency.setValueAtTime(180+t.tone*2200,e),i.Q.setValueAtTime(.7,e);let m=h(n,o,e,.95*t.vel,u);r.connect(i),i.connect(m);let p=e+u+.03;return r.start(e),r.stop(p),[r]}function ee(n,o,e,t){let r=Math.max(.08,t.decay),s=n.createOscillator();s.type="triangle",s.frequency.setValueAtTime(f(190,t.tuneSemis),e),s.frequency.exponentialRampToValueAtTime(f(130,t.tuneSemis),e+r*.6);let a=h(n,o,e,.45*t.vel,r*.55);s.connect(a);let u=n.createBiquadFilter();u.type="highpass",u.frequency.setValueAtTime(900+t.tone*2500,e);let i=h(n,o,e,.55*t.vel,r),m=k(n,u,e,e+r+.03);u.connect(i);let p=e+r+.03;return s.start(e),s.stop(p),[s,m]}function te(n,o,e,t){let r=Math.max(.12,t.decay),s=n.createBiquadFilter();s.type="highpass",s.frequency.setValueAtTime(1e3+t.tone*1800,e);let a=n.createGain();a.gain.setValueAtTime(0,e);let u=Math.max(2e-4,.7*t.vel);for(let p=0;p<3;p++){let A=e+p*.011;a.gain.setValueAtTime(2e-4,A),a.gain.linearRampToValueAtTime(Math.max(2e-4,u*(1-p*.15)),A+.001),a.gain.exponentialRampToValueAtTime(.001,A+.012)}let i=e+.04;return a.gain.setValueAtTime(.001,i),a.gain.linearRampToValueAtTime(Math.max(2e-4,u*.55),i+.004),a.gain.exponentialRampToValueAtTime(.001,e+r),a.gain.linearRampToValueAtTime(0,e+r+.01),a.connect(o),s.connect(a),[k(n,s,e,e+r+.02)]}function B(n,o,e,t,r){let s=Math.max(.02,t.decay*r),a=n.createBiquadFilter();a.type="highpass",a.frequency.setValueAtTime(5e3+t.tone*4e3,e);let u=n.createBiquadFilter();u.type="bandpass",u.frequency.setValueAtTime(f(8e3,t.tuneSemis),e),u.Q.setValueAtTime(.7,e);let i=h(n,o,e,.4*t.vel,s);return a.connect(u),u.connect(i),[k(n,a,e,e+s+.02)]}function ne(n,o,e,t){return B(n,o,e,t,1)}function oe(n,o,e,t){return B(n,o,e,{...t,decay:Math.max(t.decay,.12)},3.2)}function re(n,o,e,t){let r=Math.max(.08,t.decay),s=n.createOscillator();s.type=t.tone>.5?"triangle":"sine";let a=f(140,t.tuneSemis);s.frequency.setValueAtTime(a,e),s.frequency.exponentialRampToValueAtTime(Math.max(30,a*.65),e+r*.7);let u=h(n,o,e,.8*t.vel,r);return s.connect(u),s.start(e),s.stop(e+r+.03),[s]}function se(n,o,e,t){let r=Math.max(.02,Math.min(.09,t.decay)),s=n.createOscillator();s.type="square",s.frequency.setValueAtTime(f(900,t.tuneSemis),e);let a=n.createOscillator();a.type="triangle",a.frequency.setValueAtTime(f(420,t.tuneSemis),e);let u=h(n,o,e,.22*t.vel,r*.45),i=h(n,o,e,.4*t.vel,r),m=n.createBiquadFilter();m.type="highpass",m.frequency.setValueAtTime(400+t.tone*1500,e),s.connect(m),m.connect(u),a.connect(i);let p=e+r+.02;return s.start(e),a.start(e),s.stop(p),a.stop(p),[s,a]}function x(n){return(o,e,t,r)=>R(o,e,t,n,{tuneSemis:r.tuneSemis,decay:r.decay,tone:r.tone},r.vel)}var lt={kick:Q,snare:ee,clap:te,hatClosed:ne,hatOpen:oe,tom:re,rim:se,kick808:x("kick808"),shaker:x("shaker"),crash:x("crash"),chipNoise:x("chipNoise"),snareTight:x("snareTight")};function F(n,o,e,t,r,s=.001){let a=n.createGain(),u=Math.max(.012,t),i=Math.min(.004,Math.max(.001,s));return a.gain.setValueAtTime(0,e),a.gain.linearRampToValueAtTime(Math.max(1e-4,r),e+i),a.gain.linearRampToValueAtTime(0,e+u),a.connect(o),a}function P(n,o){return Math.max(20,Math.min(n.sampleRate*.45,o))}function d(n,o,e,t,r,s,a,u){let i=n.createOscillator();i.type=a;let m=P(n,r);i.frequency.setValueAtTime(m,e),u&&u>0&&i.frequency.exponentialRampToValueAtTime(P(n,u),e+Math.max(.012,t));let p=F(n,o,e,t,s);return i.connect(p),i.start(e),i.stop(e+Math.max(.02,t)+.01),i}function b(n,o,e,t,r){let s=n.createBufferSource();s.buffer=E(n),s.loop=!0;let a=F(n,o,e,t,r);return s.connect(a),s.start(e),s.stop(e+t+.02),s}function l(n,o,e){return{name:n,defaultDuration:o,impactOffset:t=>D(n,t.duration||o),play:e}}var ae={whoosh_up:l("whoosh_up",.6,(n,o,e,t)=>[b(n,o,e,t.duration,.2+t.intensity*.4)]),whoosh_down:l("whoosh_down",.6,(n,o,e,t)=>[b(n,o,e,t.duration,.2+t.intensity*.35)]),riser:l("riser",1.2,(n,o,e,t)=>[d(n,o,e,t.duration,c(t.pitch),.15+t.intensity*.35,"sawtooth",c(t.pitch+24))]),impact:l("impact",.35,(n,o,e,t)=>[d(n,o,e,t.duration,c(t.pitch),.4+t.intensity*.4,"sine",c(t.pitch-12)),b(n,o,e,.12,.2*t.intensity)]),sub_drop:l("sub_drop",.4,(n,o,e,t)=>[d(n,o,e,t.duration,c(t.pitch+7),.55,"sine",Math.max(30,c(t.pitch-5)))]),stinger_a:l("stinger_a",.35,(n,o,e,t)=>[d(n,o,e,t.duration,c(t.pitch),.35,"triangle")]),stinger_b:l("stinger_b",.35,(n,o,e,t)=>[d(n,o,e,t.duration,c(t.pitch+3),.32,"square")]),stinger_c:l("stinger_c",.4,(n,o,e,t)=>[d(n,o,e,t.duration,c(t.pitch+7),.3,"sawtooth")]),kill_sting:l("kill_sting",.16,(n,o,e,t)=>[d(n,o,e,t.duration,c(Math.max(80,t.pitch)),_(t.index??0,t.count??3,t.intensity),"square")]),combo_tick:l("combo_tick",.08,(n,o,e,t)=>[d(n,o,e,t.duration,c(t.pitch),.18,"square")]),death_fall:l("death_fall",.45,(n,o,e,t)=>[d(n,o,e,t.duration,c(t.pitch),.3,"sine",c(t.pitch-12))]),record_scratch:l("record_scratch",.35,(n,o,e,t)=>[b(n,o,e,t.duration,.35+t.intensity*.2),d(n,o,e,t.duration*.4,2500+t.intensity*2e3,.15+t.intensity*.2,"square")]),sad_trombone:l("sad_trombone",.7,(n,o,e,t)=>{let r=c(t.pitch);return[1,2,3].map(s=>d(n,o,e,t.duration,r*s,(.2+t.intensity*.15)/s,"sawtooth",c(t.pitch-7)*s))}),boing:l("boing",.28,(n,o,e,t)=>{let r=c(t.pitch),s=.4+t.intensity*.5;return[1,3,5].map(a=>d(n,o,e,t.duration,r*a,s/a,"square",c(t.pitch-5)*a))}),blip:l("blip",.12,(n,o,e,t)=>{let r=c(t.pitch),s=.25+t.intensity*.4;return[1,2,4].map(a=>d(n,o,e,t.duration,r*a,s/a,"square"))}),funny_blips:l("funny_blips",.4,(n,o,e,t)=>{let r=.2+t.intensity*.35;return[0,1,2].flatMap(s=>[1,2].map(a=>d(n,o,e+s*.08,.08,c(t.pitch+s*2)*a,r/a,"square")))}),victory_fanfare:l("victory_fanfare",1.2,(n,o,e,t)=>[0,4,7].map((r,s)=>d(n,o,e+s*.18,.4,c(t.pitch+r),.28,"sawtooth"))),jumpscare_hit:l("jumpscare_hit",.45,(n,o,e,t)=>[d(n,o,e,t.duration,c(t.pitch),.7,"sawtooth",70),b(n,o,e,.2,.45)]),reverse_cymbal:l("reverse_cymbal",.8,(n,o,e,t)=>[b(n,o,e,t.duration,.25+t.intensity*.3)]),tick:l("tick",.08,(n,o,e,t)=>[d(n,o,e,t.duration,c(t.pitch),.16,"square")]),glitch:l("glitch",.3,(n,o,e,t)=>{let r=S(t.seed||1),s=[];for(let a=0;a<4;a++)r()>.3&&s.push(b(n,o,e+a*(t.duration/4),t.duration/8,.2));return s}),shimmer:l("shimmer",1.1,(n,o,e,t)=>[d(n,o,e,t.duration,c(t.pitch),.16,"sine"),d(n,o,e,t.duration,c(t.pitch+12),.1,"sine")])};function H(n,o,e,t,r){let s=ae[t],a=s.play(n,o,e,r);if(I(t)){let u=g(t,r.duration||s.defaultDuration),i=C(t),m=t==="kill_sting"?_(r.index??0,r.count??3,r.intensity):Math.max(.08,.25+r.intensity*.35);a.push(d(n,o,e+u,i.ms/1e3,i.hz,m*i.gain,"square"))}return a}function V(){return[...M]}return K(ie);})();
+
+</script>
+<script>
 (function(){
 'use strict';
 /* ===================== world ===================== */
@@ -3922,6 +3927,7 @@ function bereave(v,how){
                  how:how||'died', tr:v.trade||'' });
   if(DEAD.length>120) DEAD.pop();
   annal('death', '<b>'+v.name+' '+v.last+'</b> '+(how||'died')+', aged '+v.age+'.');
+  snd('death',0.7);
 
   v.dead=true;
   if(v.spouse){ v.spouse.widowed=true; v.spouse.bubble='gone'; v.spouse.bubbleT=8;
@@ -4204,7 +4210,7 @@ function dReveal(x,y,r){
 }
 let activeRun=null;
 function loadRun(run){
-  activeRun=run; genFloor(run.floor); dFieldCache.clear();
+  activeRun=run; genFloor(run.floor); dFieldCache.clear(); snd('descend',0.55);
   run.party.forEach((p,i)=>{
     p.dx=dUpAt[0]+0.5+(i%2)*0.6-0.3; p.dy=dUpAt[1]+0.5+((i/2)|0)*0.6-0.3;
     p.dgoal=null; p.dtarget=null; p.atk=0; p.dfld=null;
@@ -4269,11 +4275,13 @@ function stepFloor(run,dt){
             m.y+(tgt.dy-m.y)*b/steps, K.bolt, 2, 0.5, 0.7);
         }
         fxNum(tgt.dx,tgt.dy,m.dmg,K.bolt||'#ff7a6a');
+        snd(K.bolt?'spell':'hit', m.boss?1.2:0.8);
         fxBurst(tgt.dx,tgt.dy,K.bolt||'#ff9a7a',5,1.7);
         const ks=KSKINS.get(tgt); if(ks) fxFlash(ks);
         if(tgt.hp<=0){
           fxBurst(tgt.dx,tgt.dy,'#c9d6ff',22,2.5,2.6);
           fxWord(tgt.dx,tgt.dy,tgt.name+' falls','#ff8a7a');
+          snd('die',1);
           tgt.hp=0; tgt.dead=true; tgt.away=false;
           party.splice(party.indexOf(tgt),1);
           KEEP.lost++;
@@ -4362,7 +4370,7 @@ function stepFloor(run,dt){
   const atDown=party.every(p=>Math.hypot(p.dx-dDownAt[0]-0.5,p.dy-dDownAt[1]-0.5)<1.6);
   const clear=!dmobs.some(m=>m.awake);
   if(run.state!=='retreat' && atDown && clear){
-    KEEP.cleared.add(run.floor);
+    KEEP.cleared.add(run.floor); snd('cleared',0.8);
     if(run.floor>KEEP.deepest){ KEEP.deepest=run.floor;
       logMsg('Floor <b>'+run.floor+'</b> cleared for the first time.','g'); }
     party.forEach(p=>{ p.xp+=4+run.floor*0.35;
@@ -5095,7 +5103,7 @@ function storyDay(){
     if(seasonI===0){ yearN++; birthdays();
       logMsg('<b>Spring of year '+yearN+'.</b> Ashvale begins again.','g'); }
     else logMsg('<b>'+season().n.replace(/^./,c=>c.toUpperCase())+'</b> came to Ashvale.','');
-    applySeason();
+    applySeason(); snd('season',0.6);
   }
   // something happens, but not every day
   if(day-lastEvent>=4 && rnd()<0.34){
@@ -5150,6 +5158,7 @@ function marriages(){
   logMsg('<b>'+a.name+' '+a.last+'</b> and <b>'+b.name+' '+b.last+
     '</b> were married at the altar.','g');
   annal('wed','<b>'+a.name+' '+a.last+'</b> married <b>'+b.name+' '+b.last+'</b>.');
+  snd('wed',0.7);
 }
 function births(){
   if(rnd()>0.16) return;
@@ -5169,6 +5178,7 @@ function births(){
   kid.x=mum.x; kid.y=mum.y; kid.tx=kid.x; kid.ty=kid.y;
   logMsg('<b>'+kid.name+' '+kid.last+'</b> was born to '+mum.name+' and '+dad.name+'.','g');
   annal('born','<b>'+kid.name+' '+kid.last+'</b> born to '+mum.name+' and '+dad.name+'.');
+  snd('born',0.6);
 }
 
 /* ===================== saving the town =====================
@@ -5277,6 +5287,63 @@ function wipeSave(){
 }
 const hasSave=()=>{ const s=store(); if(!s) return false;
   try{ return !!s.getItem(SAVEKEY); }catch(e){ return false; } };
+
+/* ===================== sound =====================
+   The voices come from vendor/music.bundle.js - a snapshot of the owner's music-studio,
+   plain Web Audio with no dependencies. Nothing here runs until the person asks for it:
+   no AudioContext exists until they press the speaker, which is also the user gesture a
+   browser requires before it will let anything make a noise. */
+let actx=null, abus=null, sndOn=false, sndFail='';
+const SNDKEY='ashvale.sound';
+const SFXMAP={                       // game event -> the studio's catalogue
+  hit      :['impact',     {intensity:0.55, pitch:0.5,  duration:0.22}],
+  spell    :['shimmer',    {intensity:0.5,  pitch:0.68, duration:0.5 }],
+  die      :['kill_sting', {intensity:0.7,  pitch:0.42, duration:0.9 }],
+  chest    :['blip',       {intensity:0.5,  pitch:0.72, duration:0.16}],
+  coin     :['combo_tick', {intensity:0.45, pitch:0.8,  duration:0.1 }],
+  descend  :['riser',      {intensity:0.45, pitch:0.4,  duration:1.1 }],
+  boss     :['sub_drop',   {intensity:0.8,  pitch:0.3,  duration:1.4 }],
+  cleared  :['victory_fanfare',{intensity:0.6, pitch:0.6, duration:1.6}],
+  wed      :['shimmer',    {intensity:0.42, pitch:0.85, duration:0.7 }],
+  born     :['blip',       {intensity:0.4,  pitch:0.9,  duration:0.22}],
+  death    :['death_fall', {intensity:0.5,  pitch:0.4,  duration:1.0 }],
+  season   :['whoosh_up',  {intensity:0.35, pitch:0.55, duration:0.8 }]
+};
+let sndSeed=1, lastSnd=Object.create(null);
+
+function sndStart(){
+  if(actx) return true;
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext;
+    if(!AC||typeof MUSIC==='undefined'||!MUSIC.playSfx){ sndFail='no audio in this browser'; return false; }
+    actx=new AC();
+    abus=actx.createGain(); abus.gain.value=0.5; abus.connect(actx.destination);
+    return true;
+  }catch(e){ sndFail='the browser refused an audio context'; actx=null; return false; }
+}
+function snd(kind,gain){
+  if(!sndOn||!actx||actx.state!=='running') return;
+  const e=SFXMAP[kind]; if(!e) return;
+  // a busy floor can ask for twenty hits in a frame; one every 70ms is plenty
+  const now=actx.currentTime;
+  if(lastSnd[kind]&&now-lastSnd[kind]<0.07) return;
+  lastSnd[kind]=now;
+  try{
+    const g=actx.createGain(); g.gain.value=Math.max(0,Math.min(1.4,gain||1)); g.connect(abus);
+    MUSIC.playSfx(actx, g, now+0.001, e[0], Object.assign({seed:(sndSeed=(sndSeed*48271)%2147483647)}, e[1]));
+  }catch(err){ /* one bad effect must never stop the sim */ }
+}
+function sndSet(on){
+  sndOn=!!on;
+  if(sndOn){
+    if(!sndStart()){ sndOn=false; logMsg('Sound could not start: '+sndFail+'.','d'); }
+    else if(actx.state==='suspended') actx.resume().catch(()=>{});
+  } else if(actx && actx.state==='running'){ actx.suspend().catch(()=>{}); }
+  try{ localStorage.setItem(SNDKEY, sndOn?'1':'0'); }catch(e){}
+  const b=document.getElementById('sndBtn');
+  if(b){ b.classList.toggle('on',sndOn); b.textContent=sndOn?'\u266a Sound':'\u266a Muted';
+         b.title=sndOn?'Mute':'Turn sound on'; }
+}
 
 /* ===================== UI ===================== */
 const railEl=document.getElementById('rail');
@@ -5698,6 +5765,14 @@ function showHouses(){
 
 document.getElementById('keepBtn').onclick=showKeep;
 const hb=document.getElementById('housesBtn'); if(hb) hb.onclick=showHouses;
+(function(){ const sb=document.getElementById('sndBtn'); if(!sb) return;
+  sb.onclick=()=>sndSet(!sndOn);
+  // Off by default. Only a person who turned it on before gets it back, and even then
+  // the context is not created until this click, because browsers require a gesture.
+  let was=false; try{ was=localStorage.getItem(SNDKEY)==='1'; }catch(e){}
+  sb.textContent=was?'\u266a Sound off \u00b7 click':'\u266a Muted';
+  sb.title=was?'You had sound on last time - click to start it':'Turn sound on';
+})();
 document.getElementById('scTown').onclick=()=>setScene('town');
 document.getElementById('scKeep').onclick=()=>setScene('keep');
 document.getElementById('logHead').onclick=()=>{
@@ -6436,7 +6511,7 @@ function fxDraw(cam,vignette){
 }
 /* a struck body goes white for a moment */
 function fxFlash(sk){ if(sk) sk.flash=0.22; }
-function fxLoot(x,y,gold){ fxBurst(x,y,'#f0cd62',14,1.8,2.2);
+function fxLoot(x,y,gold){ snd('chest',0.7); fxBurst(x,y,'#f0cd62',14,1.8,2.2);
   fxWord(x,y,'+'+gold+' gold','#f0cd62'); }
 function fxApplyFlash(sk,dt){
   if(sk.flash===undefined) return;
@@ -6703,6 +6778,7 @@ function updateMobSkins(S,dt){
   for(const mo of dmobs){                      // name a boss the moment it wakes
     if(mo.boss && mo.awake && !mo.named){ mo.named=1;
       fxWord(mo.x, mo.y, mo.name, mo.col||'#ffcf7a');
+      snd('boss',1.1);
       fxBurst(mo.x, mo.y, mo.col||'#ffcf7a', 26, 2.6, 2.4); }
   }
   MSKINS.forEach((sk,mo)=>{ if(!live.has(mo)){ S.mobs.remove(sk.grp); MSKINS.delete(mo); } });

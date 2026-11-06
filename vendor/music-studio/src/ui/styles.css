@@ -1,0 +1,206 @@
+:root {
+  color-scheme: dark;
+  --bg: #12141a;
+  --panel: #1c2030;
+  --panel-2: #252a3d;
+  --line: #343a52;
+  --text: #e8eaf0;
+  --muted: #a4acc4;
+  --accent: #67e8f9;
+  --hot: #f0b429;
+  --ok: #86efac;
+  --bad: #fca5a5;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+button, input, select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+}
+
+button:hover { border-color: var(--accent); }
+button:disabled { opacity: 0.45; cursor: default; }
+button.primary { background: #155e75; border-color: #67e8f9; }
+button.on { background: #854d0e; border-color: var(--hot); }
+
+#app {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 16px 16px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+header, .transport, .panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+header h1 {
+  font-size: 1.15rem;
+  margin: 0 8px 0 0;
+}
+
+.version {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.transport, .row, .toolbar, .pad-row, .inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.field input[type="number"],
+.field input[type="text"],
+.field select {
+  background: #0f121b;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.3rem 0.4rem;
+  min-width: 4.5rem;
+}
+
+.name-input { min-width: 10rem; }
+
+textarea {
+  width: 100%;
+  min-height: 4.5rem;
+  background: #0f121b;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.5rem;
+  font: 0.85rem ui-monospace, Consolas, monospace;
+}
+
+.track {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.track.selected { outline: 1px solid var(--accent); border-radius: 8px; padding: 6px; }
+
+.track-meta { display: flex; flex-direction: column; gap: 4px; }
+.track-name { font-weight: 600; background: none; border: none; text-align: left; padding: 0; }
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(16, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.step {
+  height: 28px;
+  padding: 0;
+  border-radius: 4px;
+  background: #2a3148;
+  border: 1px solid #1a1e2c;
+}
+
+.step.beat { background: #343c58; }
+.step.on { background: var(--hot); border-color: #fde68a; }
+.step.play { outline: 2px solid var(--accent); }
+
+.mid, .bottom {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 12px;
+}
+
+.bottom { grid-template-columns: 1fr 1fr 1fr; }
+
+.pad {
+  width: 64px;
+  height: 52px;
+  font-size: 0.75rem;
+}
+
+.notes { display: flex; flex-wrap: wrap; gap: 4px; }
+.notes button { min-width: 3rem; }
+
+.meter {
+  height: 14px;
+  background: #0f121b;
+  border-radius: 99px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.meter > span {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #22c55e, #eab308, #ef4444);
+}
+
+.readout, #status, .hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  margin: 6px 0 0;
+}
+
+.pass { color: var(--ok); }
+.fail, .check { color: var(--bad); }
+
+h2 { font-size: 0.95rem; margin: 0 0 8px; }
+
+textarea, #cue-timeline {
+  width: 100%;
+  background: #0f121b;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+#cue-progress { width: 100%; height: 12px; }
+
+.cue-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.cue-table th, .cue-table td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+
+.mixer { display: flex; flex-direction: column; gap: 8px; }
+.mixer-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+
+@media (max-width: 900px) {
+  .track, .mid, .bottom { grid-template-columns: 1fr; }
+}

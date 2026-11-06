@@ -13,6 +13,14 @@ with sync_playwright() as p:
     pg.on("pageerror", lambda e: errs.append("pageerror: " + str(e)))
     pg.on("console", lambda m: errs.append("console: " + m.text)
           if m.type == "error" and "TUNNEL" not in m.text and "ERR_" not in m.text else None)
+    pg.add_init_script("""
+      window.__ctxCount = 0;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) {
+        const P = new Proxy(AC, { construct(t, a) { window.__ctxCount++; return new t(...a); } });
+        window.AudioContext = P; window.webkitAudioContext = P;
+      }
+    """)
     pg.goto((root / target).as_uri()); pg.wait_for_timeout(1800)
     (root / "dist").mkdir(exist_ok=True)
 
@@ -50,6 +58,17 @@ with sync_playwright() as p:
     w, h = flat_size()
     if w < 900 or h < 500:
         errs.append(f"flat Keep canvas collapsed to {w}x{h}")
+
+    # Nothing may make a noise before the person asks for it. No AudioContext should
+    # exist at all until the speaker is pressed.
+    ctxs = pg.evaluate("()=>window.__ctxCount|0")
+    if ctxs:
+        errs.append(f"{ctxs} AudioContext(s) existed before the speaker was pressed")
+    pg.click("#sndBtn"); pg.wait_for_timeout(600)
+    after = pg.evaluate("()=>window.__ctxCount|0")
+    if after != 1:
+        errs.append(f"pressing the speaker made {after} AudioContext(s), expected 1")
+    pg.click("#sndBtn"); pg.wait_for_timeout(300)
 
     # The houses panel must render households, not an empty shell.
     pg.click("#housesBtn"); pg.wait_for_timeout(900)

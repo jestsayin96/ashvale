@@ -405,6 +405,7 @@ function bereave(v,how){
                  how:how||'died', tr:v.trade||'' });
   if(DEAD.length>120) DEAD.pop();
   annal('death', '<b>'+v.name+' '+v.last+'</b> '+(how||'died')+', aged '+v.age+'.');
+  snd('death',0.7);
 
   v.dead=true;
   if(v.spouse){ v.spouse.widowed=true; v.spouse.bubble='gone'; v.spouse.bubbleT=8;
@@ -687,7 +688,7 @@ function dReveal(x,y,r){
 }
 let activeRun=null;
 function loadRun(run){
-  activeRun=run; genFloor(run.floor); dFieldCache.clear();
+  activeRun=run; genFloor(run.floor); dFieldCache.clear(); snd('descend',0.55);
   run.party.forEach((p,i)=>{
     p.dx=dUpAt[0]+0.5+(i%2)*0.6-0.3; p.dy=dUpAt[1]+0.5+((i/2)|0)*0.6-0.3;
     p.dgoal=null; p.dtarget=null; p.atk=0; p.dfld=null;
@@ -752,11 +753,13 @@ function stepFloor(run,dt){
             m.y+(tgt.dy-m.y)*b/steps, K.bolt, 2, 0.5, 0.7);
         }
         fxNum(tgt.dx,tgt.dy,m.dmg,K.bolt||'#ff7a6a');
+        snd(K.bolt?'spell':'hit', m.boss?1.2:0.8);
         fxBurst(tgt.dx,tgt.dy,K.bolt||'#ff9a7a',5,1.7);
         const ks=KSKINS.get(tgt); if(ks) fxFlash(ks);
         if(tgt.hp<=0){
           fxBurst(tgt.dx,tgt.dy,'#c9d6ff',22,2.5,2.6);
           fxWord(tgt.dx,tgt.dy,tgt.name+' falls','#ff8a7a');
+          snd('die',1);
           tgt.hp=0; tgt.dead=true; tgt.away=false;
           party.splice(party.indexOf(tgt),1);
           KEEP.lost++;
@@ -845,7 +848,7 @@ function stepFloor(run,dt){
   const atDown=party.every(p=>Math.hypot(p.dx-dDownAt[0]-0.5,p.dy-dDownAt[1]-0.5)<1.6);
   const clear=!dmobs.some(m=>m.awake);
   if(run.state!=='retreat' && atDown && clear){
-    KEEP.cleared.add(run.floor);
+    KEEP.cleared.add(run.floor); snd('cleared',0.8);
     if(run.floor>KEEP.deepest){ KEEP.deepest=run.floor;
       logMsg('Floor <b>'+run.floor+'</b> cleared for the first time.','g'); }
     party.forEach(p=>{ p.xp+=4+run.floor*0.35;
@@ -1578,7 +1581,7 @@ function storyDay(){
     if(seasonI===0){ yearN++; birthdays();
       logMsg('<b>Spring of year '+yearN+'.</b> Ashvale begins again.','g'); }
     else logMsg('<b>'+season().n.replace(/^./,c=>c.toUpperCase())+'</b> came to Ashvale.','');
-    applySeason();
+    applySeason(); snd('season',0.6);
   }
   // something happens, but not every day
   if(day-lastEvent>=4 && rnd()<0.34){
@@ -1633,6 +1636,7 @@ function marriages(){
   logMsg('<b>'+a.name+' '+a.last+'</b> and <b>'+b.name+' '+b.last+
     '</b> were married at the altar.','g');
   annal('wed','<b>'+a.name+' '+a.last+'</b> married <b>'+b.name+' '+b.last+'</b>.');
+  snd('wed',0.7);
 }
 function births(){
   if(rnd()>0.16) return;
@@ -1652,6 +1656,7 @@ function births(){
   kid.x=mum.x; kid.y=mum.y; kid.tx=kid.x; kid.ty=kid.y;
   logMsg('<b>'+kid.name+' '+kid.last+'</b> was born to '+mum.name+' and '+dad.name+'.','g');
   annal('born','<b>'+kid.name+' '+kid.last+'</b> born to '+mum.name+' and '+dad.name+'.');
+  snd('born',0.6);
 }
 
 /* ===================== saving the town =====================
@@ -1760,6 +1765,63 @@ function wipeSave(){
 }
 const hasSave=()=>{ const s=store(); if(!s) return false;
   try{ return !!s.getItem(SAVEKEY); }catch(e){ return false; } };
+
+/* ===================== sound =====================
+   The voices come from vendor/music.bundle.js - a snapshot of the owner's music-studio,
+   plain Web Audio with no dependencies. Nothing here runs until the person asks for it:
+   no AudioContext exists until they press the speaker, which is also the user gesture a
+   browser requires before it will let anything make a noise. */
+let actx=null, abus=null, sndOn=false, sndFail='';
+const SNDKEY='ashvale.sound';
+const SFXMAP={                       // game event -> the studio's catalogue
+  hit      :['impact',     {intensity:0.55, pitch:0.5,  duration:0.22}],
+  spell    :['shimmer',    {intensity:0.5,  pitch:0.68, duration:0.5 }],
+  die      :['kill_sting', {intensity:0.7,  pitch:0.42, duration:0.9 }],
+  chest    :['blip',       {intensity:0.5,  pitch:0.72, duration:0.16}],
+  coin     :['combo_tick', {intensity:0.45, pitch:0.8,  duration:0.1 }],
+  descend  :['riser',      {intensity:0.45, pitch:0.4,  duration:1.1 }],
+  boss     :['sub_drop',   {intensity:0.8,  pitch:0.3,  duration:1.4 }],
+  cleared  :['victory_fanfare',{intensity:0.6, pitch:0.6, duration:1.6}],
+  wed      :['shimmer',    {intensity:0.42, pitch:0.85, duration:0.7 }],
+  born     :['blip',       {intensity:0.4,  pitch:0.9,  duration:0.22}],
+  death    :['death_fall', {intensity:0.5,  pitch:0.4,  duration:1.0 }],
+  season   :['whoosh_up',  {intensity:0.35, pitch:0.55, duration:0.8 }]
+};
+let sndSeed=1, lastSnd=Object.create(null);
+
+function sndStart(){
+  if(actx) return true;
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext;
+    if(!AC||typeof MUSIC==='undefined'||!MUSIC.playSfx){ sndFail='no audio in this browser'; return false; }
+    actx=new AC();
+    abus=actx.createGain(); abus.gain.value=0.5; abus.connect(actx.destination);
+    return true;
+  }catch(e){ sndFail='the browser refused an audio context'; actx=null; return false; }
+}
+function snd(kind,gain){
+  if(!sndOn||!actx||actx.state!=='running') return;
+  const e=SFXMAP[kind]; if(!e) return;
+  // a busy floor can ask for twenty hits in a frame; one every 70ms is plenty
+  const now=actx.currentTime;
+  if(lastSnd[kind]&&now-lastSnd[kind]<0.07) return;
+  lastSnd[kind]=now;
+  try{
+    const g=actx.createGain(); g.gain.value=Math.max(0,Math.min(1.4,gain||1)); g.connect(abus);
+    MUSIC.playSfx(actx, g, now+0.001, e[0], Object.assign({seed:(sndSeed=(sndSeed*48271)%2147483647)}, e[1]));
+  }catch(err){ /* one bad effect must never stop the sim */ }
+}
+function sndSet(on){
+  sndOn=!!on;
+  if(sndOn){
+    if(!sndStart()){ sndOn=false; logMsg('Sound could not start: '+sndFail+'.','d'); }
+    else if(actx.state==='suspended') actx.resume().catch(()=>{});
+  } else if(actx && actx.state==='running'){ actx.suspend().catch(()=>{}); }
+  try{ localStorage.setItem(SNDKEY, sndOn?'1':'0'); }catch(e){}
+  const b=document.getElementById('sndBtn');
+  if(b){ b.classList.toggle('on',sndOn); b.textContent=sndOn?'♪ Sound':'♪ Muted';
+         b.title=sndOn?'Mute':'Turn sound on'; }
+}
 
 /* ===================== UI ===================== */
 const railEl=document.getElementById('rail');
@@ -2181,6 +2243,14 @@ function showHouses(){
 
 document.getElementById('keepBtn').onclick=showKeep;
 const hb=document.getElementById('housesBtn'); if(hb) hb.onclick=showHouses;
+(function(){ const sb=document.getElementById('sndBtn'); if(!sb) return;
+  sb.onclick=()=>sndSet(!sndOn);
+  // Off by default. Only a person who turned it on before gets it back, and even then
+  // the context is not created until this click, because browsers require a gesture.
+  let was=false; try{ was=localStorage.getItem(SNDKEY)==='1'; }catch(e){}
+  sb.textContent=was?'\u266a Sound off \u00b7 click':'\u266a Muted';
+  sb.title=was?'You had sound on last time - click to start it':'Turn sound on';
+})();
 document.getElementById('scTown').onclick=()=>setScene('town');
 document.getElementById('scKeep').onclick=()=>setScene('keep');
 document.getElementById('logHead').onclick=()=>{
@@ -2919,7 +2989,7 @@ function fxDraw(cam,vignette){
 }
 /* a struck body goes white for a moment */
 function fxFlash(sk){ if(sk) sk.flash=0.22; }
-function fxLoot(x,y,gold){ fxBurst(x,y,'#f0cd62',14,1.8,2.2);
+function fxLoot(x,y,gold){ snd('chest',0.7); fxBurst(x,y,'#f0cd62',14,1.8,2.2);
   fxWord(x,y,'+'+gold+' gold','#f0cd62'); }
 function fxApplyFlash(sk,dt){
   if(sk.flash===undefined) return;
@@ -3186,6 +3256,7 @@ function updateMobSkins(S,dt){
   for(const mo of dmobs){                      // name a boss the moment it wakes
     if(mo.boss && mo.awake && !mo.named){ mo.named=1;
       fxWord(mo.x, mo.y, mo.name, mo.col||'#ffcf7a');
+      snd('boss',1.1);
       fxBurst(mo.x, mo.y, mo.col||'#ffcf7a', 26, 2.6, 2.4); }
   }
   MSKINS.forEach((sk,mo)=>{ if(!live.has(mo)){ S.mobs.remove(sk.grp); MSKINS.delete(mo); } });
