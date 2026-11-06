@@ -597,3 +597,25 @@ deleting the `lava` key: `surface textures never requested: lava.webp`.
 **What it does not prove:** a texture that loads but never reaches a material would still
 pass. The lava band itself was checked by forcing `themeFor` to return `THEMES[3]` on every
 floor and looking at `dist/lava-keep.png`.
+
+## Cycle 28 — the town names its families (shipped)
+Worked unattended. Items 1 and 2 of the loop prompt shipped in c27, so took the next.
+
+Every building drew a nameplate from `BK[kind].n`, which meant twenty plates reading
+"House" and "House · 1". Now:
+- `houseName(b)` takes the commonest surname among `b.residents` — "the Ashbys" for a
+  cottage, "House Vauntmere" for a manor. The households from c20 finally reach the map.
+- `labelShows(b)` hides a dwelling's plate unless you are close (`zoom > 1.45`), its roof
+  is open, or its resident is selected. Civic buildings and shops are named at any
+  distance, because those are what you navigate by.
+- The person panel uses the family name too, with the building kind and the number under
+  that roof as the subtitle.
+
+Zoomed out you see the hall, the guild, the shops and the two manors. Zoomed in the lanes
+fill with the Underhills, the Harrowgates, the Dunmores, the Lanternes, the Thornburys.
+
+### No guard for this one, and that is deliberate
+The plates are drawn on canvas, so there is nothing in the DOM to assert against and no
+honest way to test the label text without exposing internals purely for the test.
+Verified by screenshot at both zoom levels (`dist/labels.png`, `dist/labels-close.png`).
+Said plainly rather than bolting on a weak assertion that would pass whatever happened.

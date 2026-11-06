@@ -4595,10 +4595,12 @@ function drawBuilding(b){
   }
   // nameplate
   const [lx,ly]=scr(b.x+b.w/2,b.y+b.d/2,z);
-  const inN=people.filter(p=>p.inside===b).length;
-  plate(lx, ly-wh-rh-16*zoom,
-    k.n.replace('&amp;','&')+(inN?'  \u00b7 '+inN:''),
-    b.kind==='altar'?'#f0d98f':'#e8e0f0', 10.5);
+  if(labelShows(b)){
+    const inN=people.filter(p=>p.inside===b).length;
+    plate(lx, ly-wh-rh-16*zoom,
+      labelFor(b)+(inN?'  \u00b7 '+inN:''),
+      b.kind==='altar'?'#f0d98f':(BK[b.kind].home?'#cfc3b0':'#e8e0f0'), 10.5);
+  }
   b.plate=[lx,ly-wh*0.5];
 }
 function drawPerson(p,indoors){
@@ -4650,6 +4652,26 @@ function drawPerson(p,indoors){
 }
 function rr(x,y,w,h2,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h2,r);
   g.arcTo(x+w,y+h2,x,y+h2,r);g.arcTo(x,y+h2,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath();}
+/* Twenty plates reading "House" told you nothing. A house carries the name of the
+   family under its roof instead, and only when you are close enough to care; the hall,
+   the guild and the shops are worth naming at any distance. */
+function houseName(b){
+  if(!b.residents||!b.residents.length) return 'Empty';
+  const c={}; let best='', n=0;
+  for(const p of b.residents){ const k=p.last||''; if(!k) continue;
+    c[k]=(c[k]||0)+1; if(c[k]>n){ n=c[k]; best=k; } }
+  if(!best) return 'Empty';
+  return BK[b.kind].noble ? 'House '+best : 'the '+best+'s';
+}
+function labelFor(b){
+  const k=BK[b.kind];
+  if(k.home||k.noble) return houseName(b);
+  return k.n.replace('&amp;','&');
+}
+// a dwelling is only named up close; a place of business always is
+const labelShows=b=>!(BK[b.kind].home) || zoom>1.45 || opened.has(b.id) ||
+  (selected&&selected.home===b);
+
 function plate(x,y,text,col,sz){
   g.font='600 '+Math.round((sz||11)*Math.max(.82,zoom))+'px "Nunito Sans",system-ui,sans-serif';
   g.textAlign='center';g.textBaseline='middle';
@@ -4919,10 +4941,10 @@ function drawInterior(b){
   // whoever is in here
   people.filter(p=>p.inside===b&&!p.away)
     .sort((p,q)=>(p.x+p.y)-(q.x+q.y)).forEach(p=>drawPerson(p,true));
-  if(zoom>0.85){
+  if(zoom>0.85&&labelShows(b)){
     const [lx,ly]=scr(b.x+b.w/2,b.y+b.d/2,z);
     const n=people.filter(p=>p.inside===b).length;
-    plate(lx, ly-wh-30*zoom, k.n.replace('&amp;','&')+(n?'  \u00b7 '+n:''), '#f3e4bd',10.5);
+    plate(lx, ly-wh-30*zoom, labelFor(b)+(n?'  \u00b7 '+n:''), '#f3e4bd',10.5);
   }
 }
 function render(){
@@ -5717,8 +5739,11 @@ function showPerson(p){
 }
 function showBuilding(b){
   const k=BK[b.kind];
-  document.getElementById('wName').textContent=k.n.replace('&amp;','&');
-  document.getElementById('wSub').textContent='A building of Ashvale \u00b7 ('+b.x+', '+b.y+')';
+  document.getElementById('wName').textContent=labelFor(b);
+  document.getElementById('wSub').textContent=
+    (k.home||k.noble ? k.n.replace('&amp;','&')+' \u00b7 '+b.residents.length+' under this roof'
+                     : 'A building of Ashvale')+
+    ' \u00b7 ('+b.x+', '+b.y+')';
   bp.setTransform(1,0,0,1,0,0); bp.clearRect(0,0,120,120);
   bp.fillStyle='#15121f'; bp.fillRect(0,0,120,120);
   bp.fillStyle=k.roof; bp.fillRect(24,52,72,44);
