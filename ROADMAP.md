@@ -360,3 +360,36 @@ dropping `live` from the panel's innerHTML and confirming
 **Verifying generations needs the SEASONLEN=1 trick** — `npm test` reaches day 4, which is
 inside the first season, so no birthday pass has run and the annals are nearly empty.
 Drive the shortened build to year 2+ to see marriages and deaths accumulate.
+
+## Cycle 21 — four kinds of thing in the dark (shipped)
+`skeleton_minion` was every monster and `skeleton_warrior` every boss, while
+`skeleton_rogue.glb` and `skeleton_mage.glb` sat converted and unused in `models/kay/`.
+
+**`MKIND`** gives each kind its own numbers *and its own behaviour*, which was the point —
+a different mesh alone would have been decoration:
+- **minion** — the old behaviour unchanged: walks in, swings at 1.1 reach, 1.1s cadence.
+- **rogue** — 3.5 speed against the minion's 2.0 and a 0.7s cadence, but 62% of the health.
+  It is on you before the party can turn.
+- **mage** — `keepAway: 3.4`. It will not close. Inside its circle it *walks backwards* and
+  casts anyway, because `reach` is 5.4 and the attack check is independent of the move.
+  55% health, 1.45x damage. Its bolt draws as five bursts along the line to the target, so
+  you can see where the hit came from, and it carries a coloured aura in both renderers.
+- **brute** — the warrior mesh at 1.62 units, near double health and damage on a 1.8s swing.
+
+**`BANDMOBS`** is the mix per depth band, matching `BANDPROPS`: the wet caves are rabble
+with the odd rogue, the crypts raise mages, the iron halls field brutes, and the dragon's
+floors are brutes and mages almost entirely.
+
+### What the test does and does not prove
+`shot3d.py` now records every `.glb` the page fetches and fails if any of the four mob
+models was never requested — verified by deleting the `mage` key from the manifest and
+watching it fail with `mob models never requested: skeleton_mage.glb`. **Be honest about
+the scope:** `loadAssets` loads the whole manifest up front, so this catches a wrong or
+missing key — the silent fallback to the minion — but it does *not* prove a mage ever
+spawns. The test only reaches floor ~11, which is the one band with no mage in its mix.
+Behaviour was checked by forcing `bandMobs` to return `BANDMOBS[1]` on every floor.
+
+**Serve from the repo root when checking assets.** The first pass at this served the built
+page out of the scratchpad, so `models/` was not beside it, nothing loaded, and the
+screenshots showed a bare procedural floor that looked like a rendering failure. The glb
+fetch list is what settled it.

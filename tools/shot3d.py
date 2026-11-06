@@ -10,6 +10,9 @@ try:
     with sync_playwright() as p:
         b = p.chromium.launch(args=["--use-gl=swiftshader", "--enable-unsafe-swiftshader", "--no-proxy-server"])
         pg = b.new_page(viewport={"width": 1340, "height": 860})
+        glbs = []
+        pg.on("response", lambda r: glbs.append(r.url.rsplit("/", 1)[-1])
+              if r.url.endswith(".glb") else None)
         pg.on("pageerror", lambda e: errs.append("pageerror: " + str(e)))
         pg.on("console", lambda m: errs.append("console: " + m.text)
                   if m.type == "error" and "TUNNEL" not in m.text and "ERR_" not in m.text else None)
@@ -29,6 +32,13 @@ try:
             tap("[data-cam='out']"); pg.wait_for_timeout(250)
         pg.wait_for_timeout(1500)
         pg.screenshot(path=str(root / "dist/shot-3d-keep.png"))
+        # Every mob kind must actually pull its own model. A wrong manifest key falls
+        # back to the minion silently and nothing on screen says so.
+        want = {"skeleton_minion.glb", "skeleton_warrior.glb",
+                "skeleton_rogue.glb", "skeleton_mage.glb"}
+        missing = want - set(glbs)
+        if missing:
+            errs.append("mob models never requested: " + ", ".join(sorted(missing)))
         b.close()
 finally:
     srv.terminate()

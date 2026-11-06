@@ -3851,6 +3851,26 @@ const MONSTER=[
  [15,'bandit deserters'],[21,'ghouls'],[28,'ogres'],[36,'wraiths'],[45,'basilisks'],
  [55,'bone knights'],[66,'hellhounds'],[78,'a chimera'],[88,'the elder lich'],[97,'the dragon itself']
 ];
+/* Not every thing down there fights the same way. A brute walks in and swings slowly,
+   a rogue closes faster than you can turn, and a mage will not come to you at all. */
+const MKIND={
+  minion:{ model:'default', sp:2.0, reach:1.1,  cd:1.10, hpM:1.00, dmgM:1.00, sz:1.35 },
+  rogue :{ model:'rogue',   sp:3.5, reach:1.0,  cd:0.70, hpM:0.62, dmgM:0.80, sz:1.28 },
+  mage  :{ model:'mage',    sp:1.5, reach:5.4,  cd:1.90, hpM:0.55, dmgM:1.45, sz:1.33,
+           keepAway:3.4, bolt:'#9a7ae8' },
+  brute :{ model:'boss',    sp:1.5, reach:1.3,  cd:1.80, hpM:1.95, dmgM:1.85, sz:1.62 }
+};
+/* The mix by depth band, matching the dressing in BANDPROPS. The caves are mostly
+   rabble; the crypts raise mages; the iron halls field brutes. */
+const BANDMOBS=[
+  ['minion','minion','minion','rogue'],
+  ['minion','minion','rogue','mage','mage'],
+  ['minion','rogue','brute','mage'],
+  ['rogue','brute','brute','mage'],
+  ['brute','mage','rogue','brute','mage']
+];
+function bandMobs(f){ const i=THEMES.findIndex(t=>f<=t.to); return BANDMOBS[i<0?4:i]; }
+
 function monsterFor(f){ const b=bossFor(f); if(b) return b[1];
   let m=MONSTER[0][1]; for(const [d,n] of MONSTER) if(f>=d) m=n; return m; }
 function partyPower(party){
@@ -4083,16 +4103,18 @@ function genFloor(f){
     const q=drooms[drooms.length-1];
     const hpv=40+f*5.5;
     dmobs.push({x:q.cx+0.5,y:q.cy+1.5,hx:q.cx+0.5,hy:q.cy+1.5,hp:hpv,hpMax:hpv,
-      dmg:2.2+f*0.24, awake:false, name:bs[1], col:bs[2], f:0, atk:0, boss:true});
+      dmg:2.2+f*0.24, awake:false, name:bs[1], col:bs[2], f:0, atk:0, boss:true, kind:'brute'});
   }
   const count=4+Math.round(f/7)+rI(0,3);
   for(let i=0;i<count;i++){
     const q=drooms[rI(1,Math.max(1,drooms.length-1))];
     const mx=q.x+rI(0,q.w-1), my=q.y+rI(0,q.d-1);
     if(!dWalk(mx,my)) continue;
-    const hpv=6+f*1.3+rI(0,6);
+    const kind=bandMobs(f)[rI(0,bandMobs(f).length-1)], K=MKIND[kind];
+    const hpv=Math.round((6+f*1.3+rI(0,6))*K.hpM);
     dmobs.push({x:mx+0.5,y:my+0.5,hx:mx+0.5,hy:my+0.5,hp:hpv,hpMax:hpv,
-      dmg:0.75+f*0.145, awake:false, name:monsterFor(f), col:th.mob, f:0, atk:0});
+      dmg:(0.75+f*0.145)*K.dmgM, awake:false, name:monsterFor(f), col:th.mob,
+      f:0, atk:0, kind});
   }
   for(let i=0;i<rI(2,4);i++){
     const q=drooms[rI(1,Math.max(1,drooms.length-1))];
@@ -4224,18 +4246,30 @@ function stepFloor(run,dt){
     let tgt=null,td=1e9;
     for(const p of party){ const d=Math.hypot(p.dx-m.x,p.dy-m.y); if(d<td){td=d;tgt=p;} }
     if(!tgt) continue;
-    if(td>1.1){
-      const dx=tgt.dx-m.x, dy=tgt.dy-m.y, mm=Math.hypot(dx,dy)||1, sp=2.0*dt;
+    const K=MKIND[m.kind]||MKIND.minion;
+    // a mage will not close; it backs off if you get inside its circle
+    const away = K.keepAway && td < K.keepAway;
+    if(td>K.reach || away){
+      const sgn=away?-1:1;
+      const dx=(tgt.dx-m.x)*sgn, dy=(tgt.dy-m.y)*sgn, mm=Math.hypot(dx,dy)||1,
+            sp=K.sp*dt;
       const nx=m.x+dx/mm*sp, ny=m.y+dy/mm*sp;
       if(dWalk(nx|0,m.y|0)) m.x=nx;
       if(dWalk(m.x|0,ny|0)) m.y=ny;
       m.f+=dt;
-    } else {
+    }
+    {
+      // a mage backing away can still cast, which is the whole point of it
       m.atk-=dt;
-      if(m.atk<=0){ m.atk=1.1;
+      if(m.atk<=0 && td<=K.reach){ m.atk=K.cd;
         tgt.hp-=m.dmg;
-        fxNum(tgt.dx,tgt.dy,m.dmg,'#ff7a6a');
-        fxBurst(tgt.dx,tgt.dy,'#ff9a7a',5,1.7);
+        if(K.bolt){                               // you can see where the spell came from
+          const steps=5;
+          for(let b=1;b<=steps;b++) fxBurst(m.x+(tgt.dx-m.x)*b/steps,
+            m.y+(tgt.dy-m.y)*b/steps, K.bolt, 2, 0.5, 0.7);
+        }
+        fxNum(tgt.dx,tgt.dy,m.dmg,K.bolt||'#ff7a6a');
+        fxBurst(tgt.dx,tgt.dy,K.bolt||'#ff9a7a',5,1.7);
         const ks=KSKINS.get(tgt); if(ks) fxFlash(ks);
         if(tgt.hp<=0){
           fxBurst(tgt.dx,tgt.dy,'#c9d6ff',22,2.5,2.6);
@@ -4636,11 +4670,17 @@ function drawMob(m){
   const y=sy-bob;
   g.save();g.globalAlpha=.3;g.fillStyle='#000';
   g.beginPath();g.ellipse(sx,sy,6.5*z,3*z,0,0,7);g.fill();g.restore();
-  const bg=m.boss?1.9:1;
+  const K=MKIND[m.kind]||MKIND.minion;
+  const bg=m.boss?1.9:(K.sz/1.35);
+  // a mage carries its own light, so you can tell at a glance what is shooting at you
+  if(K.bolt&&m.awake){ const fl=0.20+Math.sin(tnow*3.1+m.x)*0.10;
+    g.save();g.globalAlpha=fl;g.fillStyle=K.bolt;
+    g.beginPath();g.arc(sx,y-8*z,16*z,0,7);g.fill();g.restore(); }
   if(m.boss){ const fl=0.25+Math.sin(tnow*2.4)*0.12;
     g.save();g.globalAlpha=fl;g.fillStyle=m.col;
     g.beginPath();g.arc(sx,y-10*z,34*z,0,7);g.fill();g.restore(); }
-  g.fillStyle=m.col; rr(sx-5.4*z*bg,y-15*z*bg,10.8*z*bg,13*z*bg,3.4*z); g.fill();
+  g.fillStyle=K.bolt?tint(m.col,0.82):m.col;
+  rr(sx-5.4*z*bg,y-15*z*bg,10.8*z*bg,13*z*bg,3.4*z); g.fill();
   if(m.boss){ g.fillStyle=tint(m.col,0.65);
     g.beginPath();g.moveTo(sx-9*z,y-26*z);g.lineTo(sx-5*z,y-32*z);g.lineTo(sx-2*z,y-25*z);
     g.closePath();g.fill();
@@ -6221,13 +6261,14 @@ function actionFor(sk,slot){
 }
 /* what somebody is visibly doing, in clip terms */
 function makeMobSkin(mo){
-  const C=ASSETS.mobs[mo.boss?'boss':'default']||ASSETS.mobs.default; if(!C) return null;
+  const K=MKIND[mo.kind]||MKIND.minion;
+  const C=ASSETS.mobs[mo.boss?'boss':K.model]||ASSETS.mobs.default; if(!C) return null;
   // a boss grows with the depth it guards: the Pitmaster is big, the Dragon fills the room
   const inner=THREE.skeletonClone(C.scene);
   inner.traverse(o=>{ if(o.isMesh||o.isSkinnedMesh){ o.castShadow=true; o.frustumCulled=false;
     o.material=o.material.clone();   // so a flash is this body's alone
   } });
-  const want = mo.boss ? 1.9 + Math.min(1.9, dfloor*0.022) : 1.35;
+  const want = mo.boss ? 1.9 + Math.min(1.9, dfloor*0.022) : K.sz;
   const span=rigSpan(inner);
   const bb=new THREE.Box3().setFromObject(inner), bs=bb.getSize(new THREE.Vector3());
   const boxH=(isFinite(bs.y)&&bs.y>0.05)?bs.y:0, boneH=span?span.h:0;
