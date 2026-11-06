@@ -1,18 +1,42 @@
 {
-  "_comment": "Soldier and Xbot are placeholders from the three.js examples (MIT); each plays its OWN clips, so no cross-rig retargeting is involved. peasant-man.glb is a real Mixamo character and is deliberately NOT referenced yet: its animations have not arrived, and borrowing Xbot's clips does not work because Xbot was re-exported through Blender and no longer shares Mixamo's rest pose. Point 'man' at it once idle/walk/slash/dying land in this folder.",
+  "_comment": "Peasant Man is a real Mixamo character; the clips under anim/ are Mixamo animation packs converted to glb in-container. All share Mixamo's rig, so they bind by bone name with no retargeting beyond normalisation. Soldier and Xbot remain as stand-ins for roles with no model yet.",
   "cap": 20,
   "buildings": {},
   "characters": {
-    "man": "Soldier.glb",
-    "woman": "Xbot.glb"
+    "man": "peasant-man.glb",
+    "woman": "Xbot.glb",
+    "guard": "Soldier.glb"
   },
   "roles": {
-    "guard": "man",
-    "adventurer": "man",
+    "adventurer": "guard",
     "nobleman": "man",
     "noblewoman": "woman",
-    "child": "woman"
+    "child": "man"
   },
-  "animations": null,
+  "animations": {
+    "idle": "anim/idle.glb",
+    "idle_f": "anim/idle_f.glb",
+    "walk": "anim/walk.glb",
+    "walk_f": "anim/walk_f.glb",
+    "run": "anim/run.glb",
+    "run_f": "anim/run_f.glb",
+    "sleep": "anim/sleep.glb",
+    "sit": "anim/sit.glb",
+    "sit_talk": "anim/sit_talk.glb",
+    "pray": "anim/pray.glb",
+    "talk": "anim/talk.glb",
+    "nod": "anim/nod.glb",
+    "farm": "anim/farm.glb",
+    "haul": "anim/haul.glb",
+    "carry_idle": "anim/carry_idle.glb",
+    "drunk": "anim/drunk.glb",
+    "guard_idle": "anim/guard_idle.glb",
+    "attack": "anim/attack.glb",
+    "block": "anim/block.glb",
+    "hit": "anim/hit.glb",
+    "die": "anim/die.glb",
+    "cast": "anim/cast.glb",
+    "cast_big": "anim/cast_big.glb"
+  },
   "clips": {}
 }

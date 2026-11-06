@@ -19,6 +19,11 @@ Other artifacts (do not break): colony https://claude.ai/artifact/BbRBE9rRHmqwS5
 5. Keep the reply to the user short — they asked for updates on request, not narration.
 
 ## Shipped
+- c5.2 the cast: Peasant Man (real Mixamo) plus 23 clips converted from Mixamo animation
+  packs, 2.1 MB total. Manifest 'animations' now takes a slot->file map. clipFor() picks
+  by what a person is DOING: asleep in their own bed at night, praying at the altar,
+  sitting and talking in the tavern, drunk, at a desk in the school, on guard, walking,
+  idle - with separate male and female locomotion.
 - c5.1 retargeting: clip tracks are rebound by normalised bone name (three's 'mixamorigHips'
   vs FBX2glTF's 'mixamorig:Hips'), ROTATIONS ONLY. Mixamo FBX converts to glb in-container
   via the fbx2gltf npm package - no Blender needed. tools/preview.py renders any model's
@@ -60,6 +65,11 @@ Other artifacts (do not break): colony https://claude.ai/artifact/BbRBE9rRHmqwS5
   before spending a cycle on it; do not assume.
 
 ## Assets
+- SHARED CLIPS ARE GATED ON THE RIG. A character may only use the shared Mixamo clips if
+  its own bones are named mixamorig*; checked at load. A model's own clips always win.
+  Without that gate, Mixamo clips folded three's Soldier into a red spread-eagled mess.
+- Animation packs are the way to collect clips: one download gives up to 50, and the free
+  account has them all. 'Without Skin' / T-pose, FBX Binary, 30fps, reduction none.
 - CROSS-RIG RETARGETING DOES NOT WORK and is not worth fixing. Xbot and a native Mixamo
   character share bone NAMES but not rest poses (Xbot came back through Blender), so raw
   rotations collapse the legs. The fix is not bind-pose compensation, it is: download the
@@ -78,6 +88,14 @@ Other artifacts (do not break): colony https://claude.ai/artifact/BbRBE9rRHmqwS5
 - TERRAIN TEXTURES NOT DONE. The terrain is one vertex-coloured mesh with no UVs; texturing
   it properly needs either per-type meshes or an atlas. Deliberately deferred, not forgotten.
 - Buildings: the swap path is written but untested - no building .glb exists yet.
+
+## The cast, and what is missing
+- Only ONE real character model: peasant-man.glb. Every man, child and noble is him.
+  Women and guards still fall back to Xbot and Soldier, which are not Mixamo rigs and so
+  only have idle/walk/run. More Mixamo characters -> drop the .glb in, add a manifest key.
+- 238 more clips sit unconverted in the user's folder (sword and shield, magic, creatures,
+  zombies, farming, gestures). tools/ has the converter; add a line per clip and rebuild.
+- Monster models and the Keep in 3D are both untouched; the Keep is still the 2D view.
 
 ## Known rough edges
 - Placeholder characters render dark red at night; could be Soldier's texture failing to

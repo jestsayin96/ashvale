@@ -5462,7 +5462,7 @@ function wire3D(){
    Everything here is additive. With no models/manifest.json the game stays exactly
    as it was: procedural boxes and cones, no errors, no console noise. The artifact
    bundle has no models/ to fetch, so it simply never leaves the procedural path. */
-const ASSETS={ base:'models/', on:false, buildings:{}, chars:{}, shared:[],
+const ASSETS={ base:'models/', on:false, buildings:{}, chars:{}, shared:[], slots:{},
   named:null, roles:{}, cap:20, tried:false };
 function roleOf(p){
   if(p.age<ADULT) return 'child';
@@ -5485,7 +5485,7 @@ const CLIPWORDS={ idle:['idle','breathing','stand'], walk:['walk'],
    So match on a normalised name and rewrite the clip's tracks onto whatever this rig
    actually calls them. Done once per clip per rig, then cached. */
 const normBone=n=>n.replace(/[^A-Za-z0-9]/g,'').toLowerCase();
-const RETARGET=new WeakMap();
+let RETARGET=new WeakMap();
 function retarget(clip,root){
   let byRig=RETARGET.get(root);
   if(!byRig){ byRig=new Map(); RETARGET.set(root,byRig); }
@@ -5557,14 +5557,24 @@ function loadAssets(S){
         jobs.push(get(file).then(g=>{ if(g) swapBuilding(S,kind,g.scene); })));
       Object.entries(m.characters||{}).forEach(([role,file])=>
         jobs.push(get(file).then(g=>{
-          if(g) ASSETS.chars[role]={scene:g.scene, clips:g.animations||[]}; })));
-      if(m.animations) jobs.push(get(m.animations).then(g=>{
-        if(g) ASSETS.shared=g.animations||[]; }));
+          if(!g) return;
+          // Only a rig that actually carries Mixamo's bones may borrow the shared Mixamo
+          // clips. Everything else is limited to the clips it shipped with.
+          let mixamo=false;
+          g.scene.traverse(o=>{ if(o.isBone&&normBone(o.name).indexOf('mixamorig')===0) mixamo=true; });
+          ASSETS.chars[role]={scene:g.scene, clips:g.animations||[], mixamo};
+        })));
+      if(typeof m.animations==='string')
+        jobs.push(get(m.animations).then(g=>{ if(g) ASSETS.shared=g.animations||[]; }));
+      else if(m.animations) Object.entries(m.animations).forEach(([slot,file])=>
+        jobs.push(get(file).then(g=>{
+          if(g&&g.animations&&g.animations.length) ASSETS.slots[slot]=g.animations[0]; })));
       return Promise.all(jobs);
     })
     .then(()=>{
       if(!man) return;
       ASSETS.on = Object.keys(ASSETS.chars).length>0 || Object.keys(ASSETS.buildings).length>0;
+      if(ASSETS.on) RETARGET=new WeakMap();
       if(ASSETS.on){ rebuildFolk(S);
         logMsg('Models loaded: the town is wearing its proper face.','good'); }
     })
@@ -5600,20 +5610,49 @@ function makeSkin(p){
   inner.scale.setScalar(sc);
   inner.position.y = -foot*sc;                     // stand them on the ground
   const grp=new THREE.Group(); grp.add(inner);
-  const mixer=new THREE.AnimationMixer(inner), actions={};
-  ['idle','walk','run','attack','die'].forEach(k=>{
-    const c=pickClip(C.clips,k,ASSETS.named)||pickClip(ASSETS.shared,k,ASSETS.named);
-    if(!c) return;
-    const r=retarget(c,inner);
-    if(r) actions[k]=mixer.clipAction(r); });
-  if(actions.die){ actions.die.loop=THREE.LoopOnce; actions.die.clampWhenFinished=true; }
-  return {grp,mixer,actions,cur:null};
+  return {grp, root:inner, own:C.clips, mixamo:!!C.mixamo,
+          mixer:new THREE.AnimationMixer(inner), actions:{}, cur:null};
 }
-function playClip(sk,name){
-  if(sk.cur===name||!sk.actions[name]) return;
-  const nxt=sk.actions[name];
-  if(sk.cur&&sk.actions[sk.cur]) sk.actions[sk.cur].fadeOut(0.25);
-  nxt.reset().fadeIn(0.25).play(); sk.cur=name;
+const ONESHOT={die:1, attack:1, cast:1, cast_big:1, hit:1, nod:1, talk:1};
+function actionFor(sk,slot){
+  if(slot in sk.actions) return sk.actions[slot];
+  // A model's OWN clips win. They were authored for its rig, so they always bind; the
+  // shared Mixamo set only fits models that carry Mixamo's skeleton, and forcing it onto
+  // a foreign rig (three's Soldier, say) folds the character into a spread-eagled mess.
+  const c = pickClip(sk.own,slot,ASSETS.named)
+            || (sk.mixamo && (ASSETS.slots[slot] || pickClip(ASSETS.shared,slot,ASSETS.named)))
+            || null;
+  const r = c ? retarget(c,sk.root) : null;
+  let a = r ? sk.mixer.clipAction(r) : null;
+  if(a&&ONESHOT[slot]){ a.loop=THREE.LoopOnce; a.clampWhenFinished=true; }
+  sk.actions[slot]=a;
+  return a;
+}
+/* what somebody is visibly doing, in clip terms */
+function clipFor(p){
+  const f = p.sex==='f';
+  if(p.dead) return 'die';
+  if(p.moving) return f?'walk_f':'walk';
+  const b=p.inside;
+  if(b){
+    const night = hour>=22||hour<6;
+    if(night && b===p.home) return 'sleep';
+    if(b.kind==='altar') return 'pray';
+    if(b.kind==='rose'||b.kind==='tavern') return (p.id%3===0)?'drunk':'sit_talk';
+    if(b.kind==='school') return 'sit';
+    if(b.kind==='guard') return 'guard_idle';
+    if(night) return 'sleep';
+  }
+  if(p.guard||p.adventurer) return 'guard_idle';
+  return f?'idle_f':'idle';
+}
+function playClip(sk,slot){
+  if(sk.cur===slot) return;
+  const nxt=actionFor(sk,slot);
+  if(!nxt) return;                                  // nothing for this slot; stay as we are
+  const prev=sk.cur?sk.actions[sk.cur]:null;
+  if(prev) prev.fadeOut(0.3);
+  nxt.reset().fadeIn(0.3).play(); sk.cur=slot;
 }
 function updateSkins(S,dt){
   if(!ASSETS.on||!Object.keys(ASSETS.chars).length) return;
@@ -5641,7 +5680,7 @@ function updateSkins(S,dt){
     if(p.fx!==undefined){ const a=Math.atan2(p.x-p.fx,p.y-p.fy);
       if(Math.abs(p.x-p.fx)+Math.abs(p.y-p.fy)>0.004) sk.grp.rotation.y=a; }
     p.fx=p.x; p.fy=p.y;
-    playClip(sk, p.dead?'die':(p.moving?'walk':'idle'));
+    playClip(sk, clipFor(p));
     sk.mixer.update(dt);
   });
 }
