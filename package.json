@@ -7,7 +7,7 @@
   "scripts": {
     "build": "node tools/build.mjs",
     "check": "node --check src/game.js",
-    "test": "node --check src/game.js && node tools/build.mjs && python3 -I tools/shot.py && python3 -I tools/shot3d.py && python3 -I tools/world.py",
+    "test": "node --check src/game.js && node tools/build.mjs && python3 -I tools/shot.py && python3 -I tools/shot3d.py && python3 -I tools/world.py && python3 -I tools/ground.py",
     "serve": "python3 -m http.server 8080",
     "build:music": "esbuild vendor/music-studio/entry.ts --bundle --format=iife --global-name=MUSIC --minify --external:node:fs/promises --external:node:path --outfile=vendor/music.bundle.js"
   },

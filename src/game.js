@@ -241,6 +241,7 @@ const CSZ=13, CN=(N/CSZ)|0;
 const CHGEN=new Uint8Array(CN*CN);
 const CIX=(cx,cy)=>cy*CN+cx;
 let chunksMade=0, worldDirty=false;
+const chunkDirty=new Set();          // chunks whose ground mesh is out of date
 /* Hash noise, not the sequential rnd(): a cell must generate the same whatever
    order the chunks happen to be made in, or a reload would redraw the world. */
 function h2(x,y){ let n=(x*374761393+y*668265263)|0;
@@ -284,6 +285,12 @@ function ensureChunk(cx,cy){
   CHGEN[CIX(cx,cy)]=1; chunksMade++;
   genChunk(cx,cy);
   markGen(cx*CSZ,cy*CSZ,cx*CSZ+CSZ-1,cy*CSZ+CSZ-1);
+  /* The new chunk, and the four it now touches: their edge cells used to drop
+     their side faces into the void and no longer should. */
+  chunkDirty.add(CIX(cx,cy));
+  [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dx,dy])=>{
+    const nx=cx+dx, ny=cy+dy;
+    if(nx>=0&&ny>=0&&nx<CN&&ny<CN&&CHGEN[CIX(nx,ny)]) chunkDirty.add(CIX(nx,ny)); });
   /* Flow fields were solved against a world that stopped here, so every cached
      one now disagrees with the ground. Throw them away rather than route people
      around land that has since appeared. */
@@ -2173,7 +2180,7 @@ function applySeason(){
   TC[FIELD]=[s.field, hex6(shd(f,0.88)), hex6(shd(f,0.74))];
   C3[GRASS]=g; C3[FIELD]=f;
   if(R3){
-    if(R3.ground){ R3.ground.geometry.dispose(); R3.ground.geometry=terrainGeo(); }
+    recolourGround(R3);
     if(R3.leaves) R3.leaves.material.color.setHex(s.leaf);
   }
 }
@@ -2956,24 +2963,23 @@ C3[WATER]=0x3a73b8; C3[DIRT]=0x9c8565; C3[FIELD]=0xb19a52; C3[ROCK]=0x7d7a84;
 const hx=c=>typeof c==='string'?parseInt(c.replace('#',''),16):c;
 const shd=(c,f)=>((Math.min(255,((c>>16)&255)*f)|0)<<16)|((Math.min(255,((c>>8)&255)*f)|0)<<8)|
   (Math.min(255,(c&255)*f)|0);
-function terrainGeo(){
-  const pos=[],col=[],idx=[],uv=[]; let v=0;
-  // UVs come from world position, so one tiling texture runs across the whole map and
-  // a quad's grain lines up with its neighbour's. 0.5 = two tiles per world unit.
-  const vert=(x,y,z,c)=>{ pos.push(x,y,z);
-    col.push(((c>>16)&255)/255,((c>>8)&255)/255,(c&255)/255);
-    uv.push(x*0.5, z*0.5); };
-  const quad=(a,b,c2,d,cl)=>{ vert(a[0],a[1],a[2],cl); vert(b[0],b[1],b[2],cl);
-    vert(c2[0],c2[1],c2[2],cl); vert(d[0],d[1],d[2],cl);
-    idx.push(v,v+2,v+1,v,v+3,v+2); v+=4; };
+/* ===================== the ground, a chunk at a time =====================
+   One geometry over the whole made world was fine while the world was the town.
+   Now that it grows wherever somebody walks, a single mesh meant rebuilding every
+   acre ever made each time one new chunk appeared, and again on every season
+   change. The ground is now one mesh per chunk under a group.
+
+   A season turns colours, not shapes, so the two are split: chunkGeo builds the
+   buffers, chunkRecolour rewrites the colour attribute in place. Both drive the
+   same walk, because two loops that each decide how many quads a cell needs are
+   two chances to disagree, and the first disagreement would paint every colour
+   after it onto the wrong vertex. */
+function chunkWalk(cx,cy,quad){
   const lev=(x,y)=>{ if(!isMade(x,y)) return -0.6;
     const i=I(x,y); return ty[i]===WATER? -0.34 : hh[i]*HU; };
-  /* Only made ground gets geometry. At 156x156 the whole grid would be 24k top quads
-     plus sides, rebuilt on every season change; the town alone is a twentieth of that.
-     GEN marks which cells exist, so the mesh grows as the world does. */
-  const b=genBounds();
-  for(let y=b.y0;y<=b.y1;y++)for(let x=b.x0;x<=b.x1;x++){
-    if(!GEN[I(x,y)]) continue;
+  const x0=cx*CSZ, y0=cy*CSZ;
+  for(let y=y0;y<y0+CSZ;y++)for(let x=x0;x<x0+CSZ;x++){
+    if(!inB(x,y)||!GEN[I(x,y)]) continue;
     const i=I(x,y), t=ty[i], h0=lev(x,y);
     let c=C3[t]; const n=((x*7+y*13)^(x*3+y*11))%7;
     if(n===0) c=shd(c,0.965); else if(n===4) c=shd(c,1.035);
@@ -2982,11 +2988,53 @@ function terrainGeo(){
     if(dE>0.004) quad([x+1,h0,y],[x+1,h0-dE,y],[x+1,h0-dE,y+1],[x+1,h0,y+1],shd(c,0.76));
     if(dS>0.004) quad([x,h0,y+1],[x+1,h0,y+1],[x+1,h0-dS,y+1],[x,h0-dS,y+1],shd(c,0.60));
   }
+}
+let geoBuilds=0, geoRecolours=0;
+function chunkGeo(cx,cy){
+  const pos=[],col=[],idx=[],uv=[]; let v=0;
+  // UVs come from world position, so one tiling texture runs across the whole map
+  // and a quad's grain lines up with its neighbour's, chunk border or not.
+  chunkWalk(cx,cy,(a,b,c2,d,cl)=>{
+    const r=((cl>>16)&255)/255, g2=((cl>>8)&255)/255, b2=(cl&255)/255;
+    for(const q of [a,b,c2,d]){ pos.push(q[0],q[1],q[2]); col.push(r,g2,b2);
+      uv.push(q[0]*0.5,q[2]*0.5); }
+    idx.push(v,v+2,v+1,v,v+3,v+2); v+=4;
+  });
+  if(!v) return null;
   const G=new THREE.BufferGeometry();
   G.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
   G.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
   G.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
   G.setIndex(idx); G.computeVertexNormals(); return G;
+}
+function chunkRecolour(cx,cy,G){
+  const a=G.getAttribute('color'); let i=0;
+  chunkWalk(cx,cy,(p1,p2,p3,p4,cl)=>{
+    const r=((cl>>16)&255)/255, g2=((cl>>8)&255)/255, b2=(cl&255)/255;
+    for(let k=0;k<4;k++) a.setXYZ(i++,r,g2,b2);
+  });
+  a.needsUpdate=true; geoRecolours++;
+}
+/* Build or rebuild only the chunks that need it. A chunk's edge quads are drawn
+   against its neighbours' heights, so land appearing next door changes the old
+   chunk's lip too - which is why ensureChunk dirties the four neighbours and not
+   just the new chunk. Five chunks, not the whole world. */
+function syncGround(S){
+  if(!S.gGroup) return;
+  for(const key of chunkDirty){
+    const cx=key%CN, cy=(key/CN)|0;
+    const old=S.chunks.get(key);
+    if(old){ S.gGroup.remove(old); old.geometry.dispose(); S.chunks.delete(key); }
+    const G=chunkGeo(cx,cy); if(!G) continue;
+    geoBuilds++;
+    const m=new THREE.Mesh(G,R3TEX.groundMat);
+    m.receiveShadow=true; S.gGroup.add(m); S.chunks.set(key,m);
+  }
+  chunkDirty.clear();
+}
+function recolourGround(S){
+  if(!S||!S.chunks) return;
+  for(const [key,m] of S.chunks) chunkRecolour(key%CN,(key/CN)|0,m.geometry);
 }
 function mkBuilding(b){
   const k=BK[b.kind], G=new THREE.Group(), base=H(b.x,b.y)*HU;
@@ -3125,9 +3173,8 @@ function init3D(){
   const sc=sun.shadow.camera; sc.left=-32; sc.right=32; sc.top=32; sc.bottom=-32;
   sc.near=1; sc.far=190; S3.add(sun); S3.add(sun.target);
   const groundMat=new THREE.MeshLambertMaterial({vertexColors:true});
-  const ground=new THREE.Mesh(terrainGeo(),groundMat);
   R3TEX.groundMat=groundMat;
-  ground.receiveShadow=true; S3.add(ground);
+  const gGroup=new THREE.Group(); S3.add(gGroup);
   /* A unit plane fitted to the made world each time it grows. Sized to the whole
      grid it turned every unmade acre into open sea, which read as an island and
      disagreed with the flat view, where unmade ground is simply nowhere. */
@@ -3140,10 +3187,14 @@ function init3D(){
   const pG=new THREE.Group(); S3.add(pG);
   const keepGlow=new THREE.PointLight(0xc1483f,2,24);
   keepGlow.position.set(tx0(46),2.6,ty0(21)); S3.add(keepGlow);
-  R3={renderer,scene:S3,cam,sun,hemi,water,bG,pG,keepGlow,ground,
+  R3={renderer,scene:S3,cam,sun,hemi,water,bG,pG,keepGlow,
+      gGroup, chunks:new Map(),
       trunks:R3TMP.trunks, leaves:R3TMP.leaves,
       th:-2.25,ph:0.78,dist:40,tx:tx0(26),ty:0.6,tz:ty0(23),folk:0};
-  fitWater(R3); rebuildFolk(R3); resize3D(); loadAssets(R3);
+  /* The town's sixteen chunks were made at module load, not through ensureChunk,
+     so nothing dirtied them. Seed every chunk that exists. */
+  for(let k=0;k<CN*CN;k++) if(CHGEN[k]) chunkDirty.add(k);
+  syncGround(R3); fitWater(R3); rebuildFolk(R3); resize3D(); loadAssets(R3);
   if(ASSETS.props.tree) dressTown(R3);
   return R3;
 }
@@ -3174,7 +3225,7 @@ function fitWater(S){
   S.water.position.set((b.x0+b.x1+1)/2, -0.2, (b.y0+b.y1+1)/2);
 }
 function regrow3D(S){
-  if(S.ground){ S.ground.geometry.dispose(); S.ground.geometry=terrainGeo(); }
+  syncGround(S);
   fitWater(S);
   const leafCol=S.leaves?S.leaves.material.color.getHex():undefined;
   [S.trunks,S.leaves].forEach(m=>{ if(m){ S.scene.remove(m);
@@ -4179,6 +4230,38 @@ window.__ash={
   out(){ return people.filter(p=>!p.away&&p.errandTo).length; },
   errands(){ return Object.assign({},ERR); },
   speed(){ return speed; },
+  season(){ seasonI=(seasonI+1)%4; applySeason(); return seasonI; },
+  /* The same rule as chunkWalk, but one pass over the whole grid with no chunks
+     in it. If the per-chunk meshes agree with this they cover every made cell
+     exactly once - which is the thing splitting the mesh could have broken. */
+  /* chunkRecolour replays chunkWalk and writes colours in sequence. If that walk
+     ever drifted from the one that laid the vertices down, every colour after the
+     drift would land on the wrong vertex and the counts would still agree. Rebuild
+     each chunk from scratch and compare, using the real builder as the reference. */
+  colourDrift(){ const S=R3; if(!S||!S.chunks) return -1;
+    let bad=0;
+    for(const [k,m] of S.chunks){
+      const G=chunkGeo(k%CN,(k/CN)|0); if(!G) continue;
+      const a=m.geometry.getAttribute('color').array, b=G.getAttribute('color').array;
+      if(a.length!==b.length){ bad+=Math.abs(a.length-b.length); G.dispose(); continue; }
+      for(let i=0;i<a.length;i++) if(Math.abs(a[i]-b[i])>1e-6) bad++;
+      G.dispose();
+    }
+    return bad; },
+  faceVerts(){ let q=0;
+    const lev=(x,y)=>{ if(!isMade(x,y)) return -0.6;
+      const i=I(x,y); return ty[i]===WATER?-0.34:hh[i]*HU; };
+    for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+      if(!GEN[I(x,y)]) continue;
+      const h0=lev(x,y); q++;
+      if(h0-lev(x+1,y)>0.004) q++;
+      if(h0-lev(x,y+1)>0.004) q++; }
+    return q*4; },
+  mesh(){ const S=R3; if(!S||!S.chunks) return null;
+    let verts=0; const per={};
+    for(const [k,m] of S.chunks){ const n=m.geometry.getAttribute('position').count;
+      verts+=n; per[k]=n; }
+    return {meshes:S.chunks.size, verts, builds:geoBuilds, recolours:geoRecolours, per}; },
   trips(){ return people.filter(p=>!p.away&&p.errandTo).map(p=>({
     at:[p.x|0,p.y|0], to:[p.errandTo.x,p.errandTo.y],
     aim:Math.max(0,OFF-p.errandTo.x,p.errandTo.x-(OFF+TOWN-1),OFF-p.errandTo.y,p.errandTo.y-(OFF+TOWN-1)),

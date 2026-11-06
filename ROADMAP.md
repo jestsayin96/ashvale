@@ -1050,3 +1050,69 @@ on every regrow.
   town-only.
 - The errand is the only reason anyone leaves. A trader with somewhere to trade,
   and an adventurer walking to the gate, would both use the same machinery.
+
+## Cycle 38 — the ground, a chunk at a time (item 2, stage 4 — closes item 2)
+
+One geometry over the whole made world was fine while the world was the town. Once
+it grew wherever somebody walked, every new chunk rebuilt every acre ever made, and
+so did every season change. The ground is now one mesh per chunk under a group:
+`chunkGeo(cx,cy)` builds one, `syncGround` installs only the dirty ones, and
+`R3.chunks` is a Map keyed the same way as `CHGEN`.
+
+**A season turns colours, not shapes.** So the two are split: `chunkGeo` lays the
+buffers down and `chunkRecolour` rewrites the colour attribute in place — no
+geometry, no index buffer, no `computeVertexNormals`. Both drive the same
+`chunkWalk`, because two loops that each decide how many quads a cell needs are two
+chances to disagree, and the first disagreement would paint every colour after it
+onto the wrong vertex.
+
+**Why a new chunk dirties five.** A cell's side faces are drawn against its
+neighbours' heights, so land appearing next door changes the *old* chunk's lip. The
+new chunk and its four neighbours are marked; nothing else.
+
+### Measured
+```
+boot    meshes=16 verts=11620 builds=16 recolours=0
+grew    meshes=22 verts=16140 builds=28      new=6  built=12
+season  meshes=22 verts=16140 builds=28 recolours=22   drift=0
+```
+Six new chunks cost **12 builds**, not 132 — and the old single mesh rebuilt all
+16,140 vertices for each one of the six. A season change rebuilds **nothing**:
+`builds` does not move, 22 chunks recolour, no vertex shifts.
+
+I measured build counts rather than wall-clock. In a headless swiftshader browser a
+millisecond figure is noise; the count is exact and says the same thing.
+
+### The count that did not match, and why it was my fault
+The first assertion was `verts == 11436`, the figure in c36's entry above. It read
+11620. **That number was stale and I had copied it out of an older cycle instead of
+measuring the code in front of me** — c37 gave the made world a lip (`lev` returns
+-0.6 for unmade ground), and the town's south border below the ridge is 46 cells at
+height zero that now draw a face: 46 x 4 = 184, exactly the difference. The split
+had changed nothing.
+
+The assertion is now an independent count. `__ash.faceVerts()` applies the same rule
+in one pass over the whole grid with no chunks in it; the per-chunk meshes must add
+up to it. That is the thing splitting a mesh can actually break — a cell covered
+twice at a border, or none — and a magic constant would never have caught it.
+
+### Both new guards removed once, and both failed
+- **Neighbour dirtying removed:** 16348 verts against the grid's 16140. The 208
+  extra are 52 stale lip quads along borders that stopped being borders. The verts
+  cross-check *is* the guard for neighbour dirtying, which is a better outcome than
+  the separate test I was going to write.
+- **A four-vertex slip inserted into `chunkRecolour`:** `colourDrift` reported 12712
+  mismatched floats. It rebuilds each chunk with the real builder and compares, so a
+  recolour walk that drifts from the one that laid the vertices down cannot hide
+  behind counts that still agree.
+
+### Still open
+- The frontier still reads as rectangular slabs with a cliff lip. Per-chunk meshes
+  are what make softening it possible; it was not done this cycle.
+- `applySeason` also recolours the flat view's palette, which is untouched by any of
+  this and still cheap.
+- Trees in new country are the procedural cones; `dressTown`'s GLB props are
+  town-only.
+- **Item 2 is closed.** Item 3, the renderer, is next: the census is still
+  `16 MeshLambertMaterial, 7 MeshBasicMaterial, 0 MeshStandardMaterial`, and Lambert
+  ignores envMap entirely, which is why the HDRI cannot help yet.
