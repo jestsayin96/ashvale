@@ -1899,3 +1899,23 @@ That is a frontier nobody can ever arrive at.
 Only 6 of 58 outdoor people were in frame at all at dist 20. Size explains why you
 could not read them; it does not explain why most of the town is not on screen.
 The canopy is the untested suspect.
+
+### c49 review — what the frame actually says
+Suite green, ten probes, after the resize fix. The town at noon, dist 40:
+
+- **No subject.** An even field of stuff; the eye lands nowhere. The plaza is the
+  only candidate and it is empty.
+- **Nothing legibly happening.** Nobody on screen at all at the boot distance.
+  c49 fixed whether a person is *readable*; the first thing a watcher sees is
+  still an empty town.
+- **Dead space.** ~690px of black chronicle, a clipped rail, an empty badge.
+- **Defaulted, loudly: the trees.** One shape, one green, one size, scattered
+  evenly over the whole map. That single thing says *prototype* louder than
+  anything else in the frame. The houses are genuinely good — varied, lit,
+  authored — and they are standing on a visible checkerboard of grass tiles
+  under a field of copy-pasted cones.
+- **One small lie.** The chronicle carries "Models loaded: the town is wearing
+  its proper face" as though it were a world event. That is dev chatter in the
+  world's voice.
+
+Six new defects into REVIEW.md, numbered 10 to 15. The trees are next.

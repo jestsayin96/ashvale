@@ -55,6 +55,12 @@ time as if it were new.
 
 | # | Defect | Where | First seen |
 |---|---|---|---|
+| 10 | **Trees are identical cones** — one shape, one green, one size, scattered evenly across the whole map. The single loudest "this is a prototype" signal in any frame. | everywhere, all distances | c49 review |
+| 11 | The ground is a visible checkerboard — hard-edged tile squares in the grass, a grid you can count. | town, noon, dist 40 | c49 review |
+| 12 | No subject. The frame is an even field of stuff; the eye lands nowhere. The plaza is the only candidate and it is empty. | town, dist 40 | c49 review |
+| 13 | At the boot camera distance (40) there is nobody on screen at all. c49 fixed legibility; the first thing a watcher sees is still an empty town. | town, boot | c49 review |
+| 14 | The chronicle carries dev chatter as though it were a world event — "Models loaded: the town is wearing its proper face". | chronicle, boot | c49 review |
+| 15 | The Ashvale badge, bottom left, is an empty diamond placeholder. | footer | c49 review |
 | 1 | Only 6 of 58 outdoor people are in frame at all; size fixed legibility, not presence. Canopy is the untested suspect. | town, dist 20, any hour | c49 |
 | 2 | The conga line: whole town walks single file to one spot, strands out there after dark, chasing a frontier that recedes as it is approached. | open country, 17:00 onward | c49 |
 | 3 | Chronicle column is an empty black 280px band for the first in-game day. | right column, day 1 | c49 |
