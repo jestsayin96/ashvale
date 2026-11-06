@@ -780,11 +780,25 @@ function stepFloor(run,dt){
     if(run.state==='retreat'){
       if(!p.dgoal||p.dgoal.what!=='up') dSetGoal(p,dUpAt[0],dUpAt[1],'up');
     } else if(mob && md<12){
-      if(md<1.15){
-        p.dgoal=null; p.atk-=dt;
-        if(p.atk<=0){ p.atk=0.85;
-          const hit=dDamage(p); mob.hp-=hit;
-          const crit=p.gift&&rnd()<0.22;
+      const S=pstyle(p);
+      if(S.cast){ p.mana=Math.min(4,(p.mana===undefined?4:p.mana)+S.regen*dt); }
+      if(md<S.reach){
+        // a ranged fighter holds where it stands; the others close
+        p.dgoal=null;
+        p.atk-=dt;
+        const dry = S.cast && p.mana<S.cost;         // the gift is spent for the moment
+        if(p.atk<=0){ p.atk=dry?0.9:S.cd;
+          let mult=S.dmg;
+          if(S.smother && md<S.smother) mult*=S.smotherM;   // too close to draw
+          if(dry) mult*=0.35;
+          else if(S.cast) p.mana-=S.cost;
+          const hit=dDamage(p)*mult; mob.hp-=hit;
+          const crit=p.gift&&!dry&&rnd()<0.22;
+          if(S.shaft){                                  // you can see the shot cross the room
+            const steps=4;
+            for(let b=1;b<=steps;b++) fxBurst(p.dx+(mob.x-p.dx)*b/steps,
+              p.dy+(mob.y-p.dy)*b/steps, S.shaft, 1, 0.35, 0.5);
+          }
           if(p.gift){ const ks2=KSKINS.get(p); if(ks2) ks2.casting=0.7;
             fxBurst(mob.x,mob.y,p.gift.col||'#c9a6ff',10,2.2,2.4);
             fxBurst(p.dx,p.dy,p.gift.col||'#c9a6ff',6,1.0,1.8); }
@@ -2632,6 +2646,17 @@ function styleOf(p){
   return STYLES[(p.id*7+3)%STYLES.length];
 }
 const STYLEPFX={bow:'bow', sword:'sword', axe:'axe', staff:'staff'};
+/* The party had one way of fighting between them. styleOf() was already choosing a
+   model and a set of clips; now it chooses how they fight, the way MKIND does for mobs. */
+const PSTYLE={
+  sword:{ reach:1.15, cd:0.85, dmg:1.00 },
+  axe  :{ reach:1.25, cd:1.55, dmg:1.95 },                 // one heavy swing, slowly
+  bow  :{ reach:6.5,  cd:1.00, dmg:0.85, ranged:true, shaft:'#e8d9a8',
+          smother:1.8, smotherM:0.35 },                    // useless with a mob on top of you
+  staff:{ reach:5.0,  cd:1.30, dmg:1.35, ranged:true, cast:true, cost:1, regen:0.22 }
+};
+const pstyle=p=>PSTYLE[styleOf(p)]||PSTYLE.sword;
+
 function roleOf(p){
   if(p.age<ADULT) return 'child';
   if(p.adventurer) return styleOf(p)||'adventurer';

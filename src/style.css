@@ -37,6 +37,17 @@ h1 em{font-style:normal;color:var(--gold)}
   transition:background .14s,border-color .14s,color .14s}
 .sbtn:hover{background:var(--panel2);color:var(--ink)}
 .sbtn.on{background:#3a2d16;border-color:var(--gold);color:#f6dfa6}
+/* The header must never overflow - it has outgrown its width twice now, once by
+   wrapping the speed controls onto a dead second row and once by clipping the title.
+   Drop the least useful thing first and keep every control reachable. */
+@media (max-width:1460px){ .stat small{display:none} .stat{margin-right:15px} }
+@media (max-width:1180px){ h1{font-size:16px;margin-right:14px} h1 em{display:none}
+  h1::after{content:' \2014 the Keep';color:var(--gold);font-size:12px} }
+@media (max-width:1150px){ .stat:not(:last-of-type){display:none} }
+@media (max-width:950px){ .stat{display:none} }
+@media (max-width:860px){ #newTown{display:none} }
+@media (max-width:760px){ #housesBtn,#keepBtn{display:none} }
+
 #stage.paused::after{content:'Paused';position:absolute;left:50%;top:14px;transform:translateX(-50%);
   background:#120f1dEE;border:1px solid var(--gold);color:#f6dfa6;border-radius:14px;
   padding:5px 16px;font-size:12px;font-weight:700;letter-spacing:.4px;pointer-events:none;z-index:6}

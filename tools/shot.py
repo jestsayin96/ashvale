@@ -70,6 +70,18 @@ with sync_playwright() as p:
         errs.append(f"pressing the speaker made {after} AudioContext(s), expected 1")
     pg.click("#sndBtn"); pg.wait_for_timeout(300)
 
+    # The header has outgrown its width twice: once wrapping the speed buttons onto a
+    # dead second row, once clipping the title. Check it at the widths people use.
+    for w, h in ((1680, 900), (1440, 900), (1280, 720), (1024, 768)):
+        pg.set_viewport_size({"width": w, "height": h}); pg.wait_for_timeout(500)
+        m = pg.evaluate("""()=>{const e=document.querySelector('header');
+            return {h:e.offsetHeight, over:e.scrollWidth-e.clientWidth};}""")
+        if m["over"] > 1:
+            errs.append(f"header overflows by {m['over']}px at {w}px wide")
+        if m["h"] > 60:
+            errs.append(f"header wrapped to {m['h']}px at {w}px wide")
+    pg.set_viewport_size({"width": 1340, "height": 860}); pg.wait_for_timeout(500)
+
     # The vendored studio must actually make a sound. Count no calls - measure the
     # signal, which is the only thing that cannot lie. This guards the bundle itself,
     # the part most likely to break when the snapshot is re-copied from upstream.

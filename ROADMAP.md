@@ -466,3 +466,34 @@ reported "nothing happened" and each time the feature was working. **Measure the
 not the calls.** Reading 0.1835 off the analyser settled in one run what three wrappers
 could not, and it is also the assertion worth keeping, because signal is the thing that
 cannot lie.
+
+## Cycle 24 — the party fights four different ways, and the header stops overflowing (shipped)
+
+### PSTYLE
+`styleOf()` was already choosing a model and a clip set per adventurer; now it chooses
+how they fight, mirroring `MKIND`:
+- **sword** — the old numbers unchanged: 1.15 reach, 0.85s, 1.0x. The baseline.
+- **axe** — 1.25 reach but 1.55s between swings for **1.95x** damage. One heavy blow.
+- **bow** — **6.5 reach**, so an archer opens fire while the others are still closing,
+  and holds where it stands instead of walking in. Pays for it: inside 1.8 units the
+  damage drops to **35%** (`smother`), because you cannot draw with a thing on top of you.
+  The shot draws as four bursts along the line so you can see it cross the room.
+- **staff** — 5.0 reach, 1.35x, and it **spends the gift**: `p.mana` starts at 4 and
+  regenerates 0.22/s, each cast costs 1, and a dry caster falls back to a 35% poke on a
+  shorter cooldown. Only the gifted get a staff, so this is the gift made material.
+
+### The header, twice bitten
+It has now outgrown its width in two different ways — wrapping the speed buttons onto a
+dead second row in c19, and clipping "Ashvale" off the left once the ♪ button landed in
+c22. Measured rather than guessed: it needed 1481px and overflowed on anything under that.
+It now sheds weight in order — stat labels at 1460, the subtitle at 1180, all but the
+clock at 1150, the rest of the stats at 950, **New town** at 860, **Houses**/**Ledger** at
+760 — and fits cleanly from 1680 down to 700.
+
+### Tests
+`shot.py` resizes to 1680, 1440, 1280 and 1024 and fails on any overflow **or** on a
+header taller than 60px, which catches both failure modes. Verified by deleting the first
+breakpoint: `header overflows by 56px at 1440px wide / by 217px at 1280px wide`.
+What it does not prove: nothing checks the *styles* numerically — PSTYLE was verified by
+running a delve and reading the screenshot, and the archer's hold-at-range behaviour is
+visible there but not asserted.
