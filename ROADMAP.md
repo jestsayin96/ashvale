@@ -19,6 +19,15 @@ their local files under /home/claude/colony and /home/claude/village are the onl
 5. Keep the reply to the user short — they asked for updates on request, not narration.
 
 ## Shipped
+- c9b archers and casters: every adventurer has a stable fighting style - sword, bow, axe,
+  or staff if they are gifted - and it picks BOTH their model and their clips. Style clips
+  are looked up as <pfx>_<slot> (bow_idle, gs_attack, axe_run) before the generic set, so
+  an archer stands, moves and dies like an archer. The gifted now cast: the clip plays and
+  a burst goes off in their school's colour at both ends.
+  WEAPONS: Mixamo ships the motion but NOT the prop, so a swordsman mimed an empty swing.
+  Babylon's runeSword and frostAxe are parented to the mixamorig:RightHand bone instead.
+  Scale is divided by the rig's own scale because the bone inherits it.
+  Four more faces in: archer (Erika), yaku, eve, maria.
 - c9 the village pack: BabylonJS/Assets (CC BY 4.0) is reachable from the sandbox and has
   a villagePack and a graveYardPack. 30 props pulled, 18 MB compressed to 2.3 MB. Cottages
   and the inn are now real models, and the procedural cone trees are replaced by real ones

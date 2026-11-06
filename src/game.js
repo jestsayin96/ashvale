@@ -722,6 +722,9 @@ function stepFloor(run,dt){
         if(p.atk<=0){ p.atk=0.85;
           const hit=dDamage(p); mob.hp-=hit;
           const crit=p.gift&&rnd()<0.22;
+          if(p.gift){ const ks2=KSKINS.get(p); if(ks2) ks2.casting=0.7;
+            fxBurst(mob.x,mob.y,p.gift.col||'#c9a6ff',10,2.2,2.4);
+            fxBurst(p.dx,p.dy,p.gift.col||'#c9a6ff',6,1.0,1.8); }
           fxNum(mob.x,mob.y,hit,crit?(p.gift.col||'#c9a6ff'):'#ffe9b0',crit);
           fxBurst(mob.x,mob.y, crit?(p.gift.col||'#c9a6ff'):'#ffc98a', crit?12:5, crit?2.4:1.6);
           const ms=MSKINS.get(mob); if(ms) fxFlash(ms);
@@ -2081,11 +2084,21 @@ function wire3D(){
    as it was: procedural boxes and cones, no errors, no console noise. The artifact
    bundle has no models/ to fetch, so it simply never leaves the procedural path. */
 const ASSETS={ base:'models/', on:false, buildings:{}, chars:{}, mobs:{}, props:{},
+  weapons:{},
   shared:[], slots:{},
   named:null, roles:{}, cap:20, tried:false };
+/* Every adventurer fights a particular way, and it decides both what they look like
+   and which clips they move with. Stable per person, so nobody changes mid-delve. */
+const STYLES=['sword','bow','axe'];
+function styleOf(p){
+  if(!p.adventurer) return '';
+  if(p.gift) return 'staff';
+  return STYLES[(p.id*7+3)%STYLES.length];
+}
+const STYLEPFX={bow:'bow', sword:'gs', axe:'axe', staff:'gs'};
 function roleOf(p){
   if(p.age<ADULT) return 'child';
-  if(p.adventurer) return 'adventurer';
+  if(p.adventurer) return styleOf(p)||'adventurer';
   if(p.guard) return 'guard';
   if(p.noble) return p.sex==='f'?'noblewoman':'nobleman';
   return p.sex==='f'?'woman':'man';
@@ -2174,6 +2187,8 @@ function loadAssets(S){
       const jobs=[];
       Object.entries(m.buildings||{}).forEach(([kind,file])=>
         jobs.push(get(file).then(g=>{ if(g) swapBuilding(S,kind,g.scene); })));
+      Object.entries(m.weapons||{}).forEach(([kind,file])=>
+        jobs.push(get(file).then(g=>{ if(g) ASSETS.weapons[kind]=g.scene; })));
       Object.entries(m.props||{}).forEach(([kind,file])=>
         jobs.push(get(file).then(g=>{ if(g) ASSETS.props[kind]=g.scene; })));
       Object.entries(m.mobs||{}).forEach(([kind,file])=>
@@ -2242,17 +2257,38 @@ function makeSkin(p){
   inner.scale.setScalar(sc);
   inner.position.y = -foot*sc;                     // stand them on the ground
   const grp=new THREE.Group(); grp.add(inner);
+  // Mixamo ships the motion but not the prop, so a swordsman mimes an empty swing.
+  // Parent a real weapon to the hand bone instead.
+  const st=styleOf(p), wp=st&&ASSETS.weapons[st];
+  if(wp){
+    let hand=null;
+    inner.traverse(o=>{ if(!hand&&o.isBone&&normBone(o.name)==='mixamorigrighthand') hand=o; });
+    if(hand){
+      const w=wp.clone(true);
+      const wb=new THREE.Box3().setFromObject(w), ws=wb.getSize(new THREE.Vector3());
+      const want=st==='axe'?0.95:1.05;
+      const k=ws.y>0.001?want/ws.y:1;
+      w.scale.setScalar(k/ (inner.scale.x||1));
+      w.position.set(0,0.02,0);
+      w.rotation.set(-Math.PI/2,0,Math.PI/2);
+      w.traverse(o=>{ if(o.isMesh) o.castShadow=true; });
+      hand.add(w);
+    }
+  }
   return {grp, root:inner, own:C.clips, mixamo:!!C.mixamo,
+          pfx:STYLEPFX[styleOf(p)]||'',
           mixer:new THREE.AnimationMixer(inner), actions:{}, cur:null};
 }
-const ONESHOT={die:1, attack:1, cast:1, cast_big:1, hit:1, nod:1, talk:1};
+const ONESHOT={die:1, attack:1, cast:1, cast_big:1, hit:1, nod:1, talk:1, gs_cast:1};
 function actionFor(sk,slot){
   if(slot in sk.actions) return sk.actions[slot];
   // A model's OWN clips win. They were authored for its rig, so they always bind; the
   // shared Mixamo set only fits models that carry Mixamo's skeleton, and forcing it onto
   // a foreign rig (three's Soldier, say) folds the character into a spread-eagled mess.
   const c = pickClip(sk.own,slot,ASSETS.named)
-            || (sk.mixamo && (ASSETS.slots[slot] || pickClip(ASSETS.shared,slot,ASSETS.named)))
+            || (sk.mixamo && ((sk.pfx && ASSETS.slots[sk.pfx+'_'+slot])
+                              || ASSETS.slots[slot]
+                              || pickClip(ASSETS.shared,slot,ASSETS.named)))
             || null;
   const r = c ? retarget(c,sk.root) : null;
   let a = r ? sk.mixer.clipAction(r) : null;
@@ -2663,7 +2699,9 @@ function updateKeepSkins(S,dt){
     p.kfx=p.dx; p.kfy=p.dy;
     const moving=(p.kmv=(Math.abs(p.dx-(p.kpx||p.dx))+Math.abs(p.dy-(p.kpy||p.dy)))>0.0015);
     p.kpx=p.dx; p.kpy=p.dy;
-    playClip(sk, p.hp<=0 ? 'die' : (p.atk>0 ? 'attack' : (moving ? 'run' : 'guard_idle')));
+    if(sk.casting>0) sk.casting-=dt;
+    playClip(sk, p.hp<=0 ? 'die'
+      : (sk.casting>0 ? 'cast' : (p.atk>0 ? 'attack' : (moving ? 'run' : 'guard_idle'))));
     fxApplyFlash(sk,dt);
     sk.mixer.update(dt);
   });

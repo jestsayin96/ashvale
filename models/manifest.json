@@ -10,7 +10,13 @@
     "woman": "peasant-girl.glb",
     "guard": "castle-guard.glb",
     "adventurer": "knight.glb",
-    "nobleman": "paladin.glb"
+    "nobleman": "paladin.glb",
+    "bow": "archer.glb",
+    "axe": "yaku.glb",
+    "sword": "knight.glb",
+    "staff": "paladin.glb",
+    "woman2": "maria.glb",
+    "woman3": "eve.glb"
   },
   "roles": {
     "noblewoman": "woman",
@@ -39,7 +45,24 @@
     "hit": "anim/hit.glb",
     "die": "anim/die.glb",
     "cast": "anim/cast.glb",
-    "cast_big": "anim/cast_big.glb"
+    "cast_big": "anim/cast_big.glb",
+    "bow_idle": "anim/bow_idle.glb",
+    "bow_attack": "anim/bow_attack.glb",
+    "bow_walk": "anim/bow_walk.glb",
+    "bow_run": "anim/bow_run.glb",
+    "bow_hit": "anim/bow_hit.glb",
+    "bow_die": "anim/bow_die.glb",
+    "gs_idle": "anim/gs_idle.glb",
+    "gs_attack": "anim/gs_attack.glb",
+    "gs_run": "anim/gs_run.glb",
+    "gs_hit": "anim/gs_hit.glb",
+    "gs_die": "anim/gs_die.glb",
+    "gs_cast": "anim/gs_cast.glb",
+    "axe_idle": "anim/axe_idle.glb",
+    "axe_attack": "anim/axe_attack.glb",
+    "axe_run": "anim/axe_run.glb",
+    "axe_hit": "anim/axe_hit.glb",
+    "axe_taunt": "anim/axe_taunt.glb"
   },
   "clips": {},
   "mobs": {
@@ -57,5 +80,10 @@
     "crate": "props/crate1.glb",
     "wagon": "props/wagon.glb"
   },
-  "_credits": "Props under models/props/ are from BabylonJS/Assets, CC BY 4.0."
+  "_credits": "Props under models/props/ are from BabylonJS/Assets, CC BY 4.0.",
+  "weapons": {
+    "sword": "props/runeSword.glb",
+    "axe": "props/frostAxe.glb",
+    "staff": "props/runeSword.glb"
+  }
 }
