@@ -225,3 +225,34 @@ their local files under /home/claude/colony and /home/claude/village are the onl
 - Rail/console repaint cadence is coarse; fine but could be event-driven.
 - No mobile test pass since the Keep landed.
 - The abstract (unwatched) delve resolver and the live one can drift in pace.
+
+## Cycle 17 — seasons, events and generations (shipped)
+The town had an economy and a population but nothing ever happened *to* it. Now:
+
+- **The turning year.** Four seasons of 7 days each; `season()` drives the 2D tile
+  palette (`TC[GRASS]`, `TC[FIELD]`), the 3D terrain colours (`C3`, geometry rebuilt
+  on the turn), the tree canopy, and the sun/hemisphere warmth. Spring's values are
+  the original palette exactly, so a fresh load looks as it always did.
+- **A storyteller.** `EVENTS` — good harvest, hard frost, travelling fair, fever,
+  bandits, guild dues, the Keep stirring — weighted, season-gated, at most one every
+  four days. `dstir` from "the Keep stirs" raises delve `danger` and decays a season
+  later. A hard frost sets `weather='bitter'`, which pulls the 3D fog in.
+- **The harvest pays.** `marketDay()` now credits the hall `hands*1.6*season().harvest`,
+  so autumn is fat (1.7x) and winter is lean (0.3x). Visible in the market-day line.
+- **Generations.** Ageing moved off the old per-day `rnd()<0.0016` roll (one birthday
+  per person per ~625 days, so nothing ever happened) onto `birthdays()`, run once a
+  year at the spring turn. Coming of age, the guild roll, and death from old age
+  (`age>62`, rising) all run there. `marriages()` weds unrelated unwed adults of
+  different houses and moves one into the other's home. `births()` adds a child to a
+  married couple, capped at 4 per mother and 150 souls.
+- `bereave()` now clears the *spouse's* back-pointer, so a widow can remarry, marks
+  the person dead, and pulls them out of an active delve party.
+- The altar was still named after the owner's handle. Renamed to the Altar of the
+  Pale Hour. **No real or personal names anywhere in this project.**
+
+### What the tests did not catch, again
+`npm test` runs to day 4 — inside the first season. Every season, event and birthday
+path is invisible to it. Verified instead by building a throwaway `SEASONLEN=1` copy
+into the scratchpad and driving it at 8x until autumn and winter, then *looking* at
+`dist/shot-3d-autumn.png` and `dist/shot-3d-winter.png`. Keep that trick: a test
+build with the period shortened is the only cheap way to see long-period behaviour.

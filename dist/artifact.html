@@ -3462,7 +3462,7 @@ const BK={
  school :{n:'The Schoolhouse', w:4,d:3,ht:22, col:'#c3b9a0',roof:'#4f7fa6',trim:'#eae3d0',civic:1},
  bank   :{n:'Vault of Ashvale', w:3,d:3,ht:26, col:'#aeb3bd',roof:'#5c6373',trim:'#e8ecf2',civic:1},
  guard  :{n:'Guard Barracks', w:4,d:3,ht:24, col:'#9ba2ad',roof:'#49525f',trim:'#dde3ea',civic:1},
- altar  :{n:'Altar of JestSayin', w:3,d:3,ht:34, col:'#6f5fa0',roof:'#e3b64a',trim:'#d6c7ff',civic:1,shrine:1},
+ altar  :{n:'Altar of the Pale Hour', w:3,d:3,ht:34, col:'#6f5fa0',roof:'#e3b64a',trim:'#d6c7ff',civic:1,shrine:1},
  smith  :{n:'Hearthbone Smithy', w:3,d:2,ht:20, col:'#a48d78',roof:'#7a4a33',trim:'#e0cdb4',shop:'arms'},
  fletch :{n:'The Grey Fletching', w:3,d:2,ht:19, col:'#a8a079',roof:'#5f7a3f',trim:'#e4dcbb',shop:'bows'},
  apoth  :{n:'Marrowroot Apothecary', w:3,d:2,ht:19, col:'#9fa891',roof:'#497a68',trim:'#dfe8d6',shop:'potions'},
@@ -3816,7 +3816,11 @@ function endRun(run,ok){
   KEEP.runs.splice(KEEP.runs.indexOf(run),1);
 }
 function bereave(v){
-  if(v.spouse){ v.spouse.widowed=true; v.spouse.bubble='gone'; v.spouse.bubbleT=8; }
+  v.dead=true;
+  if(v.spouse){ v.spouse.widowed=true; v.spouse.bubble='gone'; v.spouse.bubbleT=8;
+    v.spouse.spouse=null; v.spouse=null; }
+  // the children keep the parent in their list; the house loses a resident
+  if(v.run&&v.run.party){ const j=v.run.party.indexOf(v); if(j>=0) v.run.party.splice(j,1); }
   const i=people.indexOf(v); if(i>=0) people.splice(i,1);
   if(v.home) v.home.residents=v.home.residents.filter(p=>p!==v);
   if(v.work) v.work.staff=v.work.staff.filter(p=>p!==v);
@@ -3883,6 +3887,10 @@ function marketDay(){
   const civic=people.filter(p=>p.work&&BK[p.work.kind].civic&&p.age>=ADULT);
   const wage=3;
   civic.forEach(p=>{ if(ECON.treasury>=wage){ ECON.treasury-=wage; p.gold+=wage; paid+=wage; } });
+  // the fields pay in kind; how much depends entirely on the time of year
+  const hands=people.filter(p=>p.age>=ADULT&&!p.adventurer&&!p.noble).length;
+  const yield_=Math.round(hands*1.6*season().harvest);
+  ECON.treasury+=yield_; tax+=0;
   ECON.treasury+=tax; ECON.taxed+=tax; ECON.wages+=paid;
   // anyone flush puts the surplus in the vault
   let dep=0;
@@ -3890,7 +3898,7 @@ function marketDay(){
     p.gold-=d; p.savings=(p.savings||0)+d; dep+=d; } });
   ECON.deposits+=dep;
   if(tax||dep) logMsg('Market day: <b>'+tax+' gold</b> in tax, '+paid+' paid out, '+dep+
-    ' banked.','g');
+    ' banked, '+yield_+' from the fields.','g');
 }
 
 /* ===================== bosses and relics ===================== */
@@ -4786,7 +4794,9 @@ function tick(ts){
     KEEP.runs.slice().forEach(r=>{
       if(r===activeRun) return;
       r.t+=dt; if(r.t<3.4) return; r.t=0;
-      const power=partyPower(r.party), danger=6+r.floor*2.15, roll=power+ri(0,14)-danger;
+      const power=partyPower(r.party),
+            danger=6+r.floor*2.15+dstir*1.6,
+            roll=power+ri(0,14)-danger;
       if(roll<-7){ const v=pick(r.party); v.hp-=ri(4,11);
         if(v.hp<=0){ v.hp=0; v.away=false; r.party.splice(r.party.indexOf(v),1); KEEP.lost++;
           logMsg('<b>'+v.name+' '+v.last+'</b> fell on floor '+r.floor+'.','d'); bereave(v); }
@@ -4880,18 +4890,145 @@ function tick(ts){
 }
 function newDay(){
   marketDay();
-  people.forEach(p=>{
-    if(rnd()<0.0016){ p.age++;
-      if(p.age===ADULT){ p.child=false; p.work=null;
-        if(rnd()<0.3){ p.adventurer=true; p.work=theGuild; p.trade='adventurer';
-          p.hpMax=13; p.hp=13; p.gear=[pick(['arming sword','shortbow'])];
-          logMsg('<b>'+p.name+' '+p.last+'</b> came of age and signed the guild roll.','');
-        } else { p.trade=pick(TRADES);
-          logMsg('<b>'+p.name+' '+p.last+'</b> came of age.',''); }
-      }
+  storyDay();
+  ECON.day=day;
+}
+
+/* ===================== seasons, events and generations =====================
+   The town had an economy and a population but nothing ever happened to it. This is
+   the storyteller: a turning year, occasional trouble, and families that carry on. */
+const SEASONS=[
+  {n:'spring', grass:'#5f8f4a', field:'#8fae4e', leaf:0x4b8c3a, warm:0.06, harvest:0.8},
+  {n:'summer', grass:'#6aa352', field:'#c2b055', leaf:0x357a38, warm:0.14, harvest:1.0},
+  {n:'autumn', grass:'#7d8f44', field:'#c08f3c', leaf:0xa9682a, warm:0.00, harvest:1.7},
+  {n:'winter', grass:'#8d9a94', field:'#9aa3a0', leaf:0x6b5f4a, warm:-0.14, harvest:0.3}
+];
+const SEASONLEN=7;                        // days; a year is four of these
+let seasonI=0, yearN=1, weather='fair';
+const season=()=>SEASONS[seasonI];
+
+/* Things that happen TO Ashvale. Each returns a line for the chronicle. */
+const EVENTS=[
+  {n:'good harvest', when:s=>s==='autumn', w:5, go(){
+    const g=ri(40,90); ECON.treasury+=g;
+    return ['The harvest came in heavy. <b>'+g+' gold</b> to the vault.','g']; }},
+  {n:'hard frost', when:s=>s==='winter', w:5, go(){
+    const g=Math.min(ECON.treasury, ri(25,60)); ECON.treasury-=g;
+    weather='bitter';
+    return ['A hard frost. The hall spent <b>'+g+' gold</b> on firewood and grain.','d']; }},
+  {n:'travelling fair', when:()=>true, w:3, go(){
+    let spent=0; people.forEach(p=>{ if(p.age>=ADULT&&p.gold>6&&rnd()<0.5){
+      const c=ri(2,7); p.gold-=c; spent+=c; } });
+    ECON.treasury+=Math.round(spent*0.2);
+    return ['A travelling fair came through. The town spent <b>'+spent+' gold</b> on it.','']; }},
+  {n:'fever', when:s=>s!=='summer', w:2, go(){
+    const ill=people.filter(p=>rnd()<0.18);
+    ill.forEach(p=>{ p.hp=Math.max(1,p.hp-ri(1,4)); p.bubble='unwell'; p.bubbleT=20; });
+    return ['A fever went through the lanes. <b>'+ill.length+'</b> took to their beds.','d']; }},
+  {n:'bandits', when:()=>true, w:2, go(){
+    const g=Math.min(ECON.treasury, ri(30,80)); ECON.treasury-=g;
+    const guards=people.filter(p=>p.guard);
+    guards.forEach(p=>{ p.hp=Math.max(1,p.hp-ri(1,5)); });
+    return ['Bandits took the east road and <b>'+g+' gold</b> with them. The guard gave chase.','d']; }},
+  {n:'a good year for the guild', when:()=>true, w:2, go(){
+    const g=ri(30,70); ECON.treasury+=g;
+    return ['The guild paid its dues in full: <b>'+g+' gold</b>.','g']; }},
+  {n:'the Keep stirs', when:()=>true, w:1, go(){
+    dstir=(dstir||0)+1;
+    return ['Something turned over down in the Keep. The ground felt it.','m']; }}
+];
+const hex6=n=>'#'+(n>>>0).toString(16).padStart(6,'0');
+/* the ground, the crops and the canopy all turn with the year */
+function applySeason(){
+  const s=season();
+  const g=parseInt(s.grass.slice(1),16), f=parseInt(s.field.slice(1),16);
+  TC[GRASS]=[s.grass, hex6(shd(g,0.88)), hex6(shd(g,0.74))];
+  TC[FIELD]=[s.field, hex6(shd(f,0.88)), hex6(shd(f,0.74))];
+  C3[GRASS]=g; C3[FIELD]=f;
+  if(R3){
+    if(R3.ground){ R3.ground.geometry.dispose(); R3.ground.geometry=terrainGeo(); }
+    if(R3.leaves) R3.leaves.material.color.setHex(s.leaf);
+  }
+}
+let dstir=0, lastEvent=-9;
+function storyDay(){
+  // the turning year
+  if(day>1 && (day-1)%SEASONLEN===0){
+    seasonI=(seasonI+1)%4; weather='fair';
+    if(dstir>0) dstir--;              // whatever woke down there settles again
+    if(seasonI===0){ yearN++; birthdays();
+      logMsg('<b>Spring of year '+yearN+'.</b> Ashvale begins again.','g'); }
+    else logMsg('<b>'+season().n.replace(/^./,c=>c.toUpperCase())+'</b> came to Ashvale.','');
+    applySeason();
+  }
+  // something happens, but not every day
+  if(day-lastEvent>=4 && rnd()<0.34){
+    const pool=EVENTS.filter(e=>e.when(season().n));
+    let total=pool.reduce((n,e)=>n+e.w,0), r=rnd()*total, hit=pool[0];
+    for(const e of pool){ r-=e.w; if(r<=0){ hit=e; break; } }
+    const out=hit.go(); lastEvent=day;
+    logMsg(out[0], out[1]);
+  }
+  marriages();
+  births();
+}
+/* one birthday a year for everyone: coming of age, and growing old */
+function birthdays(){
+  let came=0;
+  people.slice().forEach(p=>{
+    p.age++;
+    if(p.age===ADULT){
+      p.child=false; p.work=null; came++;
+      if(rnd()<0.3){ p.adventurer=true; p.work=theGuild; p.trade='adventurer';
+        p.hpMax=13; p.hp=13; p.gear=[pick(['arming sword','shortbow'])];
+      } else p.trade=pick(TRADES);
+    }
+    // the old go quietly, and more often the older they are
+    if(p.age>62 && rnd() < (p.age-62)*0.035){
+      logMsg('<b>'+p.name+' '+p.last+'</b> died at '+p.age+'.','d');
+      bereave(p);
     }
   });
-  ECON.day=day;
+  if(came) logMsg('<b>'+came+'</b> came of age this spring.','');
+}
+/* two unrelated adults, both unwed, both of the town */
+function marriages(){
+  if(rnd()>0.22) return;
+  const single=people.filter(p=>p.age>=18&&p.age<60&&!p.spouse&&!p.away&&!p.dead);
+  const men=single.filter(p=>p.sex==='m'), women=single.filter(p=>p.sex==='f');
+  if(!men.length||!women.length) return;
+  const a=pick(men), b=pick(women);
+  if(a.last===b.last) return;                      // not within a house
+  if(a.parents.includes(b)||b.parents.includes(a)) return;
+  a.spouse=b; b.spouse=a;
+  a.bubble='wed'; a.bubbleT=30; b.bubble='wed'; b.bubbleT=30;
+  // she joins his household unless his is full
+  const home=(a.home&&a.home.residents.length<=b.home.residents.length)?a.home:b.home;
+  [a,b].forEach(p=>{
+    if(p.home===home) return;
+    if(p.home) p.home.residents=p.home.residents.filter(q=>q!==p);
+    p.home=home; home.residents.push(p);
+  });
+  logMsg('<b>'+a.name+' '+a.last+'</b> and <b>'+b.name+' '+b.last+
+    '</b> were married at the altar.','g');
+}
+function births(){
+  if(rnd()>0.16) return;
+  const mothers=people.filter(p=>p.sex==='f'&&p.spouse&&p.age>=18&&p.age<42
+    &&!p.away&&!p.dead&&p.kids.length<4);
+  if(!mothers.length) return;
+  if(people.length>150) return;                    // the town has its limits
+  const mum=pick(mothers), dad=mum.spouse;
+  const boy=rnd()<0.5;
+  const kid=mkPerson({ name:boy?pick(MNAME):pick(FNAME), last:dad.last,
+    sex:boy?'m':'f', age:0, child:true,
+    skin:pick([mum.skin,dad.skin]), hair:pick([mum.hair,dad.hair]), top:pick(TOPC),
+    home:mum.home, gift:gift(mum.gift||dad.gift?0.45:0.18), gold:0,
+    parents:[dad,mum] });
+  mum.kids.push(kid); dad.kids.push(kid);
+  if(mum.home) mum.home.residents.push(kid);
+  kid.x=mum.x; kid.y=mum.y; kid.tx=kid.x; kid.ty=kid.y;
+  logMsg('<b>'+kid.name+' '+kid.last+'</b> was born to '+mum.name+' and '+dad.name+'.','g');
 }
 
 /* ===================== UI ===================== */
@@ -4954,7 +5091,7 @@ function paintRail(){
         '<div class="tiny">Or click any building to open just that one.</div>')+
       grp('places','k','Places',
         [['guild','Adventurers\u2019 Guild'],['hall','Town Hall'],['school','Schoolhouse'],
-         ['bank','Vault'],['guard','Barracks'],['altar','Altar of JestSayin'],
+         ['bank','Vault'],['guard','Barracks'],['altar','Altar'],
          ['tavern','The Bent Lantern'],['rose','The Rosehouse']]
         .map(([k,n])=>'<button class="tool" data-go="'+k+'"><span class="c" style="background:'+
           BK[k].roof+'"></span>'+n+'</button>').join('')+
@@ -5032,7 +5169,7 @@ function paintConsole(){
   document.getElementById('sGold').textContent=Math.round(ECON.treasury).toLocaleString();
   document.getElementById('sMagic').textContent=people.filter(p=>p.gift).length;
   document.getElementById('sFloor').textContent=KEEP.deepest;
-  document.getElementById('sClock').textContent='Day '+day+' \u00b7 '+
+  document.getElementById('sClock').textContent='Day '+day+' \u00b7 '+season().n+' y'+yearN+' \u00b7 '+
     String(hour).padStart(2,'0')+':'+String(Math.floor(minute)).padStart(2,'0');
   if(scene==='keep'&&!(selected&&people.includes(selected))){
     const nmK=document.getElementById('selName'), sbK=document.getElementById('selSub');
@@ -5061,7 +5198,7 @@ function paintConsole(){
     document.getElementById('sPop').textContent=people.length;
     document.getElementById('sGold').textContent=Math.round(ECON.treasury).toLocaleString();
     document.getElementById('sFloor').textContent=KEEP.deepest;
-    document.getElementById('sClock').textContent='Day '+day+' \u00b7 '+
+    document.getElementById('sClock').textContent='Day '+day+' \u00b7 '+season().n+' y'+yearN+' \u00b7 '+
       String(hour).padStart(2,'0')+':'+String(Math.floor(minute)).padStart(2,'0');
     return;
   }
@@ -5169,7 +5306,7 @@ function showBuilding(b){
     '<div class="sec"><h4>What it is</h4><div class="sum">'+
       (k.shop?'One of the five shops on the market street, run by a single family.'
        :b.kind==='guild'?'Where parties are formed and contracts for the Keep are posted.'
-       :b.kind==='altar'?'Raised to JestSayin. Townsfolk come by in the evening and leave a coin.'
+       :b.kind==='altar'?'Raised to the Pale Hour, a saint nobody can name. Townsfolk come by in the evening and leave a coin.'
        :b.kind==='rose'?'A house of rooms off the lantern district. Adults only; the town guard keeps it so.'
        :b.kind==='school'?'Every child attends until fifteen. The schoolmaster tests them for the gift at seven.'
        :b.kind==='bank'?'The vault. The town\u2019s share of every delve goes in here, '+
@@ -5454,7 +5591,7 @@ function init3D(){
   const pG=new THREE.Group(); S3.add(pG);
   const keepGlow=new THREE.PointLight(0xc1483f,2,24);
   keepGlow.position.set(46,2.6,21); S3.add(keepGlow);
-  R3={renderer,scene:S3,cam,sun,hemi,water,bG,pG,keepGlow,
+  R3={renderer,scene:S3,cam,sun,hemi,water,bG,pG,keepGlow,ground,
       trunks:R3TMP.trunks, leaves:R3TMP.leaves,
       th:-2.25,ph:0.78,dist:40,tx:26,ty:0.6,tz:23,folk:0};
   rebuildFolk(R3); resize3D(); loadAssets(R3);
@@ -5477,8 +5614,12 @@ function render3D(){
   S.sun.intensity=0.16+dayAmt*1.05;
   S.sun.color.setHex(el<0.26?0xffb27a:0xffeccf);
   S.hemi.intensity=0.14+dayAmt*0.48;
+  const sw=season().warm;
+  S.sun.intensity*=1+sw*0.9;
+  S.hemi.color.setHex(sw<-0.05?0xd8e6f4:(sw>0.1?0xbcd8ff:0xc8dcf0));
   const sky=new THREE.Color(0x141226).lerp(new THREE.Color(0x8fc0e8),dayAmt);
   S.scene.background=sky; S.scene.fog.color=sky;
+  S.scene.fog.near=weather==='bitter'?22:46; S.scene.fog.far=weather==='bitter'?92:165;
   S.water.material.opacity=0.68+0.14*dayAmt;
   const lamps=(hour>=18||hour<6);
   buildings.forEach(b=>{ const u=b.m3&&b.m3.userData; if(!u) return;
