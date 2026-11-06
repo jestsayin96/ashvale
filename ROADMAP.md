@@ -829,3 +829,34 @@ climbed has no preference rather than a false one.
 A number that is suspiciously round deserves one question. `0 gold in tax` was on screen
 for three cycles. I read it as a quiet market rather than as evidence that the economy had
 stopped, because I was looking at the thing I had just changed.
+
+## Cycle 34 — who they trust (shipped)
+North star item 1, the half that was missing. Families existed; friendship and grudge did
+not, so a delver walked into the Keep beside the man who left him on floor twelve and
+thought nothing of it.
+
+- **`p.bond`** is a map of other ids to a number roughly -1..1, capped at 14 people — the
+  faintest acquaintance is forgotten rather than the list growing forever.
+- **Time in the same room** warms a pair by 0.012 an hour, counted once a game-hour over
+  people grouped by building rather than per frame. A room of more than eight is skipped:
+  a crowd is not company.
+- **A delve is worth more than a hundred evenings in the tavern** — +0.10 to every pair
+  that comes back, +0.04 if the run failed but they lived.
+- **A loss sours the survivors on each other** by 0.14 each, warms them 0.05 toward the
+  dead, and writes "Came back without <name>" into each survivor's memory.
+- **`formParty` picks for company now.** The first name is chance; everyone after is
+  whoever the party would most want beside them, and a bond below -0.55 vetoes the pair
+  outright. A little randomness remains so it is not the same four every morning.
+- Bonds and memories both persist in the save.
+
+### Verified
+Six days in, Lady Highholt reads **Kelm: close** (her husband), **Bryn and Hesper:
+friendly** (her children) — shared-room time producing a family without being told what a
+family is. Her needs read company ~0, rest ~0, meaning 0.65, a night out 1.0, and her
+reason reads **"looking for meaning"** while she walks to the altar. That is the scenario
+this whole north-star item was for, on screen: a villager choosing a place because of
+something she wants, not because a die came up under 0.38.
+
+**Not yet seen in play:** a grudge. Bonds only sour when somebody dies in a party, which
+needs a bad delve; nothing has been watched refusing to walk beside anyone. The veto path
+is written but unexercised — treat it as untested.

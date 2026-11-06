@@ -379,7 +379,27 @@ function formParty(){
   const size=Math.min(free.length, ri(3,4));
   const party=[];
   free.sort(()=>rnd()-0.5);
-  for(let i=0;i<size;i++) party.push(free[i]);
+  /* The first name out of the hat is chance. Everyone after is chosen for the company:
+     the guild adds whoever the party would most want beside them, and a strong enough
+     grudge keeps a pair out of the same run entirely. */
+  party.push(free.shift());
+  while(party.length<size && free.length){
+    let best=null, bs=-1e9;
+    for(const c of free){
+      let sc=rnd()*0.25;                       // a little chance, so it is not the same four
+      let veto=false;
+      for(const m of party){
+        const b=(bondGet(c,m)+bondGet(m,c))/2;
+        if(b<-0.55) veto=true;
+        sc+=b*1.6;
+      }
+      if(veto) continue;
+      if(sc>bs){ bs=sc; best=c; }
+    }
+    if(!best) break;                           // everyone left is somebody's grudge
+    party.push(best); free.splice(free.indexOf(best),1);
+  }
+  if(party.length<3) return null;
   const target=Math.min(100, KEEP.deepest+1+ri(0,2));
   const run={party, floor:Math.max(1,target-ri(2,5)), target, t:0, loot:0, state:'delve',
     log:[], id:Date.now()+rnd()};
@@ -394,9 +414,11 @@ function endRun(run,ok){
     const next=KEEP.runs.find(r=>r!==run);
     if(next) loadRun(next);            // follow the next party down; never yank the view
   }
+  bondDelve(run.party, ok);
   run.party.forEach(p=>{ p.away=false; p.run=null;
     const cut=Math.round(run.loot/Math.max(1,run.party.length));
-    p.gold+=cut; });
+    p.gold+=cut;
+    if(ok&&run.floor>1) remember(p,'boss','Came back up from floor '+(run.floor-1)+'.'); });
   const cut=Math.round(run.loot*0.2);
   KEEP.gold+=cut; ECON.treasury+=cut; ECON.taxed+=cut;
   KEEP.history.unshift({floor:run.floor-1, loot:run.loot, ok,
@@ -564,6 +586,74 @@ function recallOf(p){
   if(!p.log||!p.log.length) return '';
   return p.log.slice(0,6).map(e=>
     '<div class="mem '+e.k+'"><em>'+SEASONNAME(e.s)+' y'+e.y+'</em>'+e.t+'</div>').join('');
+}
+
+/* ===================== who they trust =====================
+   Families existed; friendship and grudge did not. A delver would walk into the Keep
+   beside the man who left him on floor twelve and think nothing of it. Bonds are a
+   number per pair, roughly -1 to 1, that warms with time spent together and with
+   surviving a delve, and sours when somebody does not come back. */
+const BONDCAP=14;                       // a person keeps track of this many others
+function bondsOf(p){ if(!p.bond) p.bond={}; return p.bond; }
+function bondGet(a,b){ return (a&&b&&a.bond&&a.bond[b.id])||0; }
+function bondAdd(a,b,v){
+  if(!a||!b||a===b) return;
+  const A=bondsOf(a); A[b.id]=Math.max(-1,Math.min(1,(A[b.id]||0)+v));
+  // forget the faintest acquaintance rather than growing without limit
+  const ks=Object.keys(A);
+  if(ks.length>BONDCAP){
+    let weak=ks[0];
+    for(const k of ks) if(Math.abs(A[k])<Math.abs(A[weak])) weak=k;
+    delete A[weak];
+  }
+}
+function bondBoth(a,b,v){ bondAdd(a,b,v); bondAdd(b,a,v); }
+const byId=id=>people.find(q=>q.id===id)||null;
+
+/* Time in the same room, counted once a game-hour so this is not an O(n^2) per frame. */
+let bondH=-1;
+function bondTick(){
+  if(hour===bondH) return; bondH=hour;
+  const rooms=new Map();
+  for(const p of people){ if(p.away||!p.inside) continue;
+    if(!rooms.has(p.inside.id)) rooms.set(p.inside.id,[]);
+    rooms.get(p.inside.id).push(p); }
+  rooms.forEach(list=>{
+    if(list.length<2||list.length>8) return;      // a crowd is not company
+    for(let i=0;i<list.length;i++) for(let j=i+1;j<list.length;j++)
+      bondBoth(list[i],list[j],0.012);
+  });
+}
+/* A delve is worth more than a hundred evenings in the tavern. */
+function bondDelve(party,ok){
+  for(let i=0;i<party.length;i++) for(let j=i+1;j<party.length;j++)
+    bondBoth(party[i],party[j], ok?0.10:0.04);
+}
+/* Somebody did not come back. The survivors wear it, and each other. */
+function bondLoss(party,lost){
+  party.forEach(q=>{
+    if(q===lost) return;
+    bondAdd(q,lost,0.05);                          // you remember the dead kindly
+    party.forEach(r=>{ if(r!==q&&r!==lost) bondAdd(q,r,-0.14); });
+    remember(q,'death','Came back without <b>'+lost.name+'</b>.');
+  });
+}
+function kinOf(p){
+  const A=bondsOf(p), out=[];
+  for(const k in A){ const q=byId(+k); if(q) out.push([q,A[k]]); }
+  out.sort((x,y)=>y[1]-x[1]);
+  return out;
+}
+function bondList(p){
+  const l=kinOf(p).filter(e=>Math.abs(e[1])>0.12);
+  if(!l.length) return '<div class="sum">Nobody they would call a friend yet.</div>';
+  const row=e=>'<button class="kinrow" data-who="'+e[0].id+'">'+
+    '<span class="sw" style="background:'+e[0].top+'"></span><b>'+esc(e[0].name)+'</b>'+
+    '<em class="'+(e[1]>0?'warm':'cold')+'">'+
+      (e[1]>0.45?'close':e[1]>0.12?'friendly':e[1]<-0.45?'will not forgive':'cool')+
+    '</em></button>';
+  return l.slice(0,3).map(row).join('')+
+    (l.length>3?l.slice(-2).filter(e=>e[1]<-0.12).map(row).join(''):'');
 }
 
 function logMsg(t,cls){
@@ -931,6 +1021,7 @@ function stepFloor(run,dt){
           party.splice(party.indexOf(tgt),1);
           KEEP.lost++;
           logMsg('<b>'+tgt.name+' '+tgt.last+'</b> was killed by '+m.name+' on floor '+run.floor+'.','d');
+          bondLoss(party.concat([tgt]), tgt);
           bereave(tgt,'was killed by '+m.name+' on floor '+run.floor);
           if(!party.length){ endRun(run,false); return; }
         }
@@ -1655,6 +1746,7 @@ function tick(ts){
       if(roll<-7){ const v=pick(r.party); v.hp-=ri(4,11);
         if(v.hp<=0){ v.hp=0; v.away=false; r.party.splice(r.party.indexOf(v),1); KEEP.lost++;
           logMsg('<b>'+v.name+' '+v.last+'</b> fell on floor '+r.floor+'.','d');
+          bondLoss(r.party.concat([v]), v);
           bereave(v,'fell on floor '+r.floor); }
         endRun(r,false); return; }
       if(roll<2){ endRun(r,false); return; }
@@ -1759,6 +1851,7 @@ function tick(ts){
     camX+=(f[0]-camX)*Math.min(1,raw*3); camY+=(f[1]-camY)*Math.min(1,raw*3);
   } else if(follow&&scene==='town'){ const v=vpt(follow.x,follow.y), f=flat(v[0],v[1],H(follow.x|0,follow.y|0));
     camX+=(f[0]-camX)*Math.min(1,raw*3); camY+=(f[1]-camY)*Math.min(1,raw*3); }
+  bondTick();
   foeStep(dt);
   fxStep(raw);
   if(v3d) (scene==='keep'?renderKeep3D():render3D()); else render();
@@ -2014,7 +2107,7 @@ function snapshot(){
       sk:p.skin, hr:p.hair, tp:p.top,
       g:p.gold, sv:p.savings||0, hm:p.hpMax, h:p.hp, lv:p.lvl, xp:p.xp,
       tr:p.trade||'', gi:p.gift||null, ge:p.gear||[],
-      rl:p.relics||null, rd:p.relicDmg||0,
+      rl:p.relics||null, rd:p.relicDmg||0, bo:p.bond||null, lg:(p.log||[]).slice(0,8),
       f:(p.child?1:0)|(p.adventurer?2:0)|(p.noble?4:0)|(p.guard?8:0)|(p.widowed?16:0),
       x:Math.round(p.x*100)/100, y:Math.round(p.y*100)/100,
       ho:bid(p.home), wk:bid(p.work), sp:pid_(p.spouse),
@@ -2058,11 +2151,12 @@ function loadGame(){
         skin:r.sk, hair:r.hr, top:r.tp,
         gold:r.g|0, savings:r.sv|0, hpMax:r.hm|0||10, hp:r.h|0||1, lvl:r.lv|0||1, xp:r.xp|0,
         trade:r.tr, gift:r.gi, gear:r.ge||[], relics:r.rl||null, relicDmg:r.rd||0,
+        bond:r.bo||null, log:r.lg||[],
         child:!!(r.f&1), adventurer:!!(r.f&2), noble:!!(r.f&4),
         guard:!!(r.f&8), widowed:!!(r.f&16),
         x:r.x, y:r.y, tx:r.x, ty:r.y, path:null, moving:false, fld:null, f:0,
         goal:null, at:null, inside:null, away:false, run:null,
-        spouse:null, kids:[], parents:[], bubble:'', bubbleT:0, log:[],
+        spouse:null, kids:[], parents:[], bubble:'', bubbleT:0,
         home:null, work:null, _ho:r.ho, _wk:r.wk, _sp:r.sp, _kd:r.kd||[], _pa:r.pa||[] };
       people.push(p); byId.set(p.id,p);
     });
@@ -2453,6 +2547,7 @@ function showPerson(p){
     '<div class="sec"><h4>Kin</h4>'+(kin.length?
       '<div class="kv">'+kin.map(([k,v])=>'<span>'+k+'</span><b>'+esc(v)+'</b>').join('')+'</div>'
       :'<div class="sum">No family recorded in the hall\u2019s ledger.</div>')+'</div>'+
+    '<div class="sec"><h4>Who they trust</h4>'+bondList(p)+'</div>'+
     '<div class="sec"><h4>What they want</h4>'+needBars(p)+
       (p.why?'<div class="sum" style="margin-top:7px">Right now: <b>'+esc(p.why)+
         '</b></div>':'')+'</div>'+
