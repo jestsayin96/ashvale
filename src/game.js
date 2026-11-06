@@ -346,11 +346,15 @@ const MONSTER=[
 /* Not every thing down there fights the same way. A brute walks in and swings slowly,
    a rogue closes faster than you can turn, and a mage will not come to you at all. */
 const MKIND={
-  minion:{ model:'default', sp:2.0, reach:1.1,  cd:1.10, hpM:1.00, dmgM:1.00, sz:1.35 },
-  rogue :{ model:'rogue',   sp:3.5, reach:1.0,  cd:0.70, hpM:0.62, dmgM:0.80, sz:1.28 },
+  // nerve: the share of health below which it breaks and runs. 0 means it never does.
+  minion:{ model:'default', sp:2.0, reach:1.1,  cd:1.10, hpM:1.00, dmgM:1.00, sz:1.35,
+           nerve:0.28 },
+  rogue :{ model:'rogue',   sp:3.5, reach:1.0,  cd:0.70, hpM:0.62, dmgM:0.80, sz:1.28,
+           nerve:0.38 },                      // quick to close, quick to bolt
   mage  :{ model:'mage',    sp:1.5, reach:5.4,  cd:1.90, hpM:0.55, dmgM:1.45, sz:1.33,
-           keepAway:3.4, bolt:'#9a7ae8' },
-  brute :{ model:'boss',    sp:1.5, reach:1.3,  cd:1.80, hpM:1.95, dmgM:1.85, sz:1.62 }
+           keepAway:3.4, bolt:'#9a7ae8', nerve:0.45 },
+  brute :{ model:'boss',    sp:1.5, reach:1.3,  cd:1.80, hpM:1.95, dmgM:1.85, sz:1.62,
+           nerve:0 }                          // a brute does not break
 };
 /* The mix by depth band, matching the dressing in BANDPROPS. The caves are mostly
    rabble; the crypts raise mages; the iron halls field brutes. */
@@ -741,6 +745,28 @@ function stepFloor(run,dt){
     for(const p of party){ const d=Math.hypot(p.dx-m.x,p.dy-m.y); if(d<td){td=d;tgt=p;} }
     if(!tgt) continue;
     const K=MKIND[m.kind]||MKIND.minion;
+    /* Morale. Nothing down here used to break - a rat fought to the last point of
+       health exactly like an ogre. Now a hurt thing runs, and if it gets clear it
+       catches its breath and comes back. A boss and a brute never break. */
+    if(!m.boss && K.nerve>0){
+      if(!m.flee && m.hp/m.hpMax < K.nerve){
+        m.flee=true;
+        fxWord(m.x, m.y, 'flees', '#cfc3a0');
+        if(rnd()<0.5) snd('hit',0.35);
+      } else if(m.flee && td>14){
+        // it got clear and kept going. Letting it recover instead would stall the
+        // floor: a routed thing still counts as roused, and the delve never ends.
+        dmobs.splice(i,1); continue;
+      }
+    }
+    if(m.flee){
+      const dx=m.x-tgt.dx, dy=m.y-tgt.dy, mm=Math.hypot(dx,dy)||1, sp=K.sp*1.35*dt;
+      const nx=m.x+dx/mm*sp, ny=m.y+dy/mm*sp;
+      if(dWalk(nx|0,m.y|0)) m.x=nx;
+      if(dWalk(m.x|0,ny|0)) m.y=ny;
+      m.f+=dt*1.6;
+      continue;                                   // a routed thing does not fight
+    }
     // a mage will not close; it backs off if you get inside its circle
     const away = K.keepAway && td < K.keepAway;
     if(td>K.reach || away){
@@ -870,7 +896,7 @@ function stepFloor(run,dt){
   }
   // descend or leave
   const atDown=party.every(p=>Math.hypot(p.dx-dDownAt[0]-0.5,p.dy-dDownAt[1]-0.5)<1.6);
-  const clear=!dmobs.some(m=>m.awake);
+  const clear=!dmobs.some(m=>m.awake&&!m.flee);   // a routed thing holds nothing
   if(run.state!=='retreat' && atDown && clear){
     KEEP.cleared.add(run.floor); snd('cleared',0.8);
     if(run.floor>KEEP.deepest){ KEEP.deepest=run.floor;
@@ -1211,8 +1237,10 @@ function drawMob(m){
   if(m.boss){ const fl=0.25+Math.sin(tnow*2.4)*0.12;
     g.save();g.globalAlpha=fl;g.fillStyle=m.col;
     g.beginPath();g.arc(sx,y-10*z,34*z,0,7);g.fill();g.restore(); }
-  g.fillStyle=K.bolt?tint(m.col,0.82):m.col;
+  g.fillStyle=m.flee?tint(m.col,0.55):(K.bolt?tint(m.col,0.82):m.col);
   rr(sx-5.4*z*bg,y-15*z*bg,10.8*z*bg,13*z*bg,3.4*z); g.fill();
+  if(m.flee){ g.fillStyle='#cfc3a0'; g.font='700 '+(9*z).toFixed(1)+'px "Nunito Sans",sans-serif';
+    g.textAlign='center'; g.fillText('!',sx,y-19*z*bg); }
   if(m.boss){ g.fillStyle=tint(m.col,0.65);
     g.beginPath();g.moveTo(sx-9*z,y-26*z);g.lineTo(sx-5*z,y-32*z);g.lineTo(sx-2*z,y-25*z);
     g.closePath();g.fill();
@@ -1289,7 +1317,9 @@ function renderKeep(){
   // floor banner
   const th=themeFor(dfloor);
   g.font='700 13px "Cinzel",Georgia,serif'; g.textAlign='center'; g.textBaseline='middle';
-  const label='Floor '+dfloor+'  \u00b7  '+th.n+'  \u00b7  '+dmobs.length+' still moving';
+  const routed=dmobs.filter(m=>m.flee).length;
+  const label='Floor '+dfloor+'  \u00b7  '+th.n+'  \u00b7  '+dmobs.length+' still moving'+
+    (routed?'  \u00b7  '+routed+' routed':'');
   const w2=g.measureText(label).width+28;
   g.fillStyle='rgba(10,8,16,.86)'; rr(CW/2-w2/2,14,w2,28,14); g.fill();
   g.strokeStyle='#4c4468'; g.lineWidth=1; g.stroke();
@@ -1936,8 +1966,12 @@ function paintRail(){
         ? '<div class="tiny" style="margin:0 0 7px">Floor <b style="color:#e8c88a">'+dfloor+
           '</b> of 100 \u00b7 '+th.n+'<br>Pushing to floor '+activeRun.target+
           ' \u00b7 '+activeRun.loot+' gold so far<br>'+
-          dmobs.filter(m=>m.awake).length+' roused, '+dmobs.length+' on the floor \u00b7 '+
-          dchests.filter(c=>!c.open).length+' chests unopened</div>'+
+          dmobs.filter(m=>m.awake&&!m.flee).length+' roused, '+dmobs.length+
+          ' on the floor \u00b7 '+
+          dchests.filter(c=>!c.open).length+' chests unopened'+
+          (dmobs.some(m=>m.flee)
+            ? '<br><b style="color:#cfc3a0">'+dmobs.filter(m=>m.flee).length+
+              ' broke and ran</b>' : '')+'</div>'+
           party.map(p=>{
             const st=styleOf(p)||'sword', S=PSTYLE[st]||PSTYLE.sword;
             const frac=Math.max(0,Math.min(1,p.hp/p.hpMax));
@@ -3431,7 +3465,9 @@ function updateMobSkins(S,dt){
       sk.grp.rotation.y=Math.atan2(mo.x-mo.mfx, mo.y-mo.mfy);
     const moving=(Math.abs(mo.x-(mo.mfx||mo.x))+Math.abs(mo.y-(mo.mfy||mo.y)))>0.0015;
     mo.mfx=mo.x; mo.mfy=mo.y;
-    playClip(sk, mo.hp<=0 ? 'die' : (mo.atk>0 ? 'attack' : (moving ? 'walk' : 'idle')));
+    playClip(sk, mo.hp<=0 ? 'die'
+               : (mo.flee ? 'walk'
+               : (mo.atk>0 ? 'attack' : (moving ? 'walk' : 'idle'))));
     fxApplyFlash(sk,dt);
     sk.mixer.update(dt);
   });

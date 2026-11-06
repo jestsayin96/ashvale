@@ -619,3 +619,34 @@ The plates are drawn on canvas, so there is nothing in the DOM to assert against
 honest way to test the label text without exposing internals purely for the test.
 Verified by screenshot at both zoom levels (`dist/labels.png`, `dist/labels-close.png`).
 Said plainly rather than bolting on a weak assertion that would pass whatever happened.
+
+## Cycle 29 — nothing down there used to break (shipped)
+Worked unattended.
+
+**Took the reading that the sting was not worth the cycle.** `stinger_a/b/c` are already
+reachable through the `playSfx` path wired in c22, and `sub_drop` already fires when a
+boss wakes — so adding one would have been three lines over a gap that is mostly already
+filled. The real hole was behavioural: a rat fought to its last point of health exactly
+like an ogre.
+
+`MKIND[].nerve` is the share of health below which a creature breaks and runs — rogue
+0.38 (quick to close, quick to bolt), mage 0.45, minion 0.28, **brute 0, because a brute
+does not break**, and a boss never does whatever its kind says. A routed creature:
+- runs directly away at 1.35x its speed and **does not fight** (`continue` before the
+  attack block, so it cannot be cornered into swinging)
+- shows `flees` over its head, dims to 55% colour and carries a `!` in the flat view,
+  and plays its walk clip in 3D
+- **escapes for good at 14 units.** Letting it recover instead stalled the floor: a
+  routed thing still counts as roused, so the delve could never end. That was the one
+  real design trap in this change.
+- `clear` now ignores fleeing mobs, for the same reason.
+
+The floor banner reads `4 still moving · 1 routed` and the delve panel says
+`1 broke and ran`.
+
+### Tests
+**No deterministic guard, and saying so rather than faking one.** Whether anything breaks
+inside a test window depends on the dice. What I did instead was make a rout *reportable* —
+the rail is DOM, so a rout is observable — and watched for one: `ROUT SEEN ... 1 broke and
+ran`, with `dist/flee.png` showing it. Making the behaviour legible in the UI was worth
+doing for its own sake and happened to be what made it checkable.
