@@ -147,6 +147,8 @@ h1 em{font-style:normal;color:var(--gold)}
   overflow:hidden;display:block;margin-top:2px}
 .delver .hpb i{display:block;height:100%}
 .delver .rel{color:var(--gold);font-size:10px;flex:none}
+.delver.hurt .nm{color:#e59a93}
+.delver .shy{color:#e59a93;font-size:11px;flex:none}
 .mana{font-size:9px;letter-spacing:1px;color:#a98fe0}
 .mana.dry{color:#6e5a3a}
 .camrow{display:flex;gap:4px;margin-bottom:5px}

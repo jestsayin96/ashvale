@@ -650,3 +650,32 @@ inside a test window depends on the dice. What I did instead was make a rout *re
 the rail is DOM, so a rout is observable — and watched for one: `ROUT SEEN ... 1 broke and
 ran`, with `dist/flee.png` showing it. Making the behaviour legible in the UI was worth
 doing for its own sake and happened to be what made it checkable.
+
+## Cycle 30 — the delvers get morale too (shipped)
+Worked unattended.
+
+**The loop prompt was wrong and checking cost nothing.** It claimed nothing decides to
+retreat on low health; there has been a `hpFrac < 0.34` check all along. The actual flaw
+was subtler: `hpFrac` is the party **mean**, which hides the one who is dying. Three at
+full health and one at five per cent averages 0.76, nobody turns back, and that one dies.
+
+- The **worst-off member** can now call it: `wf < 0.18` with more than one in the party
+  ends the push, logging who. The mean check stays for a party ground down evenly.
+- A delver below **26%** sets `p.shy` and falls back toward the stairs instead of trading
+  another blow — unless something is already inside 1.4 units, because you cannot
+  disengage from a thing in your face. Clears at 55%, so a healed delver stands in again.
+  Ranged styles are exempt: they are already standing off.
+- The rail shows a hurt delver in red with a back-arrow; the delve panel says
+  **Making for the stairs**.
+
+### Tests, and a lesson about ambiguous signals
+First attempt watched for "Making for the stairs" and saw it in 4.2 seconds — but with no
+reason line, because that text also fires for the ordinary end-of-run retreat when the
+party reaches its target floor. **The signal did not distinguish the thing being tested
+from the thing that always happens.** Forcing the thresholds in a scratch build
+(`f<0.995`, `wf<0.90`) settled it: `Jessa is badly hurt. The party breaks off.` plus a
+delver hanging back, then reverted.
+
+No deterministic guard, same reason as c29: whether a delver drops below 26% inside a test
+window is down to dice. The behaviour is legible in the UI instead, which is what made it
+observable at all.

@@ -153,6 +153,8 @@ h1 em{font-style:normal;color:var(--gold)}
   overflow:hidden;display:block;margin-top:2px}
 .delver .hpb i{display:block;height:100%}
 .delver .rel{color:var(--gold);font-size:10px;flex:none}
+.delver.hurt .nm{color:#e59a93}
+.delver .shy{color:#e59a93;font-size:11px;flex:none}
 .mana{font-size:9px;letter-spacing:1px;color:#a98fe0}
 .mana.dry{color:#6e5a3a}
 .camrow{display:flex;gap:4px;margin-bottom:5px}
@@ -4286,10 +4288,26 @@ function stepFloor(run,dt){
     if(m.awake) continue;
     for(const p of party) if(Math.hypot(p.dx-m.x,p.dy-m.y)<7.5){ m.awake=true; break; }
   }
+  /* Morale, the delvers' half of it. The old check was the party MEAN, which hides the
+     one who is dying: three at full health and one at five per cent averages 0.76 and
+     nobody turns back, so that one dies. Now the worst-off member can call it too. */
   const hpFrac=party.reduce((a,p)=>a+p.hp/p.hpMax,0)/party.length;
-  if(hpFrac<0.34 && run.state!=='retreat'){
-    run.state='retreat';
-    logMsg('The party breaks off and makes for the stairs.','d');
+  let worst=party[0], wf=1;
+  for(const p of party){ const f=p.hp/p.hpMax; if(f<wf){ wf=f; worst=p; } }
+  if(run.state!=='retreat'){
+    if(hpFrac<0.34){
+      run.state='retreat';
+      logMsg('The party is spent and makes for the stairs.','d');
+    } else if(wf<0.18 && party.length>1){
+      run.state='retreat';
+      logMsg('<b>'+worst.name+'</b> is badly hurt. The party breaks off.','d');
+    }
+  }
+  // and a delver who is failing stops trading blows and falls back, even mid-fight
+  for(const p of party){
+    const f=p.hp/p.hpMax;
+    if(!p.shy && f<0.26){ p.shy=true; p.bubble='hurt'; p.bubbleT=4; }
+    else if(p.shy && f>0.55) p.shy=false;        // patched up enough to stand in again
   }
   // monsters
   for(let i=dmobs.length-1;i>=0;i--){
@@ -4373,6 +4391,11 @@ function stepFloor(run,dt){
     } else if(mob && md<12){
       const S=pstyle(p);
       if(S.cast){ p.mana=Math.min(4,(p.mana===undefined?4:p.mana)+S.regen*dt); }
+      // hurt and not yet cornered: get behind the others rather than trade another blow
+      if(p.shy && md>1.4 && !S.ranged){
+        if(!p.dgoal||p.dgoal.what!=='up') dSetGoal(p,dUpAt[0],dUpAt[1],'up');
+        continue;
+      }
       if(md<S.reach){
         // a ranged fighter holds where it stands; the others close
         p.dgoal=null;
@@ -5526,7 +5549,9 @@ function paintRail(){
           dchests.filter(c=>!c.open).length+' chests unopened'+
           (dmobs.some(m=>m.flee)
             ? '<br><b style="color:#cfc3a0">'+dmobs.filter(m=>m.flee).length+
-              ' broke and ran</b>' : '')+'</div>'+
+              ' broke and ran</b>' : '')+
+          (activeRun.state==='retreat'
+            ? '<br><b style="color:#e59a93">Making for the stairs</b>' : '')+'</div>'+
           party.map(p=>{
             const st=styleOf(p)||'sword', S=PSTYLE[st]||PSTYLE.sword;
             const frac=Math.max(0,Math.min(1,p.hp/p.hpMax));
@@ -5540,9 +5565,10 @@ function paintRail(){
             const relics=(p.relics&&p.relics.length)
               ? '<span class="rel" title="'+esc(p.relics.map(r=>r.n).join(', '))+'">\u2726'+
                 (p.relics.length>1?p.relics.length:'')+'</span>' : '';
-            return '<button class="delver" data-who="'+p.id+'">'+
+            const hurt=p.shy?'<span class="shy" title="hanging back">\u2190</span>':'';
+            return '<button class="delver'+(p.shy?' hurt':'')+'" data-who="'+p.id+'">'+
               '<span class="nm"><span class="c" style="background:'+p.top+'"></span>'+
-                esc(p.name)+relics+'</span>'+
+                esc(p.name)+relics+hurt+'</span>'+
               '<span class="st '+st+'">'+st+'</span>'+charges+
               '<span class="hpn">'+Math.ceil(p.hp)+'/'+p.hpMax+'</span>'+
               '<span class="hpb"><i style="width:'+(frac*100).toFixed(0)+'%;background:'+col+'"></i></span>'+
