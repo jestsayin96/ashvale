@@ -2342,15 +2342,19 @@ document.querySelectorAll('[data-sp]').forEach(b=>b.onclick=()=>setSpeed(+b.data
 /* ===================== the 3D view ===================== */
 const HU=0.36;                                   // world height per terrain step
 R3=null; cv3=null;
+const R3TEX={};
 const C3={}; C3[GRASS]=0x5f8f4a; C3[ROAD]=0x9a9183; C3[PLAZA]=0xb0a692;
 C3[WATER]=0x3a73b8; C3[DIRT]=0x9c8565; C3[FIELD]=0xb19a52; C3[ROCK]=0x7d7a84;
 const hx=c=>typeof c==='string'?parseInt(c.replace('#',''),16):c;
 const shd=(c,f)=>((Math.min(255,((c>>16)&255)*f)|0)<<16)|((Math.min(255,((c>>8)&255)*f)|0)<<8)|
   (Math.min(255,(c&255)*f)|0);
 function terrainGeo(){
-  const pos=[],col=[],idx=[]; let v=0;
+  const pos=[],col=[],idx=[],uv=[]; let v=0;
+  // UVs come from world position, so one tiling texture runs across the whole map and
+  // a quad's grain lines up with its neighbour's. 0.5 = two tiles per world unit.
   const vert=(x,y,z,c)=>{ pos.push(x,y,z);
-    col.push(((c>>16)&255)/255,((c>>8)&255)/255,(c&255)/255); };
+    col.push(((c>>16)&255)/255,((c>>8)&255)/255,(c&255)/255);
+    uv.push(x*0.5, z*0.5); };
   const quad=(a,b,c2,d,cl)=>{ vert(a[0],a[1],a[2],cl); vert(b[0],b[1],b[2],cl);
     vert(c2[0],c2[1],c2[2],cl); vert(d[0],d[1],d[2],cl);
     idx.push(v,v+2,v+1,v,v+3,v+2); v+=4; };
@@ -2368,6 +2372,7 @@ function terrainGeo(){
   const G=new THREE.BufferGeometry();
   G.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
   G.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
+  G.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
   G.setIndex(idx); G.computeVertexNormals(); return G;
 }
 function mkBuilding(b){
@@ -2506,7 +2511,9 @@ function init3D(){
   sun.castShadow=true; sun.shadow.mapSize.set(2048,2048); sun.shadow.bias=-0.0015;
   const sc=sun.shadow.camera; sc.left=-32; sc.right=32; sc.top=32; sc.bottom=-32;
   sc.near=1; sc.far=190; S3.add(sun); S3.add(sun.target);
-  const ground=new THREE.Mesh(terrainGeo(),new THREE.MeshLambertMaterial({vertexColors:true}));
+  const groundMat=new THREE.MeshLambertMaterial({vertexColors:true});
+  const ground=new THREE.Mesh(terrainGeo(),groundMat);
+  R3TEX.ground=groundMat;
   ground.receiveShadow=true; S3.add(ground);
   const water=new THREE.Mesh(new THREE.PlaneGeometry(N*2.4,N*2.4),
     new THREE.MeshLambertMaterial({color:0x3a73b8,transparent:true,opacity:0.8}));
@@ -2774,6 +2781,16 @@ function loadAssets(S){
       const L=new THREE.GLTFLoader();
       const get=f=>new Promise(res=>L.load(ASSETS.base+f,g=>res(g),undefined,()=>res(null)));
       const jobs=[];
+      // Photographic ground. The texture multiplies with the vertex colour that already
+      // carries the season, so a tiling surface appears without losing the turning year.
+      if(m.textures&&m.textures.ground&&R3TEX.ground){
+        const TL=new THREE.TextureLoader();
+        jobs.push(new Promise(res=>TL.load(ASSETS.base+m.textures.ground, t=>{
+          t.wrapS=t.wrapT=THREE.RepeatWrapping;
+          t.anisotropy=4;
+          R3TEX.ground.map=t; R3TEX.ground.needsUpdate=true; res(null);
+        }, undefined, ()=>res(null))));
+      }
       Object.entries(m.buildings||{}).forEach(([kind,file])=>
         jobs.push(get(file).then(g=>{ if(g) swapBuilding(S,kind,g.scene); })));
       Object.entries(m.weapons||{}).forEach(([kind,file])=>

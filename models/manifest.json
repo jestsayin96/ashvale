@@ -148,5 +148,11 @@
   "chest": "kay/furn/chest.glb",
   "hearth": "kay/furn/hearth.glb",
   "stool": "kay/furn/stool.glb"
+ },
+ "textures": {
+  "ground": "tex/ground.webp",
+  "rock": "tex/rock.webp",
+  "lava": "tex/lava.webp",
+  "paving": "tex/paving.webp"
  }
 }

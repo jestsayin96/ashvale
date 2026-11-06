@@ -539,3 +539,32 @@ as FBX. Blender's real jobs here would be `.blend`-only assets, decimating the 9
 `hdri/spruit_sunrise_2k.hdr` as a three.js environment map, and the twelve `ambientcg/`
 PBR sets — `Ground037/054/068` for the fields, `Rock023/030/035/051` for the ridge,
 `Lava004/005` for the magma deeps, which currently render as flat orange.
+
+## Cycle 26 — photographic ground (shipped)
+`terrainGeo()` now emits UVs derived from world position (`x*0.5, z*0.5`), so one tiling
+texture runs across the whole map and each quad's grain lines up with its neighbour's.
+The ground material takes a `map` when the manifest offers one; **map and vertex colour
+multiply**, so the seasonal palette from c17 still turns the year while the surface gains
+real grain.
+
+Four ambientCG sets (CC0) at 512px WebP: `ground` 99 KB, `rock` 67 KB, `lava` 55 KB,
+`paving` 75 KB — **304 KB for all four**. Only `ground` is wired so far; rock, paving and
+lava are in the manifest and unused. Lava is the interesting one: the magma deeps at
+floors 61-80 currently render as flat orange.
+
+The texture loads only on the assets tier, so the artifact build is untouched.
+
+### The HDRI, and why it is not in yet
+`hdri/spruit_sunrise_2k.hdr` is 5.7 MB and would want an RGBELoader the bundle does not
+carry. More to the point, the terrain and buildings are `MeshLambertMaterial`, which does
+not respond to an environment map at all — only the KayKit models would light from it, and
+a fixed sunrise would fight the day/night cycle that already tints the sky. Worth doing as
+its own cycle with a resized equirect WebP and a decision about the clock, not bolted on.
+
+### On routing downloads through the owner's machine
+The owner offered Blender's internet access, since this sandbox's egress allowlist refuses
+cdnjs, quaternius.com and the rest. **Declined, deliberately.** Using a remote MCP server
+as a download proxy is working around a security control rather than through it; the
+sanctioned route is the account's own allowlist (claude.ai → Settings → Capabilities).
+It is also unnecessary: `village_assets` already holds 4,467 models across 50 packs, and
+this project has used perhaps thirty of them.
