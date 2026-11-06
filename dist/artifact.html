@@ -6,282 +6,654 @@
 <style>
 /* Layout: isometric town above a ledger-style console; people and the delve log open side panels. */
 :root{
-  --bg:#0d0c12; --panel:#191723; --panel2:#221f30; --panel3:#2d2940;
-  --edge:#393350; --edge2:#4c4468;
-  --ink:#efe9f5; --muted:#a195b8;
-  --gold:#e3b64a; --blood:#c1483f; --arcane:#8f6fe0; --leaf:#6fae5a; --steel:#8f9bb0;
+  --bg:#0d0c12;
+  --panel:#191723;
+  --panel2:#221f30;
+  --panel3:#2d2940;
+  --edge:#393350;
+  --edge2:#4c4468;
+  --ink:#efe9f5;
+  --muted:#a195b8;
+  --gold:#e3b64a;
+  --blood:#c1483f;
+  --arcane:#8f6fe0;
+  --leaf:#6fae5a;
+  --steel:#8f9bb0;
   --fd:"Cinzel",Georgia,serif;
   --fb:"Nunito Sans",system-ui,-apple-system,sans-serif;
   color-scheme:dark;
+  --chron:280px;      /* the chronicle column reserves its own width */
 }
 *{box-sizing:border-box}
 html,body{height:100%}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--fb);overflow:hidden;
-  -webkit-user-select:none;user-select:none}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--fb);
+  overflow:hidden;
+  -webkit-user-select:none;
+  user-select:none;
+  font-size:14px;
+}
 button{font:inherit;color:inherit;cursor:pointer}
 #app{height:100%;display:grid;grid-template-rows:auto 1fr auto;min-height:0}
 
-header{display:flex;align-items:baseline;gap:0;flex-wrap:nowrap;overflow:hidden;
-  background:linear-gradient(180deg,#201b2e,#13101c);border-bottom:1px solid var(--edge);
-  padding-block:9px;
-  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-h1{font-family:var(--fd);font-weight:700;font-size:17px;margin:0 22px 0 0;letter-spacing:.4px;
-  white-space:nowrap;flex:none}
+/* ===== TOP BAR (Ashvale is home) ===== */
+header{
+  display:flex;
+  align-items:center;
+  gap:0;
+  flex-wrap:nowrap;
+  overflow:hidden;
+  background:linear-gradient(180deg,#201b2e,#13101c);
+  border-bottom:1px solid var(--edge);
+  padding:10px 16px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  min-height:52px;
+}
+h1{
+  font-family:var(--fd);
+  font-weight:700;
+  font-size:18px;
+  margin:0 24px 0 0;
+  letter-spacing:.3px;
+  white-space:nowrap;
+  flex:none;
+}
 h1 em{font-style:normal;color:var(--gold)}
 
-/* The running totals are a readout, not a control. No box, no border - a figure and the
-   word for it, the way a ledger sets its columns. Only things you can click keep a frame. */
-.stat{display:flex;align-items:baseline;gap:5px;font-size:15px;font-weight:700;white-space:nowrap;
-  margin-right:20px;flex:none;letter-spacing:-.1px}
-.stat small{color:var(--muted);font-weight:400;font-size:11px;letter-spacing:.2px}
-.stat i{display:none}
-.stat#clockStat,.stat:last-of-type{font-family:var(--fd);font-size:13px;font-weight:700;
-  color:var(--muted);letter-spacing:.3px}
-.right{margin-left:auto;display:flex;gap:7px;align-items:center;flex-wrap:nowrap;flex:none}
-.sbtn{min-width:32px;height:27px;background:transparent;border:1px solid var(--edge2);border-radius:6px;
-  font-size:12px;font-weight:600;padding:0 10px;line-height:1;color:var(--muted);
-  transition:background .14s,border-color .14s,color .14s}
+.stat{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:15px;
+  font-weight:700;
+  white-space:nowrap;
+  margin-right:18px;
+  flex:none;
+  letter-spacing:-.1px;
+}
+.stat small{
+  color:var(--muted);
+  font-weight:400;
+  font-size:12px;
+  letter-spacing:.2px;
+}
+.stat i{
+  width:10px;
+  height:10px;
+  border-radius:2px;
+  display:inline-block;
+  flex:none;
+}
+#sMagic::before{
+  content:"✦";
+  color:var(--arcane);
+  font-size:13px;
+  margin-right:2px;
+}
+#clockStat{
+  font-family:var(--fd);
+  font-size:16px;
+  font-weight:700;
+  color:var(--gold);
+  letter-spacing:.4px;
+  margin-right:28px;
+}
+.right{margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:nowrap;flex:none}
+.sbtn{
+  min-width:34px;
+  height:30px;
+  background:transparent;
+  border:1px solid var(--edge2);
+  border-radius:7px;
+  font-size:13px;
+  font-weight:600;
+  padding:0 11px;
+  line-height:1;
+  color:var(--muted);
+  transition:background .14s,border-color .14s,color .14s;
+}
 .sbtn:hover{background:var(--panel2);color:var(--ink)}
 .sbtn.on{background:#3a2d16;border-color:var(--gold);color:#f6dfa6}
-/* The header must never overflow - it has outgrown its width twice now, once by
-   wrapping the speed controls onto a dead second row and once by clipping the title.
-   Drop the least useful thing first and keep every control reachable. */
-@media (max-width:1460px){ .stat small{display:none} .stat{margin-right:15px} }
-@media (max-width:1180px){ h1{font-size:16px;margin-right:14px} h1 em{display:none}
-  h1::after{content:' \2014 the Keep';color:var(--gold);font-size:12px} }
-@media (max-width:1150px){ .stat:not(:last-of-type){display:none} }
-@media (max-width:950px){ .stat{display:none} }
-@media (max-width:860px){ #newTown{display:none} }
-@media (max-width:760px){ #housesBtn,#keepBtn{display:none} }
-
-#stage.paused::after{content:'Paused';position:absolute;left:50%;top:14px;transform:translateX(-50%);
-  background:#120f1dEE;border:1px solid var(--gold);color:#f6dfa6;border-radius:14px;
-  padding:5px 16px;font-size:12px;font-weight:700;letter-spacing:.4px;pointer-events:none;z-index:6}
 .sbtn.keep{border-color:#6e3330;color:#eda79f}
-.seg{display:flex;background:#120f1d;border:1px solid var(--edge2);border-radius:8px;
-  padding:2px;gap:2px;flex:none}
-.segb{padding:4px 13px;border:0;background:none;border-radius:6px;font-size:12px;font-weight:600;
-  color:var(--muted);line-height:1.5;transition:background .14s,color .14s}
-.segb.on{background:var(--panel3);color:var(--gold);box-shadow:inset 0 0 0 1px #5a4a22}
-.segb:hover{color:var(--ink)}
 .sbtn.keep:hover{background:#34191a}
 
-#stage{position:relative;min-height:0;overflow:hidden;
-  background:radial-gradient(130% 100% at 50% -12%,#2a2440 0%,#15121f 62%,#0d0c12 100%)}
-#view{display:block;width:100%;height:100%;touch-action:none;cursor:pointer}
-#view.grab{cursor:grabbing}
-#view3d{display:none;position:absolute;inset:0;width:100%;height:100%;touch-action:none;
-  cursor:grab;z-index:0}
-#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
-#rail{z-index:2}
-.float{position:absolute;background:#120f1dEE;border:1px solid var(--edge);border-radius:10px;
-  padding:9px 12px;font-size:12.5px;line-height:1.5;color:var(--muted)}
-#hint{left:max(12px,env(safe-area-inset-left,0px));top:12px;max-width:min(300px,62vw);pointer-events:none}
-#hint b{color:var(--ink)}
-/* The chronicle sits over the world, which may be a bright green afternoon or a black
-   corridor. It needs a backdrop to stay legible, but a bordered card would make it a
-   sixth competing frame - so: a dark wash, blurred, with one gold rule holding the edge. */
-#log{right:max(14px,env(safe-area-inset-right,0px));top:14px;width:264px;max-height:44%;
-  overflow:hidden;pointer-events:none;border:0;border-left:2px solid #6b5420;border-radius:0;
-  background:linear-gradient(90deg,#0c0a14D9,#0c0a14F2);
-  -webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);
-  padding:10px 13px 14px;
-  -webkit-mask-image:linear-gradient(180deg,#000 0,#000 calc(100% - 26px),transparent 100%);
-          mask-image:linear-gradient(180deg,#000 0,#000 calc(100% - 26px),transparent 100%)}
-#log h4{margin:0 0 10px;font-family:var(--fd);font-size:11.5px;letter-spacing:.7px;color:var(--gold);
-  display:flex;align-items:center;gap:8px;cursor:pointer;pointer-events:auto}
-#log h4 span{margin-left:auto;padding-left:12px;font-size:10px;color:#6b6283;font-family:var(--fb);
-  font-weight:400;letter-spacing:0}
-#log h4 span:hover{color:var(--ink)}
-#log.shut #logList{display:none}
-#log.shut{width:178px;-webkit-mask-image:none;mask-image:none}
-#log div{margin-bottom:5px;line-height:1.5;font-size:12px}
-#log b{color:var(--ink);font-weight:700}
-#log .d{color:#e59a93}
-#log .m{color:#bda3f0}
-#log .g{color:#e3c77a}
+.seg{
+  display:flex;
+  background:#120f1d;
+  border:1px solid var(--edge2);
+  border-radius:8px;
+  padding:2px;
+  gap:2px;
+  flex:none;
+}
+.segb{
+  padding:5px 14px;
+  border:0;
+  background:none;
+  border-radius:6px;
+  font-size:13px;
+  font-weight:600;
+  color:var(--muted);
+  line-height:1.4;
+  transition:background .14s,color .14s;
+}
+.segb.on{background:var(--panel3);color:var(--gold);box-shadow:inset 0 0 0 1px #5a4a22}
+.segb:hover{color:var(--ink)}
 
-#rail{position:absolute;left:0;top:0;bottom:0;width:168px;overflow-y:auto;overscroll-behavior:contain;
-  background:linear-gradient(90deg,#100d1aF7,#100d1aE0);border-right:1px solid var(--edge);
-  padding:12px 8px 26px;
-  padding-left:max(8px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:15px;
-  scrollbar-width:thin;scrollbar-color:var(--edge2) transparent;
-  -webkit-mask-image:linear-gradient(180deg,#000 0,#000 calc(100% - 34px),transparent 100%);
-          mask-image:linear-gradient(180deg,#000 0,#000 calc(100% - 34px),transparent 100%)}
-#rail::-webkit-scrollbar{width:6px}
+/* ===== STAGE / WORLD ===== */
+#stage{
+  position:relative;
+  min-height:0;
+  overflow:hidden;
+  /* The chronicle is a permanent column now, so it takes its space rather than
+     floating over the world. Before this the East Gate and the Keep's marker
+     disappeared underneath it. */
+  padding-right:var(--chron);
+  background:radial-gradient(130% 100% at 50% -12%,#2a2440 0%,#15121f 62%,#0d0c12 100%);
+}
+#stage.paused::after{
+  content:'Paused';
+  position:absolute;
+  left:50%;
+  top:16px;
+  transform:translateX(-50%);
+  background:#120f1dEE;
+  border:1px solid var(--gold);
+  color:#f6dfa6;
+  border-radius:14px;
+  padding:6px 18px;
+  font-size:13px;
+  font-weight:700;
+  letter-spacing:.4px;
+  pointer-events:none;
+  z-index:6;
+}
+#view,#view3d,#fx{display:block;width:100%;height:100%;touch-action:none}
+#view{cursor:pointer}
+#view.grab{cursor:grabbing}
+#view3d{display:none;position:absolute;inset:0 var(--chron) 0 0;cursor:grab;z-index:0}
+#fx{position:absolute;inset:0 var(--chron) 0 0;pointer-events:none;z-index:1}
+
+/* ===== LEFT RAIL ===== */
+#rail{
+  position:absolute;
+  left:0;
+  top:0;
+  bottom:0;
+  width:148px;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  background:linear-gradient(90deg,#100d1aF2,#100d1aE6);
+  border-right:1px solid var(--edge);
+  padding:12px 6px 24px;
+  padding-left:max(6px,env(safe-area-inset-left,0px));
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  scrollbar-width:thin;
+  scrollbar-color:var(--edge2) transparent;
+  z-index:2;
+  -webkit-mask-image:linear-gradient(180deg,#000 0,#000 calc(100% - 28px),transparent 100%);
+  mask-image:linear-gradient(180deg,#000 0,#000 calc(100% - 28px),transparent 100%);
+}
+#rail::-webkit-scrollbar{width:5px}
 #rail::-webkit-scrollbar-thumb{background:var(--edge2);border-radius:3px}
-.grp h4{margin:0 0 5px;font-family:var(--fd);font-size:10.5px;letter-spacing:1.1px;color:var(--arcane);
-  display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;
-  padding-bottom:5px;border-bottom:1px solid #251f38}
+
+.grp h4{
+  margin:0 0 6px;
+  font-family:var(--fd);
+  font-size:11px;
+  letter-spacing:1.2px;
+  color:var(--arcane);
+  display:flex;
+  align-items:center;
+  gap:6px;
+  cursor:pointer;
+  user-select:none;
+  padding-bottom:4px;
+  border-bottom:1px solid #251f38;
+}
 .grp h4 .cv{margin-left:auto;font-size:9px;color:var(--muted);transition:transform .18s}
 .grp.shut h4 .cv{transform:rotate(-90deg)}
 .grp.shut .body{display:none}
-.grp.k h4{color:var(--blood)} .grp.c h4{color:var(--steel)}
+.grp.k h4{color:var(--blood)}
+.grp.c h4{color:var(--steel)}
 
-/* A list of places is a list, not fourteen buttons. The frame comes back on hover,
-   which is the moment it means something. */
-.tool{display:flex;align-items:center;gap:9px;width:100%;background:none;
-  border:1px solid transparent;border-radius:6px;padding:5px 7px;font-size:12.5px;font-weight:500;
-  margin-bottom:1px;text-align:left;line-height:1.3;color:var(--muted);
-  transition:background .13s,color .13s}
+.tool{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  width:100%;
+  background:none;
+  border:1px solid transparent;
+  border-radius:6px;
+  padding:6px 6px;
+  font-size:13px;
+  font-weight:500;
+  margin-bottom:1px;
+  text-align:left;
+  line-height:1.3;
+  color:var(--muted);
+  transition:background .13s,color .13s;
+}
 .tool:hover{background:var(--panel2);color:var(--ink)}
 .tool.on{background:#2e2410;border-color:#5a4a22;color:#f6dfa6;font-weight:600}
-.tool .c{width:8px;height:8px;border-radius:2px;flex:none}
-.tool .k{margin-left:auto;font-size:10px;color:#6b6283;font-weight:400}
-/* Eight place names are short enough to pair up, which keeps the rail from outgrowing
-   the window on a laptop. */
-.places{display:grid;grid-template-columns:1fr 1fr;gap:1px 3px}
-.places .tool{margin-bottom:0;padding:5px 5px;font-size:11.5px;gap:5px;
-  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;display:flex}
-/* A delver in the rail: who, how they fight, what the gift has left, and how hurt.
-   The style word carries the colour, so the row needs no icon set. */
-.delver{display:grid;grid-template-columns:1fr auto;grid-template-areas:'nm st' 'hp hpn';
-  gap:1px 8px;width:100%;background:none;border:1px solid transparent;border-radius:6px;
-  padding:5px 7px;margin-bottom:2px;text-align:left;color:var(--ink);font-size:12.5px;
-  transition:background .13s}
+.tool .c{width:9px;height:9px;border-radius:2px;flex:none}
+.tool .k{margin-left:auto;font-size:11px;color:#6b6283;font-weight:400}
+
+.places{display:grid;grid-template-columns:1fr 1fr;gap:1px 2px}
+.places .tool{margin-bottom:0;padding:5px 4px;font-size:12px;gap:4px}
+
+.delver{
+  display:grid;
+  grid-template-columns:1fr auto;
+  grid-template-areas:'nm st' 'hp hpn';
+  gap:1px 8px;
+  width:100%;
+  background:none;
+  border:1px solid transparent;
+  border-radius:6px;
+  padding:5px 6px;
+  margin-bottom:2px;
+  text-align:left;
+  color:var(--ink);
+  font-size:13px;
+  transition:background .13s;
+}
 .delver:hover{background:var(--panel2)}
-.delver .nm{grid-area:nm;display:flex;align-items:center;gap:7px;font-weight:600;
-  overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.delver .nm{grid-area:nm;display:flex;align-items:center;gap:6px;font-weight:600;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .delver .nm .c{width:8px;height:8px;border-radius:2px;flex:none}
-.delver .st{grid-area:st;font-size:10px;letter-spacing:.5px;color:#6b6283;align-self:center}
-.delver .st.bow{color:#9ab86a} .delver .st.axe{color:#d08a5a}
-.delver .st.staff{color:#a98fe0} .delver .st.sword{color:#9aa6b8}
+.delver .st{grid-area:st;font-size:11px;letter-spacing:.4px;color:#6b6283;align-self:center}
+.delver .st.bow{color:#9ab86a}
+.delver .st.axe{color:#d08a5a}
+.delver .st.staff{color:#a98fe0}
+.delver .st.sword{color:#9aa6b8}
 .delver .mana{grid-area:st;display:none}
 .delver .st.staff ~ .mana{display:block}
-.delver .hpn{grid-area:hpn;font-size:10.5px;color:#6b6283;align-self:center}
-.delver .hpb{grid-area:hp;align-self:center;height:4px;border-radius:2px;background:#191527;
-  overflow:hidden;display:block;margin-top:2px}
+.delver .hpn{grid-area:hpn;font-size:11px;color:#6b6283;align-self:center}
+.delver .hpb{grid-area:hp;align-self:center;height:4px;border-radius:2px;background:#191527;overflow:hidden;display:block;margin-top:2px}
 .delver .hpb i{display:block;height:100%}
 .delver .rel{color:var(--gold);font-size:10px;flex:none}
 .delver.hurt .nm{color:#e59a93}
 .delver .shy{color:#e59a93;font-size:11px;flex:none}
 .mana{font-size:9px;letter-spacing:1px;color:#a98fe0}
 .mana.dry{color:#6e5a3a}
-.camrow{display:flex;gap:4px;margin-bottom:5px}
-.cbtn{flex:none;width:32px;height:26px;background:transparent;border:1px solid var(--edge);
-  border-radius:6px;font-size:12px;line-height:1;padding:0;color:var(--muted)}
-.cbtn.wide{flex:1;width:auto;font-size:11px;font-weight:600}
-.cbtn:hover{border-color:var(--gold);color:var(--ink)}
-.tiny{font-size:10.5px;color:#6b6283;line-height:1.5;margin-top:7px}
 
-#console{background:linear-gradient(180deg,#1d1829,#110e1b);border-top:1px solid var(--edge);
-  display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:center;
-  padding-block:11px;padding-bottom:calc(11px + env(safe-area-inset-bottom,0px));
-  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.camrow{display:flex;gap:4px;margin-bottom:5px}
+.cbtn{
+  flex:none;
+  width:34px;
+  height:28px;
+  background:transparent;
+  border:1px solid var(--edge);
+  border-radius:6px;
+  font-size:12px;
+  line-height:1;
+  padding:0;
+  color:var(--muted);
+}
+.cbtn.wide{flex:1;width:auto;font-size:12px;font-weight:600}
+.cbtn:hover{border-color:var(--gold);color:var(--ink)}
+.tiny{font-size:11px;color:#6b6283;line-height:1.5;margin-top:6px}
+
+/* ===== CHRONICLE — always-on full-height column ===== */
+.float{
+  position:absolute;
+  background:#120f1dEE;
+  border:1px solid var(--edge);
+  border-radius:10px;
+  padding:9px 12px;
+  font-size:13px;
+  line-height:1.5;
+  color:var(--muted);
+}
+#hint{
+  left:max(12px,env(safe-area-inset-left,0px));
+  top:12px;
+  max-width:min(280px,50vw);
+  pointer-events:none;
+}
+#hint b{color:var(--ink)}
+
+#log{
+  right:0;
+  top:0;
+  bottom:0;
+  width:280px;
+  max-height:none;
+  overflow-y:auto;
+  pointer-events:auto;
+  border:0;
+  border-left:2px solid #6b5420;
+  border-radius:0;
+  background:linear-gradient(90deg,#0c0a14E8,#0c0a14F5);
+  padding:14px 14px 20px;
+  -webkit-mask-image:none;
+  mask-image:none;
+  z-index:2;
+}
+#log h4{
+  margin:0 0 12px;
+  font-family:var(--fd);
+  font-size:13px;
+  letter-spacing:.7px;
+  color:var(--gold);
+  display:flex;
+  align-items:center;
+  gap:8px;
+  cursor:pointer;
+  pointer-events:auto;
+}
+#log h4 span{margin-left:auto;padding-left:10px;font-size:11px;color:#6b6283;font-family:var(--fb);font-weight:400}
+#log h4 span:hover{color:var(--ink)}
+#log.shut #logList{display:none}
+#log.shut{width:180px}
+#log div{margin-bottom:6px;line-height:1.5;font-size:13.5px}
+#log b{color:var(--ink);font-weight:700}
+#log .d{color:#e59a93}
+#log .m{color:#bda3f0}
+#log .g{color:#e3c77a}
+
+/* Chronicle entries */
+.ann{
+  font-size:13.5px;
+  line-height:1.55;
+  padding:4px 0 4px 10px;
+  border-left:2px solid #2f2945;
+  margin-bottom:3px;
+  color:var(--muted);
+}
+.ann b{color:var(--ink);font-weight:600}
+.ann em{font-style:normal;display:block;font-size:11px;color:#6b6283;letter-spacing:.2px}
+.ann.wed{border-left-color:#6b5420}
+.ann.born{border-left-color:#3f6b38}
+.ann.death{border-left-color:#6e3330}
+.ann.age{border-left-color:#3b3354}
+
+/* ===== BOTTOM CONSOLE ===== */
+#console{
+  background:linear-gradient(180deg,#1d1829,#110e1b);
+  border-top:1px solid var(--edge);
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  gap:16px;
+  align-items:center;
+  padding:10px 16px;
+  padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  min-height:68px;
+}
 .who{display:flex;gap:12px;align-items:center;min-width:0}
-#portrait{width:50px;height:50px;flex:none;border-radius:9px;border:1px solid var(--edge2);background:#15121f}
-.who h3{font-family:var(--fd);font-size:16px;margin:0;line-height:1.25;white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis}
-.who p{margin:3px 0 0;font-size:12px;color:var(--muted);line-height:1.4}
+#portrait{
+  width:48px;
+  height:48px;
+  flex:none;
+  border-radius:8px;
+  border:1px solid var(--edge2);
+  background:#15121f;
+}
+.who h3{
+  font-family:var(--fd);
+  font-size:17px;
+  margin:0;
+  line-height:1.2;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.who p{margin:2px 0 0;font-size:13px;color:var(--muted);line-height:1.4}
 .who p b{color:var(--gold);font-weight:700}
-.sum{font-size:12.5px;color:var(--muted);line-height:1.65;max-width:78ch}
+.sum{font-size:13.5px;color:var(--muted);line-height:1.6;max-width:70ch}
 .sum b{color:var(--ink);font-weight:600}
-.cbtns{display:flex;flex-direction:column;gap:6px}
-.cbtns button{background:transparent;border:1px solid var(--edge2);border-radius:7px;padding:6px 12px;
-  font-size:12px;font-weight:600;white-space:nowrap;color:var(--muted);
-  transition:background .14s,color .14s,border-color .14s}
+.cbtns{display:flex;flex-direction:column;gap:5px}
+.cbtns button{
+  background:transparent;
+  border:1px solid var(--edge2);
+  border-radius:7px;
+  padding:6px 12px;
+  font-size:13px;
+  font-weight:600;
+  white-space:nowrap;
+  color:var(--muted);
+  transition:background .14s,color .14s,border-color .14s;
+}
 .cbtns button:hover{background:var(--panel2);color:var(--ink)}
 .cbtns button.gold{border-color:#6b5420;color:#e9cd86}
 .cbtns button.gold:hover{background:#2c2412;color:#f6dfa6}
 
-aside.panel{position:absolute;inset:0 0 0 auto;width:min(420px,100%);background:var(--panel);
-  border-left:2px solid var(--edge);transform:translateX(102%);transition:transform .22s ease;
-  display:flex;flex-direction:column;z-index:30}
-aside.panel.open{transform:none}
-@media (max-width:780px){aside.panel{inset:auto 0 0 0;width:auto;height:min(80%,580px);border-left:0;
-  border-top:2px solid var(--edge);transform:translateY(102%)}aside.panel.open{transform:none}
-  #rail{position:static;width:auto;flex-direction:row;overflow-x:auto;border-right:0;
-    border-bottom:1px solid var(--edge);padding:8px 10px;gap:14px}
-  .grp{min-width:150px}
-  #stage{display:flex;flex-direction:column} #view,#view3d{flex:1;min-height:0}
-  #view3d{position:static;inset:auto}
-  #fx{position:absolute;inset:0}
-  #log,#hint{display:none}
-  #console{grid-template-columns:1fr}
+/* ===== SLIDE-IN PANELS ===== */
+aside.panel{
+  position:absolute;
+  inset:0 0 0 auto;
+  width:min(400px,100%);
+  background:var(--panel);
+  border-left:2px solid var(--edge);
+  transform:translateX(102%);
+  transition:transform .22s ease;
+  display:flex;
+  flex-direction:column;
+  z-index:30;
 }
-.phead{display:flex;gap:11px;align-items:flex-start;padding:14px;border-bottom:1px solid var(--edge);
-  background:var(--panel2)}
+aside.panel.open{transform:none}
+.phead{
+  display:flex;
+  gap:11px;
+  align-items:flex-start;
+  padding:14px;
+  border-bottom:1px solid var(--edge);
+  background:var(--panel2);
+}
 .phead h2{font-family:var(--fd);font-size:18px;margin:0 0 3px;line-height:1.2}
-.phead p{margin:0;font-size:12.5px;color:var(--muted);line-height:1.45}
-.pclose{margin-left:auto;flex:none;background:none;border:1px solid var(--edge2);border-radius:8px;
-  width:28px;height:28px;color:var(--muted);font-size:16px;line-height:1;padding:0}
+.phead p{margin:0;font-size:13px;color:var(--muted);line-height:1.45}
+.pclose{
+  margin-left:auto;
+  flex:none;
+  background:none;
+  border:1px solid var(--edge2);
+  border-radius:8px;
+  width:28px;
+  height:28px;
+  color:var(--muted);
+  font-size:16px;
+  line-height:1;
+  padding:0;
+}
 .pbody{overflow-y:auto;padding:14px;flex:1;min-height:0;-webkit-user-select:text;user-select:text}
+
+/* Generic panel content */
 .sec{margin-bottom:16px}
-.sec h4{font-family:var(--fd);font-size:11.5px;letter-spacing:.8px;color:var(--gold);margin:0 0 8px}
-/* What a person wants, and what they have not forgotten. */
+.sec h4{font-family:var(--fd);font-size:12px;letter-spacing:.8px;color:var(--gold);margin:0 0 8px}
 .needs{display:grid;gap:5px}
-.nrow{display:grid;grid-template-columns:76px 1fr;align-items:center;gap:10px;font-size:12px}
+.nrow{display:grid;grid-template-columns:76px 1fr;align-items:center;gap:10px;font-size:13px}
 .nrow span:first-child{color:var(--muted)}
 .nbar{height:5px;border-radius:3px;background:#191527;overflow:hidden;display:block}
 .nbar i{display:block;height:100%}
-.mem{font-size:12.5px;line-height:1.5;padding:4px 0 4px 9px;border-left:2px solid #2f2945;
-  margin-bottom:3px;color:var(--muted)}
+.mem{
+  font-size:13px;
+  line-height:1.5;
+  padding:4px 0 4px 10px;
+  border-left:2px solid #2f2945;
+  margin-bottom:3px;
+  color:var(--muted);
+}
 .mem b{color:var(--ink);font-weight:600}
-.mem em{font-style:normal;display:block;font-size:10.5px;color:#6b6283;letter-spacing:.2px}
-.mem.death{border-left-color:#6e3330} .mem.wed{border-left-color:#6b5420}
-.mem.born{border-left-color:#3f6b38}  .mem.relic{border-left-color:#8f6fe0}
-.mem.boss{border-left-color:#c1483f}  .mem.age{border-left-color:#3b3354}
+.mem em{font-style:normal;display:block;font-size:11px;color:#6b6283;letter-spacing:.2px}
+.mem.death{border-left-color:#6e3330}
+.mem.wed{border-left-color:#6b5420}
+.mem.born{border-left-color:#3f6b38}
+.mem.relic{border-left-color:#8f6fe0}
+.mem.boss{border-left-color:#c1483f}
+.mem.age{border-left-color:#3b3354}
 
-.kv{display:grid;grid-template-columns:104px 1fr;gap:4px 10px;font-size:13px;line-height:1.5}
+.kv{display:grid;grid-template-columns:104px 1fr;gap:4px 10px;font-size:13.5px;line-height:1.5}
 .kv span{color:var(--muted)}
 .kv b{font-weight:600}
 .tagline{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
-.tag{font-size:11px;padding:2px 8px;border-radius:4px;background:none;
-  border:1px solid #302a45;color:var(--muted)}
+.tag{
+  font-size:11.5px;
+  padding:2px 8px;
+  border-radius:4px;
+  background:none;
+  border:1px solid #302a45;
+  color:var(--muted);
+}
 .tag.mag{border-color:#5b4a93;color:#c6b3f3;background:#241d3b}
 .tag.war{border-color:#6e3330;color:#eda79f;background:#2d1a1a}
 .tag.gold{border-color:#6b5420;color:#e9cd86;background:#2c2412}
 .bar{height:9px;border-radius:5px;background:#120f1d;border:1px solid var(--edge);overflow:hidden;margin-top:3px}
 .bar i{display:block;height:100%}
-.row{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:7px;font-size:13px}
+.row{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:7px;font-size:13.5px}
 .row:hover{background:var(--panel2)}
 .row .sw{width:12px;height:12px;border-radius:3px;flex:none}
-.row em{font-style:normal;margin-left:auto;color:var(--muted);font-size:12px;text-align:right}
-/* The houses: a household is a heading and the people under it, held by one rule down
-   the left. No cards - the indent carries the grouping. */
+.row em{font-style:normal;margin-left:auto;color:var(--muted);font-size:12.5px;text-align:right}
+
 .house{margin-bottom:14px;padding-left:11px;border-left:2px solid #2f2945}
-.house h5{margin:0 0 4px;font-family:var(--fd);font-size:13px;font-weight:700;
-  display:flex;align-items:baseline;gap:8px}
-.house h5 .at{margin-left:auto;font-family:var(--fb);font-size:10.5px;font-weight:400;
-  color:#6b6283;white-space:nowrap}
-.house h5 .nob{font-family:var(--fb);font-size:10.5px;font-weight:400;color:var(--gold)}
-.kinrow{display:flex;align-items:baseline;gap:8px;width:100%;background:none;border:0;
-  border-radius:5px;padding:3px 6px;margin-left:-6px;text-align:left;font-size:12.5px;
-  line-height:1.5;color:var(--ink)}
+.house h5{
+  margin:0 0 4px;
+  font-family:var(--fd);
+  font-size:14px;
+  font-weight:700;
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+}
+.house h5 .at{margin-left:auto;font-family:var(--fb);font-size:11px;font-weight:400;color:#6b6283;white-space:nowrap}
+.house h5 .nob{font-family:var(--fb);font-size:11px;font-weight:400;color:var(--gold)}
+.kinrow{
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+  width:100%;
+  background:none;
+  border:0;
+  border-radius:5px;
+  padding:3px 6px;
+  margin-left:-6px;
+  text-align:left;
+  font-size:13px;
+  line-height:1.5;
+  color:var(--ink);
+}
 .kinrow:hover{background:var(--panel2)}
 .kinrow .sw{width:7px;height:7px;border-radius:2px;flex:none;align-self:center}
 .kinrow b{font-weight:600}
 .kinrow em.warm{color:#8fc47a}
 .kinrow em.cold{color:#e59a93}
-.kinrow em{font-style:normal;margin-left:auto;color:var(--muted);font-size:11.5px;
-  text-align:right;padding-left:10px}
-.gone{display:flex;align-items:baseline;gap:10px;font-size:12.5px;line-height:1.6;
-  padding:2px 0;color:var(--muted)}
+.kinrow em{font-style:normal;margin-left:auto;color:var(--muted);font-size:12px;text-align:right;padding-left:10px}
+.gone{display:flex;align-items:baseline;gap:10px;font-size:13px;line-height:1.6;padding:2px 0;color:var(--muted)}
 .gone b{font-weight:600;color:#c9c0da}
-.gone em{font-style:normal;margin-left:auto;color:#6b6283;font-size:11.5px;text-align:right}
-.ann{font-size:12.5px;line-height:1.55;padding:4px 0 4px 9px;border-left:2px solid #2f2945;
-  margin-bottom:2px;color:var(--muted)}
-.ann b{color:var(--ink);font-weight:600}
-.ann em{font-style:normal;display:block;font-size:10.5px;color:#6b6283;letter-spacing:.2px}
-.ann.wed{border-left-color:#6b5420} .ann.born{border-left-color:#3f6b38}
-.ann.death{border-left-color:#6e3330} .ann.age{border-left-color:#3b3354}
+.gone em{font-style:normal;margin-left:auto;color:#6b6283;font-size:12px;text-align:right}
+
 .floorgrid{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;margin-top:6px}
-.fl{aspect-ratio:1;border-radius:3px;background:#1d1a2a;border:1px solid #272338;
-  font-size:8.5px;display:flex;align-items:center;justify-content:center;color:#5c5476}
+.fl{
+  aspect-ratio:1;
+  border-radius:3px;
+  background:#1d1a2a;
+  border:1px solid #272338;
+  font-size:9px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#5c5476;
+}
 .fl.done{background:#2b3a26;border-color:#436035;color:#a8d195}
 .fl.deep{background:#3a2a18;border-color:#6b5420;color:#e9cd86}
 .fl.boss{background:#2a1c22;border-color:#5e3340;color:#c98fa0}
 .fl.now{background:#4a2020;border-color:#b05048;color:#ffc9c2;animation:pulse 1.2s infinite}
 @keyframes pulse{50%{opacity:.55}}
-.party{border:0;border-left:2px solid #3b3354;border-radius:0;padding:4px 0 10px 11px;
-  margin-bottom:10px;background:none}
-.party h5{margin:0 0 5px;font-family:var(--fd);font-size:13px}
+.party{
+  border:0;
+  border-left:2px solid #3b3354;
+  border-radius:0;
+  padding:4px 0 10px 11px;
+  margin-bottom:10px;
+  background:none;
+}
+.party h5{margin:0 0 5px;font-family:var(--fd);font-size:14px}
 .party .prog{height:7px;border-radius:4px;background:#120f1d;overflow:hidden;margin-top:6px}
 .party .prog i{display:block;height:100%;background:var(--blood)}
-.watchb{margin-top:8px;width:100%;background:var(--panel3);border:1px solid #6e3330;border-radius:7px;
-  padding:6px;font-size:12px;font-weight:700;color:#eda79f}
+.watchb{
+  margin-top:8px;
+  width:100%;
+  background:var(--panel3);
+  border:1px solid #6e3330;
+  border-radius:7px;
+  padding:6px;
+  font-size:13px;
+  font-weight:700;
+  color:#eda79f;
+}
 .watchb:hover{background:#34191a}
 
+/* The header must never overflow. It has now outgrown its width three times:
+   twice before, and again when the type was enlarged for stream legibility -
+   204px over at 1440 wide. Bigger type means the collapse must start EARLIER,
+   so every threshold here sits above the old ones. Drop the least useful thing
+   first and keep every control reachable.
+
+   `.stat:last-of-type` does NOT mean "the last stat": :last-of-type is by element
+   type, and the last <div> in the header is `.right`, not a stat. The old rule
+   therefore hid the clock along with everything else. The clock is the one
+   readout a watcher always needs, so it is kept by id. */
+@media (max-width:1620px){
+  .stat small{display:none}
+  .stat{margin-right:14px}
+}
+@media (max-width:1460px){
+  h1{font-size:16px;margin-right:14px}
+  h1 em{display:none}
+  h1::after{content:'the Keep';color:var(--gold);font-size:13px}
+}
+@media (max-width:1380px){
+  .stat:not(#clockStat){display:none}
+}
+@media (max-width:1120px){
+  #clockStat{display:none}
+}
+@media (max-width:1020px){
+  #newTown{display:none}
+}
+@media (max-width:980px){
+  #rail{width:132px}
+  #log{width:240px}
+  :root{--chron:240px}
+}
+@media (max-width:900px){
+  #housesBtn,#keepBtn{display:none}
+}
+@media (max-width:780px){
+  aside.panel{
+    inset:auto 0 0 0;
+    width:auto;
+    height:min(80%,580px);
+    border-left:0;
+    border-top:2px solid var(--edge);
+    transform:translateY(102%);
+  }
+  aside.panel.open{transform:none}
+  #rail{
+    position:static;
+    width:auto;
+    flex-direction:row;
+    overflow-x:auto;
+    border-right:0;
+    border-bottom:1px solid var(--edge);
+    padding:8px 10px;
+    gap:12px;
+  }
+  .grp{min-width:140px}
+  #stage{display:flex;flex-direction:column}
+  #view,#view3d{flex:1;min-height:0}
+  #view3d{position:static;inset:auto}
+  #log,#hint{display:none}
+  :root{--chron:0px}
+  #console{grid-template-columns:1fr}
+}
 </style>
 
 <div id="app">
