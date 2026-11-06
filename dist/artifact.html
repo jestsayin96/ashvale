@@ -4845,7 +4845,7 @@ function tick(ts){
     camX+=(f[0]-camX)*Math.min(1,raw*3); camY+=(f[1]-camY)*Math.min(1,raw*3);
   } else if(follow&&scene==='town'){ const v=vpt(follow.x,follow.y), f=flat(v[0],v[1],H(follow.x|0,follow.y|0));
     camX+=(f[0]-camX)*Math.min(1,raw*3); camY+=(f[1]-camY)*Math.min(1,raw*3); }
-  if(v3d) render3D(); else render();
+  if(v3d) (scene==='keep'?renderKeep3D():render3D()); else render();
   if(((tnow*10)|0)%4===0){
     paintConsole();
     if(scene==='keep' && ((tnow*2)|0)!==lastRailTick){ lastRailTick=((tnow*2)|0); paintRail(); }
@@ -4938,12 +4938,15 @@ function paintRail(){
     const id=h.parentElement.dataset.grp; railShut[id]=!railShut[id]; paintRail(); });
   railEl.querySelectorAll('[data-cam]').forEach(b=>b.onclick=()=>{
     const a=b.dataset.cam;
-    if(v3d&&R3){
-      if(a==='l') R3.th-=Math.PI/6; else if(a==='r') R3.th+=Math.PI/6;
-      else if(a==='in') R3.dist=Math.max(8,R3.dist/1.2);
-      else if(a==='out') R3.dist=Math.min(120,R3.dist*1.2);
-      else if(a==='c'){ R3.tx=26; R3.tz=23; R3.dist=40; R3.th=-2.25; R3.ph=0.78; }
-      else if(a==='keep'){ R3.tx=46; R3.tz=21; R3.dist=24; R3.th=-2.6; R3.ph=0.5; }
+    const V=v3d&&(scene==='keep'?K3:R3);
+    if(V){
+      if(a==='l') V.th-=Math.PI/6; else if(a==='r') V.th+=Math.PI/6;
+      else if(a==='in') V.dist=Math.max(5,V.dist/1.2);
+      else if(a==='out') V.dist=Math.min(120,V.dist*1.2);
+      else if(a==='c'){ userPanned=false;
+        if(scene==='keep'){ V.dist=12; V.th=-2.3; V.ph=1.30; }
+        else { V.tx=26; V.tz=23; V.dist=40; V.th=-2.25; V.ph=0.78; } }
+      else if(a==='keep'&&scene!=='keep'){ V.tx=46; V.tz=21; V.dist=24; V.th=-2.6; V.ph=0.5; }
       paintRail(); return;
     }
     if(a==='l') rot=(rot+3)%4; else if(a==='r') rot=(rot+1)%4;
@@ -5364,10 +5367,11 @@ function init3D(){
       th:-2.25,ph:0.78,dist:40,tx:26,ty:0.6,tz:23,folk:0};
   rebuildFolk(R3); resize3D(); loadAssets(R3); return R3;
 }
-function resize3D(){ if(!R3||!cv3) return;
+function resize3D(){ if(!cv3) return;
   const r=cv3.getBoundingClientRect();
   const w=Math.max(280,Math.floor(r.width)), h=Math.max(200,Math.floor(r.height));
-  R3.renderer.setSize(w,h,false); R3.cam.aspect=w/h; R3.cam.updateProjectionMatrix(); }
+  const ren=(R3&&R3.renderer)||(K3&&K3.renderer); if(ren) ren.setSize(w,h,false);
+  [R3,K3].forEach(S=>{ if(S&&S.cam){ S.cam.aspect=w/h; S.cam.updateProjectionMatrix(); } }); }
 function render3D(){
   const S=init3D(); if(!S){ render(); return; }
   if(S.folk!==people.length) rebuildFolk(S);
@@ -5424,28 +5428,32 @@ function set3D(on){
   cv.style.display=v3d?'none':'';
   const hintEl=document.getElementById('hint'); if(hintEl&&v3d) hintEl.remove();
   ['scTown','scKeep','sc3D'].forEach(id=>{ const e=document.getElementById(id);
-    if(e) e.classList.toggle('on', id==='sc3D'?v3d:(!v3d&&scene===(id==='scTown'?'town':'keep'))); });
-  if(v3d){ const S=init3D(); if(S){ resize3D(); } else { v3d=false; cv.style.display='';
+    if(e) e.classList.toggle('on', id==='sc3D'?v3d:scene===(id==='scTown'?'town':'keep')); });
+  if(v3d){ const S=(scene==='keep'?initKeep3D():init3D()); if(S){ resize3D(); }
+    else { v3d=false; cv.style.display='';
     logMsg('The 3D view could not start: this browser has no WebGL.','bad'); } }
   paintRail(); paintConsole();
 }
+const cur3D=()=>v3d?(scene==='keep'?K3:R3):null;
 function wire3D(){
   const c2=document.getElementById('view3d'); if(!c2) return;
   new ResizeObserver(resize3D).observe(c2);
   let d3=null, m3=0;
   c2.addEventListener('contextmenu',e=>e.preventDefault());
   c2.addEventListener('pointerdown',e=>{ c2.setPointerCapture(e.pointerId);
-    d3={x:e.clientX,y:e.clientY,th:R3?R3.th:0,ph:R3?R3.ph:0,
-        tx:R3?R3.tx:0,tz:R3?R3.tz:0,pan:e.button===2||e.shiftKey}; m3=0; });
-  c2.addEventListener('pointermove',e=>{ if(!d3||!R3) return;
+    const V=cur3D();
+    d3={x:e.clientX,y:e.clientY,th:V?V.th:0,ph:V?V.ph:0,
+        tx:V?V.tx:0,tz:V?V.tz:0,pan:e.button===2||e.shiftKey}; m3=0; });
+  c2.addEventListener('pointermove',e=>{ const V=cur3D(); if(!d3||!V) return;
     const dx=e.clientX-d3.x, dy=e.clientY-d3.y;
     m3=Math.max(m3,Math.hypot(dx,dy));
-    if(d3.pan){ const s=R3.dist*0.0024;
-      const fx=-Math.cos(R3.th), fz=-Math.sin(R3.th), rx=Math.sin(R3.th), rz=-Math.cos(R3.th);
-      R3.tx=d3.tx-(dx*rx+dy*fx)*s; R3.tz=d3.tz-(dx*rz+dy*fz)*s; }
-    else { R3.th=d3.th+dx*0.006;
-      R3.ph=Math.max(0.12,Math.min(1.45,d3.ph+dy*0.005)); } });
-  const up=e=>{ if(d3&&m3<5&&!d3.pan){ const r=c2.getBoundingClientRect();
+    if(d3.pan){ const s=V.dist*0.0024; userPanned=true;
+      const fx=-Math.cos(V.th), fz=-Math.sin(V.th), rx=Math.sin(V.th), rz=-Math.cos(V.th);
+      V.tx=d3.tx-(dx*rx+dy*fx)*s; V.tz=d3.tz-(dx*rz+dy*fz)*s; }
+    else { V.th=d3.th+dx*0.006;
+      const lo=scene==='keep'?0.80:0.12;
+      V.ph=Math.max(lo,Math.min(1.48,d3.ph+dy*0.005)); } });
+  const up=e=>{ if(d3&&m3<5&&!d3.pan&&scene!=='keep'){ const r=c2.getBoundingClientRect();
       const h=pick3D(e.clientX-r.left,e.clientY-r.top);
       if(h&&h.person) showPerson(h.person);
       else if(h&&h.building){ if(opened.has(h.building.id)) opened.delete(h.building.id);
@@ -5454,8 +5462,8 @@ function wire3D(){
     d3=null; };
   c2.addEventListener('pointerup',up);
   c2.addEventListener('pointercancel',()=>{d3=null;});
-  c2.addEventListener('wheel',e=>{ e.preventDefault(); if(!R3) return;
-    R3.dist=Math.max(8,Math.min(120,R3.dist*(e.deltaY<0?1/1.12:1.12))); },{passive:false});
+  c2.addEventListener('wheel',e=>{ e.preventDefault(); const V=cur3D(); if(!V) return;
+    V.dist=Math.max(5,Math.min(120,V.dist*(e.deltaY<0?1/1.12:1.12))); },{passive:false});
 }
 
 /* ===================== optional assets =====================
@@ -5646,10 +5654,19 @@ function clipFor(p){
   if(p.guard||p.adventurer) return 'guard_idle';
   return f?'idle_f':'idle';
 }
+/* If a rig has nothing for a slot, walk down to something it does have, rather than
+   leaving the character frozen in its bind pose. */
+const FALLBACK={ guard_idle:'idle', sit:'idle', sit_talk:'sit', drunk:'idle', pray:'idle',
+  sleep:'idle', run:'walk', walk_f:'walk', idle_f:'idle', run_f:'run', attack:'idle',
+  block:'idle', hit:'idle', die:'idle', cast:'idle', cast_big:'cast', farm:'idle',
+  haul:'walk', carry_idle:'idle', talk:'idle', nod:'idle' };
 function playClip(sk,slot){
   if(sk.cur===slot) return;
-  const nxt=actionFor(sk,slot);
-  if(!nxt) return;                                  // nothing for this slot; stay as we are
+  let want=slot, nxt=null, guard=0;
+  while(want&&!(nxt=actionFor(sk,want))&&guard++<6) want=FALLBACK[want];
+  if(!nxt) return;                                  // nothing at all; stay as we are
+  slot=want;
+  if(sk.cur===slot) return;
   const prev=sk.cur?sk.actions[sk.cur]:null;
   if(prev) prev.fadeOut(0.3);
   nxt.reset().fadeIn(0.3).play(); sk.cur=slot;
@@ -5685,8 +5702,193 @@ function updateSkins(S,dt){
   });
 }
 
+/* ===================== the Keep, in three dimensions ===================== */
+const KSKINS=new Map();
+const WALLH=1.95;      // low enough to see over from a steep angle
+let K3=null, k3floor=-1;
+function dungeonGeo(th){
+  const fp=[],fc=[],fi=[]; let fv=0;
+  const wp=[],wc=[],wi=[]; let wv=0;
+  const hx2=c=>parseInt(c.slice(1),16);
+  const sh=(c,f)=>((Math.min(255,((c>>16)&255)*f)|0)<<16)|((Math.min(255,((c>>8)&255)*f)|0)<<8)|
+    (Math.min(255,(c&255)*f)|0);
+  const put=(P,C,v,x,y,z,c)=>{ P.push(x,y,z);
+    C.push(((c>>16)&255)/255,((c>>8)&255)/255,(c&255)/255); };
+  const quad=(P,C,I,vRef,a,b,c2,d,cl)=>{ const v=vRef.v;
+    put(P,C,v,a[0],a[1],a[2],cl); put(P,C,v,b[0],b[1],b[2],cl);
+    put(P,C,v,c2[0],c2[1],c2[2],cl); put(P,C,v,d[0],d[1],d[2],cl);
+    I.push(v,v+2,v+1, v,v+3,v+2); vRef.v+=4; };
+  const F={v:0}, W={v:0};
+  const floorPal=th.floor.map(hx2), rockPal=th.rock.map(hx2), poolC=hx2(th.pool);
+  for(let y=0;y<DN;y++)for(let x=0;x<DN;x++){
+    const t=dty[dI(x,y)];
+    if(t===DROCK){
+      // a wall block, but only the faces that look onto somewhere you can stand
+      const c=rockPal[(x*5+y*3)%rockPal.length];
+      const side=(nx,ny,a,b,c2,d)=>{ if(dAt(nx,ny)===DROCK) return;
+        quad(wp,wc,wi,W,a,b,c2,d,sh(c,0.88)); };
+      side(x+1,y,[x+1,WALLH,y],[x+1,0,y],[x+1,0,y+1],[x+1,WALLH,y+1]);
+      side(x-1,y,[x,WALLH,y+1],[x,0,y+1],[x,0,y],[x,WALLH,y]);
+      side(x,y+1,[x,WALLH,y+1],[x,0,y+1],[x+1,0,y+1],[x+1,WALLH,y+1]);
+      side(x,y-1,[x+1,WALLH,y],[x+1,0,y],[x,0,y],[x,WALLH,y]);
+      quad(wp,wc,wi,W,[x,WALLH,y],[x,WALLH,y+1],[x+1,WALLH,y+1],[x+1,WALLH,y],sh(c,1.1));
+      continue;
+    }
+    let c, h=0;
+    if(t===DPOOL){ c=poolC; h=-0.14; }
+    else if(t===DRUBBLE){ c=sh(floorPal[0],0.82); }
+    else if(t===DDOWN){ c=0x2a2030; }
+    else if(t===DUP){ c=0x33303c; }
+    else c=floorPal[(x*7+y*11)%floorPal.length];
+    quad(fp,fc,fi,F,[x,h,y],[x,h,y+1],[x+1,h,y+1],[x+1,h,y],c);
+  }
+  const mk=(P,C,I)=>{ const g=new THREE.BufferGeometry();
+    g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));
+    g.setAttribute('color',new THREE.Float32BufferAttribute(C,3));
+    g.setIndex(I); g.computeVertexNormals(); return g; };
+  return {floor:mk(fp,fc,fi), wall:mk(wp,wc,wi)};
+}
+function buildKeep3D(){
+  const th=themeFor(dfloor);
+  const S=K3;
+  // clearing the world orphans the party's meshes, so drop the cache that remembers them
+  KSKINS.clear();
+  while(S.world.children.length) S.world.remove(S.world.children[0]);
+  S.torches.length=0; S.lights.length=0;
+  const geo=dungeonGeo(th);
+  // floors and walls are wound opposite ways here, and a dungeon has no outside worth
+  // culling for, so render both faces and let the shader flip the normal
+  const mat=()=>new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide});
+  const fl=new THREE.Mesh(geo.floor,mat());
+  fl.receiveShadow=true; S.world.add(fl);
+  const wl=new THREE.Mesh(geo.wall,mat());
+  wl.castShadow=true; wl.receiveShadow=true; S.world.add(wl);
+  // torches: a bracket, a flame, and the light it throws
+  const flameG=new THREE.SphereGeometry(0.11,7,6);
+  const flameM=new THREE.MeshBasicMaterial({color:hx(th.torch)});
+  dtorches.forEach(t=>{
+    const f=new THREE.Mesh(flameG,flameM);
+    f.position.set(t.x, 1.75, t.y+0.08); S.world.add(f);
+    const L=new THREE.PointLight(hx(th.torch), 1.35, 11, 1.5);
+    L.position.set(t.x, 1.8, t.y+0.1); S.world.add(L);
+    S.torches.push(f); S.lights.push({L, p:t.p});
+  });
+  // the way down, lit from below
+  const dl=new THREE.PointLight(hx(th.glow), 1.7, 7);
+  dl.position.set(dDownAt[0]+0.5, 0.5, dDownAt[1]+0.5); S.world.add(dl);
+  const dm=new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.42,0.1,12),
+    new THREE.MeshBasicMaterial({color:hx(th.glow)}));
+  dm.position.set(dDownAt[0]+0.5, 0.02, dDownAt[1]+0.5); S.world.add(dm);
+  S.scene.fog.color.setHex(hx(th.rock[2]));
+  S.scene.background=new THREE.Color(hx(th.rock[2]));
+  S.chests=new THREE.Group(); S.world.add(S.chests);
+  S.mobs=new THREE.Group();   S.world.add(S.mobs);
+  k3floor=dfloor;
+  const c=keepPartyCentre();                      // arrive looking at them, do not drift in
+  S.tx=c[0]; S.tz=c[1]; userPanned=false;
+}
+function initKeep3D(){
+  if(K3) return K3;
+  if(typeof THREE==='undefined') return null;
+  cv3=cv3||document.getElementById('view3d'); if(!cv3) return null;
+  const renderer=(R3&&R3.renderer)||new THREE.WebGLRenderer({canvas:cv3,antialias:true});
+  renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+  renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  const scene=new THREE.Scene();
+  scene.fog=new THREE.Fog(0x16121c, 9, 40);          // you see as far as the torches reach
+  const cam=new THREE.PerspectiveCamera(50,1,0.2,120);
+  scene.add(new THREE.AmbientLight(0xffffff,0.20));
+  scene.add(new THREE.HemisphereLight(0x6a5f7a,0x241d2a,0.30));
+  const world=new THREE.Group(); scene.add(world);
+  const lamp=new THREE.PointLight(0xffd9a0, 1.5, 14, 1.45);   // the party's own lantern
+  scene.add(lamp);
+  K3={renderer,scene,cam,world,lamp,torches:[],lights:[],chests:null,mobs:null,
+      th:-2.3, ph:1.30, dist:12, tx:DN/2, ty:0.6, tz:DN/2, folk:0};
+  buildKeep3D();
+  return K3;
+}
+function keepPartyCentre(){
+  const r=activeRun;
+  if(r&&r.party.length){ let ax=0,ay=0;
+    r.party.forEach(p=>{ax+=p.dx;ay+=p.dy;});
+    return [ax/r.party.length, ay/r.party.length]; }
+  return [dUpAt[0]+0.5, dUpAt[1]+0.5];
+}
+function renderKeep3D(){
+  const S=initKeep3D(); if(!S){ renderKeep(); return; }
+  if(k3floor!==dfloor) buildKeep3D();
+  const th=themeFor(dfloor);
+  const dt=Math.max(0,Math.min(0.1,tnow-(S.last||tnow))); S.last=tnow;
+  // torchlight never sits still
+  S.lights.forEach((t,i)=>{ const f=Math.sin(tnow*7+t.p)*0.5+Math.sin(tnow*11.3+t.p*2)*0.3;
+    t.L.intensity=1.25+f*0.4;
+    const m=S.torches[i]; if(m) m.scale.setScalar(0.85+f*0.2); });
+  const c=keepPartyCentre();
+  S.lamp.position.set(c[0], 1.4, c[1]);
+  S.lamp.intensity=1.5+Math.sin(tnow*3.1)*0.14;
+  // chests
+  while(S.chests.children.length) S.chests.remove(S.chests.children[0]);
+  dchests.forEach(ch=>{
+    const m=new THREE.Mesh(new THREE.BoxGeometry(0.44,0.3,0.34),
+      new THREE.MeshLambertMaterial({color:ch.open?0x4a3a2a:0x7a5a30}));
+    m.position.set(ch.x,0.15,ch.y); m.castShadow=true; S.chests.add(m);
+    if(!ch.open){                                     // a loot beam, so you can find them
+      const b=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.22,2.6,8,1,true),
+        new THREE.MeshBasicMaterial({color:hx(th.glow),transparent:true,opacity:0.18,
+          side:THREE.DoubleSide,depthWrite:false}));
+      b.position.set(ch.x,1.3,ch.y); S.chests.add(b);
+    }
+  });
+  // monsters
+  while(S.mobs.children.length) S.mobs.remove(S.mobs.children[0]);
+  dmobs.forEach(mo=>{
+    const s=mo.boss?1.7:1;
+    const g=new THREE.Group();
+    const body=new THREE.Mesh(new THREE.CapsuleGeometry(0.22*s,0.42*s,4,8),
+      new THREE.MeshLambertMaterial({color:hx(mo.col)}));
+    body.position.y=0.45*s; body.castShadow=true; g.add(body);
+    const eye=new THREE.Mesh(new THREE.SphereGeometry(0.05*s,6,5),
+      new THREE.MeshBasicMaterial({color:mo.awake?0xff5a3c:0x804030}));
+    eye.position.set(0.1*s,0.72*s,0.17*s); g.add(eye);
+    const bob=mo.awake?Math.abs(Math.sin(tnow*6+mo.x))*0.07:Math.sin(tnow*1.4+mo.y)*0.025;
+    g.position.set(mo.x,bob,mo.y);
+    if(mo.boss){ const aura=new THREE.PointLight(0xff6a3c,1.1,5);
+      aura.position.set(mo.x,1,mo.y); S.mobs.add(aura); }
+    S.mobs.add(g);
+  });
+  // the party, as the same skinned people who walk the town
+  updateKeepSkins(S,dt);
+  // camera follows them unless the player has taken hold of it
+  if(!userPanned){
+    const gap=Math.hypot(c[0]-S.tx, c[1]-S.tz);
+    const k = gap>6 ? 1 : Math.min(1, dt*5);      // never let them walk off the screen
+    S.tx+=(c[0]-S.tx)*k; S.tz+=(c[1]-S.tz)*k; }
+  const cx=S.tx+Math.cos(S.th)*Math.cos(S.ph)*S.dist;
+  const cy=S.ty+Math.sin(S.ph)*S.dist;
+  const cz=S.tz+Math.sin(S.th)*Math.cos(S.ph)*S.dist;
+  S.cam.position.set(cx,cy,cz); S.cam.lookAt(S.tx,S.ty,S.tz);
+  S.renderer.render(S.scene,S.cam);
+}
+function updateKeepSkins(S,dt){
+  const party=activeRun?activeRun.party:[];
+  const want=new Set(party);
+  KSKINS.forEach((sk,p)=>{ if(!want.has(p)){ S.world.remove(sk.grp); KSKINS.delete(p); } });
+  party.forEach(p=>{
+    let sk=KSKINS.get(p);
+    if(!sk){ sk=makeSkin(p); if(!sk) return; S.world.add(sk.grp); KSKINS.set(p,sk); }
+    sk.grp.visible=true;
+    sk.grp.position.set(p.dx,0,p.dy);
+    if(p.kfx!==undefined && Math.abs(p.dx-p.kfx)+Math.abs(p.dy-p.kfy)>0.004)
+      sk.grp.rotation.y=Math.atan2(p.dx-p.kfx,p.dy-p.kfy);
+    p.kfx=p.dx; p.kfy=p.dy;
+    const moving=(p.kmv=(Math.abs(p.dx-(p.kpx||p.dx))+Math.abs(p.dy-(p.kpy||p.dy)))>0.0015);
+    p.kpx=p.dx; p.kpy=p.dy;
+    playClip(sk, p.hp<=0 ? 'die' : (p.atk>0 ? 'attack' : (moving ? 'run' : 'guard_idle')));
+    sk.mixer.update(dt);
+  });
+}
+
 function setScene(sc){
-  if(v3d) set3D(false);
   if(sc===scene) return;
   camSave[scene]={camX,camY,zoom};
   scene=sc; GS = sc==='keep' ? DN : N; follow=null; userPanned=false;
@@ -5701,7 +5903,8 @@ function setScene(sc){
   const a=document.getElementById('scTown'), b2=document.getElementById('scKeep');
   if(a) a.classList.toggle('on',sc==='town');
   if(b2) b2.classList.toggle('on',sc==='keep');
-  const c3b=document.getElementById('sc3D'); if(c3b) c3b.classList.remove('on');
+  const c3b=document.getElementById('sc3D'); if(c3b) c3b.classList.toggle('on',v3d);
+  if(v3d) userPanned=false;
   paintRail(); paintConsole();
 }
 
@@ -5750,13 +5953,13 @@ addEventListener('keydown',e=>{
   if(e.key===' '){ e.preventDefault(); setSpeed(speed?0:1); }
   if(e.key==='1') setScene('town');
   if(e.key==='2') setScene('keep');
-  if(e.key==='3'){ if(v3d) set3D(false); else { setScene('town'); set3D(true); } }
+  if(e.key==='3') set3D(!v3d);
 });
 setTimeout(()=>{const h2=document.getElementById('hint');
   if(h2){h2.style.transition='opacity .6s';h2.style.opacity='0';setTimeout(()=>h2.remove(),700);}},16000);
 wire3D();
 (function(){ const b3=document.getElementById('sc3D');
-  if(b3) b3.onclick=()=>{ if(v3d) set3D(false); else { setScene('town'); set3D(true); } }; })();
+  if(b3) b3.onclick=()=>set3D(!v3d); })();
 paintConsole(); requestAnimationFrame(tick);
 })();
 

@@ -17,6 +17,8 @@ try:
         pg.click("[data-sp='8']"); pg.wait_for_timeout(3000)
         pg.click("#sc3D"); pg.wait_for_timeout(9000)      # models load, skins spawn
         pg.screenshot(path=str(root / "dist/shot-3d-models.png"))
+        pg.click("#scKeep"); pg.wait_for_timeout(6000)       # 3D stays on across the switch
+        pg.screenshot(path=str(root / "dist/shot-3d-keep.png"))
         b.close()
 finally:
     srv.terminate()

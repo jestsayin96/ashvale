@@ -19,6 +19,13 @@ Other artifacts (do not break): colony https://claude.ai/artifact/BbRBE9rRHmqwS5
 5. Keep the reply to the user short — they asked for updates on request, not narration.
 
 ## Shipped
+- c6 the Keep in 3D: the dungeon renders in three.js too. Walls and floors built as two
+  vertex-coloured meshes per floor from dty, themed by depth band; torches as flickering
+  point lights; a lantern that follows the party; loot beams over unopened chests; mobs as
+  capsules with a boss aura; the delvers are the SAME skinned characters who walk the town.
+  3D is now a toggle independent of scene, so Town and The Keep both render either way.
+  Clip slots fall back down a chain, so a rig missing 'guard_idle' plays 'idle' rather
+  than freezing in its bind pose.
 - c5.2 the cast: Peasant Man (real Mixamo) plus 23 clips converted from Mixamo animation
   packs, 2.1 MB total. Manifest 'animations' now takes a slot->file map. clipFor() picks
   by what a person is DOING: asleep in their own bed at night, praying at the altar,
@@ -98,9 +105,15 @@ Other artifacts (do not break): colony https://claude.ai/artifact/BbRBE9rRHmqwS5
   node_modules/fbx2gltf/bin/Linux/FBX2glTF --binary, add a manifest 'characters' key.
 - 238 more clips sit unconverted in the user's folder (sword and shield, magic, creatures,
   zombies, farming, gestures). tools/ has the converter; add a line per clip and rebuild.
-- Monster models and the Keep in 3D are both untouched; the Keep is still the 2D view.
+- Monsters are still capsules with an eye. Mixamo has no mobs worth the name (its bestiary
+  is hero-grade), so the plan is Tripo's free gallery first, credits only for what it lacks.
+  The sword/magic/longbow/axe packs the user downloaded are waiting on those models.
 
 ## Known rough edges
+- The Keep's walls can occlude the party. Mitigated by a steep camera (ph 1.30, floor 0.80)
+  and low walls (1.95), not solved. The real fix is fading walls between camera and target.
+- No fog of war in the 3D Keep; the whole floor is built at once and darkness does the work.
+- Chests and mobs are rebuilt from scratch every frame. Fine at this scale, wasteful later.
 - Placeholder characters render dark red at night; could be Soldier's texture failing to
   decode rather than just dim light. Check in daylight when the real cast lands.
 - SHADOWS DO WORK. The earlier "swiftshader renders no shadows" conclusion was WRONG:
