@@ -887,3 +887,45 @@ Both problems hid behind a result that looked correct. The pair *were* kept apar
 penalty *was* applied. Only checking the actual number — the bond, not the outcome —
 showed that neither was happening for the reason I thought. **Assert on the mechanism,
 not on the thing the mechanism was supposed to cause.**
+
+## Cycle 36 — the map representation, decided before any code
+
+Measured the blast radius first. The fixed grid is assumed in:
+`I(` **98 sites**, `inB(` 15, `ty[` 41, `hh[` 14, `tree[` 7, `occ[` 6, `N*N` 6 —
+plus `wcell`/`vcell` (20) and the single-mesh `terrainGeo()`.
+
+```js
+const N=52, TW=32, TH=16, HZ=10;
+const ty=new Uint8Array(N*N), hh=new Int8Array(N*N), occ=new Int16Array(N*N), tree=new Uint8Array(N*N);
+const I=(x,y)=>y*N+x, inB=(x,y)=>x>=0&&y>=0&&x<N&&y<N;
+```
+
+### Option A — a chunk map keyed by coordinate
+`Map<"cx,cy", chunk>` with per-chunk typed arrays. Truly unbounded.
+**Rejected.** `ty` stops being an array and becomes a lookup, so all 41 `ty[` sites, 14
+`hh[`, and the 98 `I(` sites change shape — about 160 edits, every one a chance at a
+silent off-by-one in code that is already hard to test (the town was frozen for ten
+cycles without anyone noticing). The unboundedness buys nothing a town sim will ever use.
+
+### Option B — a larger fixed grid, generated lazily — **CHOSEN**
+Raise `N` to 156 with the existing town centred, and generate land only where someone has
+been. `I(x,y)=y*N+x` and `inB` keep their exact meaning, so **all 98 call sites stay as
+they are.** Memory is 156² = 24,336 cells across four arrays — Uint8 + Int8 + Int16 +
+Uint8 = 5 bytes a cell = **119 KB**, which is nothing.
+
+Costs, stated honestly:
+- A hard outer bound. At ~52 tiles of unexplored land in every direction from the town
+  and a walking speed of 1.7–2.6 tiles/sec, that is a large world for this game; and the
+  number is one constant, raisable later.
+- **`terrainGeo()` must stop building the whole grid.** 156² is 24k top quads plus side
+  faces — far too many to rebuild wholesale on a season change. It has to iterate only
+  generated regions, and later build per chunk. This is the real work and it is confined
+  to one function, which is exactly why B is cheaper than A.
+
+### Staging from here
+1. (this cycle) Grow N with the town centred, add a `gen` byte per region, generate the
+   town region at boot, and make `terrainGeo()` walk only generated regions. **The town
+   must look and behave exactly as it does today** — same screenshots, same tests green.
+2. A `seen` state and generation on demand when somebody nears an unexplored edge.
+3. Someone with a reason to walk out, driven by the needs from item 1.
+4. Per-chunk terrain meshes, and the flat view drawing only known cells.
