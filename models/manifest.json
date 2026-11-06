@@ -1,7 +1,10 @@
 {
   "_comment": "Mixamo characters converted with fbx2gltf then texture-compressed to webp at 1024 (gltf-transform optimize --texture-compress webp --texture-size 1024 --no-compress): 60 MB of raw conversions became 13 MB with no visible loss. Draco was tried and dropped - it needs a separate decoder file the artifact build cannot load.",
   "cap": 20,
-  "buildings": {},
+  "buildings": {
+    "house": "props/cottage.glb",
+    "tavern": "props/inn.glb"
+  },
   "characters": {
     "man": "peasant-man.glb",
     "woman": "peasant-girl.glb",
@@ -42,5 +45,17 @@
   "mobs": {
     "default": "goblin.glb",
     "boss": "vampire.glb"
-  }
+  },
+  "props": {
+    "tree": "props/tree1.glb",
+    "tree2": "props/tree2.glb",
+    "tree3": "props/tree3.glb",
+    "rock": "props/rocks1.glb",
+    "well": "props/waterwell.glb",
+    "lamp": "props/lightPost1.glb",
+    "barrel": "props/barrel.glb",
+    "crate": "props/crate1.glb",
+    "wagon": "props/wagon.glb"
+  },
+  "_credits": "Props under models/props/ are from BabylonJS/Assets, CC BY 4.0."
 }

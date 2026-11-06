@@ -50,3 +50,14 @@ ROADMAP.md        what has shipped and what is next
 
 `src/game.js` is still one file. It is being split into modules a system at a time, as each
 one gets worked on — see the roadmap.
+
+## Asset credits
+
+Characters and animation clips are from **Adobe Mixamo**, used under its licence
+(free use, including commercially, with an Adobe account; no attribution required).
+
+Props and buildings under `models/props/` are from
+[BabylonJS/Assets](https://github.com/BabylonJS/Assets), licensed
+**CC BY 4.0**. If this is ever distributed or sold, that credit must travel with it.
+
+The two sets are kept in separate folders so their licences never get muddled.

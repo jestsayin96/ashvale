@@ -19,6 +19,14 @@ their local files under /home/claude/colony and /home/claude/village are the onl
 5. Keep the reply to the user short — they asked for updates on request, not narration.
 
 ## Shipped
+- c9 the village pack: BabylonJS/Assets (CC BY 4.0) is reachable from the sandbox and has
+  a villagePack and a graveYardPack. 30 props pulled, 18 MB compressed to 2.3 MB. Cottages
+  and the inn are now real models, and the procedural cone trees are replaced by real ones
+  scattered with varied scale and rotation. The building swap path from c5 ran for the
+  first time and worked. ATTRIBUTION: CC BY 4.0 needs a credit - see README, and keep
+  Mixamo (no attribution) and Babylon (attribution) in separate folders.
+  Still unused from that repo: graveYardPack (mausoleums, sarcophagi, tombstones - the
+  Keep's crypt floors 20-40), a dragon, frostAxe, runeSword, haunted_house, a yeti.
 - c8 effects: a 2D overlay canvas (#fx) above whichever view is running, so one
   implementation serves the flat Keep and the 3D one. Floating damage numbers (crits in
   the caster's gift colour, larger), impact sparks, death bursts, a named line when a

@@ -5344,6 +5344,31 @@ function rebuildFolk(S){
   people.forEach(p3=>{ if(p3.dead) return; const m=mkFolk3(p3); p3.m3=m; S.pG.add(m); });
   S.folk=people.length;
 }
+/* Swap the procedural cones for real trees, and scatter a few props, once the
+   models have arrived. Clones share geometry and material, so this is cheap. */
+function dressTown(S){
+  if(S.dressed||!ASSETS.props.tree) return;
+  S.dressed=true;
+  if(S.trunks){ S.scene.remove(S.trunks); S.scene.remove(S.leaves); }
+  const kinds=[ASSETS.props.tree,ASSETS.props.tree2,ASSETS.props.tree3].filter(Boolean);
+  const grove=new THREE.Group(); S.scene.add(grove); S.grove=grove;
+  let i=0;
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    if(!tree[I(x,y)]) continue;
+    const proto=kinds[(x*3+y*7)%kinds.length];
+    const m=proto.clone(true);
+    fitModel(m,0,0,true);
+    const b=new THREE.Box3().setFromObject(m), sz=b.getSize(new THREE.Vector3());
+    const want=2.6+((x*5+y*11)%7)*0.22;
+    const sc=sz.y>0.01?want/sz.y:1;
+    m.scale.setScalar(sc);
+    m.position.set(x+0.5, H(x,y)*HU - b.min.y*sc, y+0.5);
+    m.rotation.y=((x*13+y*29)%360)*Math.PI/180;
+    m.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.receiveShadow=true; } });
+    grove.add(m); i++;
+  }
+  return i;
+}
 function init3D(){
   if(R3) return R3;
   if(typeof THREE==='undefined'){ v3d=false; return null; }
@@ -5364,6 +5389,7 @@ function init3D(){
   const water=new THREE.Mesh(new THREE.PlaneGeometry(N*2.4,N*2.4),
     new THREE.MeshLambertMaterial({color:0x3a73b8,transparent:true,opacity:0.8}));
   water.rotation.x=-Math.PI/2; water.position.set(N/2,-0.2,N/2); S3.add(water);
+  const R3TMP={};
   let tn=0; for(let i=0;i<N*N;i++) if(tree[i]) tn++;
   if(tn){
     const trunks=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.07,0.11,0.55,5),
@@ -5377,6 +5403,7 @@ function init3D(){
       M.makeTranslation(x+0.5,b+0.27,y+0.5); trunks.setMatrixAt(ti,M);
       M.makeTranslation(x+0.5,b+1.0,y+0.5); leaves.setMatrixAt(ti,M); ti++; }
     S3.add(trunks); S3.add(leaves);
+    R3TMP.trunks=trunks; R3TMP.leaves=leaves;
   }
   const bG=new THREE.Group(); S3.add(bG);
   buildings.forEach(b=>{ const m=mkBuilding(b); b.m3=m; bG.add(m); });
@@ -5384,8 +5411,11 @@ function init3D(){
   const keepGlow=new THREE.PointLight(0xc1483f,2,24);
   keepGlow.position.set(46,2.6,21); S3.add(keepGlow);
   R3={renderer,scene:S3,cam,sun,hemi,water,bG,pG,keepGlow,
+      trunks:R3TMP.trunks, leaves:R3TMP.leaves,
       th:-2.25,ph:0.78,dist:40,tx:26,ty:0.6,tz:23,folk:0};
-  rebuildFolk(R3); resize3D(); loadAssets(R3); return R3;
+  rebuildFolk(R3); resize3D(); loadAssets(R3);
+  if(ASSETS.props.tree) dressTown(R3);
+  return R3;
 }
 function resize3D(){ if(!cv3) return;
   const r=cv3.getBoundingClientRect();
@@ -5492,7 +5522,8 @@ function wire3D(){
    Everything here is additive. With no models/manifest.json the game stays exactly
    as it was: procedural boxes and cones, no errors, no console noise. The artifact
    bundle has no models/ to fetch, so it simply never leaves the procedural path. */
-const ASSETS={ base:'models/', on:false, buildings:{}, chars:{}, mobs:{}, shared:[], slots:{},
+const ASSETS={ base:'models/', on:false, buildings:{}, chars:{}, mobs:{}, props:{},
+  shared:[], slots:{},
   named:null, roles:{}, cap:20, tried:false };
 function roleOf(p){
   if(p.age<ADULT) return 'child';
@@ -5585,6 +5616,8 @@ function loadAssets(S){
       const jobs=[];
       Object.entries(m.buildings||{}).forEach(([kind,file])=>
         jobs.push(get(file).then(g=>{ if(g) swapBuilding(S,kind,g.scene); })));
+      Object.entries(m.props||{}).forEach(([kind,file])=>
+        jobs.push(get(file).then(g=>{ if(g) ASSETS.props[kind]=g.scene; })));
       Object.entries(m.mobs||{}).forEach(([kind,file])=>
         jobs.push(get(file).then(g=>{
           if(!g) return;
@@ -5611,7 +5644,8 @@ function loadAssets(S){
     .then(()=>{
       if(!man) return;
       ASSETS.on = Object.keys(ASSETS.chars).length>0 || Object.keys(ASSETS.buildings).length>0
-                  || Object.keys(ASSETS.mobs).length>0;
+                  || Object.keys(ASSETS.mobs).length>0 || Object.keys(ASSETS.props).length>0;
+      if(ASSETS.props.tree&&R3) dressTown(R3);
       if(ASSETS.on) RETARGET=new WeakMap();
       if(ASSETS.on){ rebuildFolk(S);
         logMsg('Models loaded: the town is wearing its proper face.','good'); }
