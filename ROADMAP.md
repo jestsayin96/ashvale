@@ -1919,3 +1919,75 @@ Suite green, ten probes, after the resize fix. The town at noon, dist 40:
   world's voice.
 
 Six new defects into REVIEW.md, numbered 10 to 15. The trees are next.
+
+---
+
+## c50 — the canopy was striped, and I made giants
+
+### The bug under the complaint
+```js
+const proto = kinds[(x*3 + y*7) % kinds.length];   // kinds.length === 3
+```
+`x*3` is divisible by 3 for every x, so x contributed nothing and the prototype came
+from y alone. The map was striped into rows of one model, period three:
+```
+000000     111111     222222     000000 ...
+```
+Which is why a canopy of three real KayKit trees read as one cone copied forever.
+The models were vendored and loaded the whole time; the c49 review calling them
+procedural cones was wrong.
+
+**A hash is not a hash because it has multiplications in it.** The replacement mixes
+and shifts, so neighbours disagree and no axis drops out — 33.5 / 33.1 / 33.4 over
+40,000 cells. Height went from a 20% spread to 1.9–5.8 with the roll squared so more
+are short; nine tint buckets move hue, saturation and lightness together; nothing
+stands plumb.
+
+```
+before   3 shapes   1 green    height spread 1.32
+after    6 shapes   6 greens   height spread 6.52    248 trees
+```
+
+### What the probe found that nobody asked it
+Taking the grove away and diffing says what it was covering:
+```
+dist 26   canopy 37.9% of frame   hides 43.8% of the people
+dist 16   canopy 19.7% of frame   hides 12.5%
+```
+Defect 1 — "only 6 of 58 outdoor people in frame" — confirmed with a number.
+
+### I walked into my own rule
+c49 swept `folkScale` and took 1.6 for most people-pixels at dist 20–34. The close-in
+shot shows what that bought: an adult 2.3 units against a 4–5 unit house, the mage
+standing level with the roof beside it. **More pixels, worse picture** — the third
+time that rule has been written here and the first time it caught me writing it.
+Cut to 1.35, still ~2.4× the original, and a person reads as somebody beside a
+building. Box-person proportions fixed too: head was 36% of height, drawn for a
+figure a third of the size. Now ~25%, matching KayKit's own figures, which matters
+because only the twenty nearest get real models and every frame is a mix.
+
+### The third wall clock
+`world.py` failed half the time on `far`. Both of these were true at once:
+```
+bounds x0: 13     land WAS made 13 tiles west of town
+far:       0      but nobody walked out there
+```
+`exploreFrom` reveals chunks within SIGHT=7 of any walker, so the world grows from
+people moving *inside* the town. And the loop's comment said "eight game-days is the
+mechanism" while `secs = 90` capped it at 2.7. The intent was in a comment; the
+backstop was in the code, and the backstop won for cycles. It now prints which limit
+stopped it — `(stopped: somebody walked out | eight game-days | wall cap)`.
+
+### Working with Cursor
+Merged cleanly, stayed in its lane, 17 selectors added and one correctly dropped.
+Two things learned. **Diff against the merge-base** — `main..theirs` showed my own
+newer commit as deletions and looked exactly like it had deleted my probe. And
+**markup is theirs, sentences are the sim's**: its standing block scraped the clock
+with a regex, picked a canned line by hour band, and overwrote `game.js` through a
+MutationObserver, so the chronicle announced people in the country whether or not
+any had gone.
+
+### Still ahead
+Defect 17: one global scale cannot serve both ends. Check whether the *houses* are
+the ones out of scale before compensating further. Then the canopy clearings, which
+are two fifths of the town.
