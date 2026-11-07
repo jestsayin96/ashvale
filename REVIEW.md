@@ -10,6 +10,25 @@ whether the thing is good; `npm test` only measures whether it does what the las
 cycle claimed. The 0.25%-of-the-frame finding was invisible to ten green probes and
 obvious in one screenshot.
 
+## A probe must confirm the system is doing the thing it is about to measure
+
+c57's director failure cost two cycles and four confident wrong explanations.
+Instrumented, it took one run: `at: [60.5, 41]` — the director engaged and
+converging perfectly, on a **different** event. A real one had fired at the guild
+and won the race. The probe measured its distance to the event *it* staged, saw
+that distance growing, and reported a working feature as a dead one.
+
+The gaps could not tell *"the director is not working"* apart from *"the director
+is working on something else"*, and those want opposite responses.
+
+**Assert where the measurement repeats; report where it does not.** Dist 12 in
+`seen.py` swung tenfold between runs (45,574 → 27,235 → 4,219) because it frames a
+small area whose population is luck; dist 20 held at 9,021–17,565 all evening. A
+floor on a number that swings 10× is a coin toss wearing a test's clothes: it fails
+on a good build and passes on a broken one, roughly at random. Dist 7 was dropped
+outright for the same reason — a sample that can legitimately be empty cannot carry
+an assertion.
+
 ## A probe must not change the thing it measures
 
 Said three ways now, because it keeps arriving in new clothes:
@@ -131,7 +150,6 @@ including `.float`; diff the selector lists before applying anything.
 |---|---|---|---|
 | 18 | **Buildings hide the town, not trees.** Measured at the game's real pitch with each layer hidden in turn: trees cost 1,853 px, buildings 26,285 — fourteen to one — and together 31,262, far more than the sum, so the occlusion is **layered** and moving either alone reveals almost nothing. 62% of outdoor people are hidden at dist 16. The fix is a cutaway between camera and subject, not thinning anything. | town, dist 16 | c54 |
 | 12 | No subject. The frame is an even field of stuff; the eye lands nowhere. The plaza is the only candidate and it is empty. | town, dist 40 | c49 review |
-| 13 | At the boot camera distance (40) there is nobody on screen at all. c49 fixed legibility; the first thing a watcher sees is still an empty town. | town, boot | c49 review |
 | 14 | The chronicle carries dev chatter as though it were a world event — "Models loaded: the town is wearing its proper face". | chronicle, boot | c49 review |
 | 15 | The Ashvale badge, bottom left, is an empty diamond placeholder. | footer | c49 review |
 | 19b | Villagers are *tinted* KayKit adventurers with the weapons put away, not villager meshes. Good enough to read as a town; a genuine peasant body is still a Blender job, and c53 established exactly which meshes to touch (Body/Arms/Legs/Cape/Hat — never Head). | everywhere | c53 |
@@ -153,6 +171,7 @@ including `.float`; diff the selector lists before applying anything.
 | 19 | The town had **three bodies** — every man a rogue, every woman a mage, every child a hooded rogue. | c53, per-mesh tint of clothing only | 3 → 6 distinct appearances among visible people |
 | 9 | No normal maps; needed ambientCG textures not in the repo. | c52, owner supplied the packs on his machine; 8 maps staged, downscaled and vendored at 610 KB | ground has colour + normal at scale 0.65, confirmed on GPU |
 | 11 | The ground was a visible checkerboard — `((x*7+y*13)^(x*3+y*11))%7`, an XOR of two linear forms mod 7, which is a lattice. Three discrete buckets meant three discrete greens. | c52, the h2 mixing hash, continuous tint | gone; confirmed by eye on the GPU build, ground reads as mottled grass |
+| 13 | At boot there was nobody on screen at all — and the cause was the CLOCK, not the camera: the town started at 06:00 with all 69 people behind doors. | c57, wake at 09:00 and open on the town centre at dist 22 | indoors 69→4, outdoors 0→65, shown 0→45; 4,940 px of people in the opening frame |
 | 2 | The conga line: the whole town walked single file to one spot and stood out there after dark, chasing a frontier that receded as they approached. The owner saw it before any probe did. | c56 — dusk check moved to where the walking happens; `wildSpot` shuffles a pool instead of taking the best; aims at a band ~7 tiles out instead of the receding edge | 4 foragers → 4 distinct places, most-shared had 1; 0 stranded after dark across 6 night samples |
 | 1 | Only 6 of 58 outdoor people were in frame at all. | c54 attributed it: buildings, not canopy | superseded by defect 18 |
 | 0 | People were 0.25% of the frame — six readable figures in a town of 58 outdoors, biggest 29x41px. | c49, folkScale swept to 1.6 | 3.26% / 18 figures at dist 20 |

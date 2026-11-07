@@ -2201,3 +2201,59 @@ crowd into one region. Then the 20,000 px floor at dist 7 failed, because the
 steeper real camera frames a smaller patch of ground and dist 7 now reads *lower*
 than dist 20. **Change the configuration and every number under the old one is
 void.** That rule is written in three places here and still took two failures.
+
+
+---
+
+## c57 — the bug was the clock
+
+Defect 13: nobody on screen at the boot camera — the first thing a stream viewer
+ever sees. **The cause was the clock, not the camera.** Ashvale opened at 06:00,
+and at six in the morning every one of its sixty-nine people is behind a door.
+
+```
+before   indoors 69   outdoors  0   shown  0   hour 6
+after    indoors  4   outdoors 65   shown 45   hour 9
+```
+
+An hour of game time passed before the *second* person stepped outside. Three
+cycles went into why people could not be seen. Nobody checked whether anyone was
+out there to see.
+
+Then the usual failure ran backwards: the frame still looked empty to me, so I
+moved the camera twice chasing people who were already in shot. Measured, there
+were 4,940 px of them — **my eye was wrong and the counter was right.** The boot
+framing still improved and stays (22 units over the town centre beats 40 over its
+edge looking at roofs).
+
+The cutaway was generalised to work without a follow, which is correct on its own
+terms — the watcher looks wherever the camera points. It moved the opening frame by
+under 1%. **It fades a narrow corridor, so it solves "I cannot see who I am
+following", not "I cannot see the town."** I had been treating those as one problem
+for three cycles.
+
+### Three probes caught lying
+- **director.py** — "the director did not go to the event" for two cycles. It had.
+  It went to a *different* event, converging exactly. Four wrong explanations
+  before instrumenting it, including a confident one about the mouse at (0,0)
+  driving the edge-pan — that made it pass once and probably fixed nothing.
+- **seen.py dist 7** — 70,972 px → 11,322 → 0 across three cycles. A sample framing
+  a few square metres, empty by luck. Dropped.
+- **seen.py dist 12** — swings tenfold. Reported now, not asserted.
+
+### Where it stands, green at fourteen probes
+```
+director       25.5 -> 1.2 convergence
+opening frame  45 people present, was 0
+cutaway        2 of 35 buildings step aside; 0 with it off
+canopy         hides 13.9% at dist 26, 20.9% at 16
+walking        88.1% of visible frames (97.5% before c52)
+appearances    6 distinct, was 3
+conga          4 foragers -> 4 places; 0 stranded after dark
+```
+
+### Open, in order
+The Keep has no camera at all (defect 5). The four kingdoms are still blocked by
+`genChunk`'s Ashvale-relative terrain rules (defect 7). Villagers are tinted
+adventurers, not meshes (19b). And the frame has no subject (12) — the one that
+needs the owner's eye rather than a pixel count.
