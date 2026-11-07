@@ -91,15 +91,29 @@ try:
             # canopy was never going to work. The lever is the angle.
         # --- phase 2: the cutaway, counted ---
         print("  cutaway (buildings standing between camera and the followed person):")
-        pg.evaluate("()=>window.__ash.fast(6)")
-        for _ in range(40):
+        pg.evaluate("()=>window.__ash.fast(20)")
+        for _ in range(90):
             w2=pg.evaluate("""()=>{const p=window.__ash.walker(); if(!p) return null;
                 window.__ash.followId(p.id); return p;}""")
             if w2: break
             pg.wait_for_timeout(500)
+        pg.wait_for_timeout(3000)
+        # Phase 1 cleared the follow to hold the camera still, so phase 2 must
+        # re-establish it AND CHECK. The first version did not, found nobody to
+        # follow, and reported "the cutaway never fired" - which was true, and
+        # about the probe. A direct debug had it fading 4 of 35 at the same moment.
+        st0=pg.evaluate("()=>window.__ash.cutStat()")
+        assert st0["following"], ("phase 2 never got a follow, so there was nothing "
+                                  "for the cutaway to do", st0)
         best={'on':0,'off':0}
         for on in (True, False):
             pg.evaluate("(v)=>window.__ash.cutaway(v)", on)
+            # The fade eases at 7/second and software rendering clamps a frame's
+            # delta to 0.1 s, so it needs about three frames - over two real
+            # seconds here - to come back. Sampling straight after the toggle
+            # counted a building that was still on its way to clear, and the
+            # "off" state looked identical to the "on" one.
+            pg.wait_for_timeout(5000)
             peak=0
             for _ in range(10):
                 pg.wait_for_timeout(1200)
