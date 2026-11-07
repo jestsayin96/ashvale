@@ -34,11 +34,13 @@ try:
         if not pg.evaluate("()=>document.getElementById('view3d').style.display==='block'"):
             pg.click("#sc3D")
         pg.wait_for_timeout(10000)
-        pg.evaluate("()=>window.__ash.fast(12)")
+        pg.evaluate("()=>window.__ash.fast(22)")
         pg.evaluate("()=>window.__ash.director(false)")
         OFF=pg.evaluate("()=>window.__ash.world().town.x0")
         who=None
-        for _ in range(60):
+        # Boot is 06:00 and the town is still indoors; at fast(22) a few dozen
+        # polls covers the morning. 60 at fast(12) did not, on one run.
+        for _ in range(110):
             who=pg.evaluate("""()=>{const p=window.__ash.walker(); if(!p) return null;
                 window.__ash.followId(p.id); return p;}""")
             if who and (pg.evaluate("()=>window.__ash.folkSeen().outdoors") or 0)>14: break
@@ -46,6 +48,12 @@ try:
         assert who, "nobody ever went outdoors"
         pg.wait_for_timeout(3000)
         here=pg.evaluate("()=>window.__ash.cam()")
+        # Two phases, two camera conditions, because they are incompatible.
+        # Layer attribution needs a STILL camera, and a held follow eases the camera
+        # every single frame - nine seconds of settling still left 393,704 px of
+        # "movement" in the diff. So attribution runs unfollowed, and the cutaway,
+        # which only exists while following, is checked by counting rather than by
+        # diffing pixels.
         pg.evaluate("()=>window.__ash.fast(0)"); pg.evaluate("()=>window.__ash.followId(null)")
         pg.wait_for_timeout(1200)
         LX,LY=here["tx"]-OFF, here["tz"]-OFF
@@ -55,6 +63,10 @@ try:
         # town is worst, so it is the one worth the frames.
         for dist in (16,):
             pg.evaluate("(a)=>window.__ash.look(a[0],a[1],a[2])",[LX,LY,dist])
+            # The follow is held so the cutaway is live, and a held follow eases the
+            # camera every frame - which is exactly what a pixel diff cannot have.
+            # Let it converge before sampling anything, or the diff is the whole
+            # moving frame (427,392 px of "people", on one memorable run).
             pg.wait_for_timeout(3200)
             full=folk(pg)
             pg.evaluate("()=>window.__ash.groveLayer(false)"); pg.wait_for_timeout(1100)
@@ -77,15 +89,32 @@ try:
             # cost far more than the sum - the occlusion is LAYERED, so moving
             # either one alone reveals almost nothing. That is why thinning the
             # canopy was never going to work. The lever is the angle.
-            print("  pitch sweep (how much of the town a steeper look recovers):")
-            base=pg.evaluate("()=>window.__ash.pitch()")
-            for ph in (0.62, 0.80, 0.95, 1.10):
-                pg.evaluate("(v)=>window.__ash.pitch(v)", ph); pg.wait_for_timeout(2200)
-                v=folk(pg)
-                print("     ph %.2f  visible %6d px   %+.0f%% vs 0.62"
-                      % (ph, v, 0 if ph==0.62 else (v-out[dist][0])*100.0/max(1,out[dist][0])))
-                out[('ph',ph)]=v
-            pg.evaluate("(v)=>window.__ash.pitch(v)", base)
+        # --- phase 2: the cutaway, counted ---
+        print("  cutaway (buildings standing between camera and the followed person):")
+        pg.evaluate("()=>window.__ash.fast(6)")
+        for _ in range(40):
+            w2=pg.evaluate("""()=>{const p=window.__ash.walker(); if(!p) return null;
+                window.__ash.followId(p.id); return p;}""")
+            if w2: break
+            pg.wait_for_timeout(500)
+        best={'on':0,'off':0}
+        for on in (True, False):
+            pg.evaluate("(v)=>window.__ash.cutaway(v)", on)
+            peak=0
+            for _ in range(10):
+                pg.wait_for_timeout(1200)
+                st=pg.evaluate("()=>window.__ash.cutStat()")
+                peak=max(peak, st["faded"])
+            best['on' if on else 'off']=peak
+            print("     cutaway %-5s  up to %d of %d buildings stepped aside"
+                  % (str(on).lower(), peak, st["total"]))
+        assert best['on'] >= 1, ("the cutaway never fired while following", best)
+        assert best['off'] == 0, ("buildings faded with the cutaway switched off", best)
+        # The pitch sweep lived here and is gone. Two runs disagreed about whether
+        # anything past the game's 0.78 helps - one found 0.80 best and 1.10 worse,
+        # the other the exact reverse - because the probe parks somewhere different
+        # every run. A measurement that cannot repeat itself is not evidence, and
+        # keeping it in the suite would only invite someone to act on one half of it.
         srv_ok=True
 finally:
     srv.terminate()

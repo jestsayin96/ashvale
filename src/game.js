@@ -1477,6 +1477,7 @@ let camX=0,camY=0,zoom=1.1,CW=0,CH=0,dpr=1,rot=0,follow=null,selected=null,tnow=
    drawing its toggle, and the rail is painted during boot, long before the camera
    code further down has run. */
 let director=true, dirSeen=-1, dirUntil=0, dirAt=null;
+let cutAllow=true;   // c55: off only for an A/B in the probes
 let scene='town', GS=N;
 let v3d=false, R3=null, cv3=null;
 const camSave={town:null,keep:null};                                   // grid size of whatever scene is on screen
@@ -3661,8 +3662,58 @@ function render3D(){
   // the mark grows as the camera pulls back, so a person stays findable
   const discS=Math.max(1,Math.min(4.2,0.55+S.dist*0.045));
   const lamps=(hour>=18||hour<6);
+  /* c55. Three cycles went into moving whatever stood in the way before c54
+     measured which thing it was: buildings cost fourteen times what the trees do,
+     and the two together cost far more than the sum, because the occlusion is
+     layered. Thinning either was never going to work.
+
+     So stop moving the town and move what the camera can see through. While the
+     watcher is following somebody, any building on the line between the camera and
+     them steps aside. Fading rather than vanishing: a house that pops out of
+     existence reads as a bug, and at 0.3 you can still see it is a house. */
+  /* Per SECOND, not per frame. It was 0.14 a frame, which is a quarter of a
+     second at 144 fps and fifteen seconds under software rendering - the same
+     behaviour at two speeds, which is no behaviour at all.
+
+     And the elapsed time has to be render3D's own. The first version reached for
+     `raw`, which is a const inside `tick()` - a ReferenceError every frame, the
+     render loop dead, and nobody in the town moving at all. `node --check` passed
+     it, because a variable out of scope is not a syntax error. Same shape as c48's
+     `Cannot access 'director' before initialization`. */
+  const CUTFADE=0.3, CUTRATE=7.0;
+  const cutDt=Math.max(0,Math.min(0.1, tnow-(S.cutLast===undefined?tnow:S.cutLast)));
+  S.cutLast=tnow;
+  const cutK=Math.min(1, cutDt*CUTRATE);
+  const cutOn = cutAllow && !!follow && S.dist<32 && scene!=='keep';
+  const cam=S.cam.position;
+  let cutX=0, cutZ=0, cutLen=0;
+  if(cutOn){
+    cutX=follow.x-cam.x; cutZ=follow.y-cam.z;
+    cutLen=Math.hypot(cutX,cutZ)||1;
+  }
   buildings.forEach(b=>{ const u=b.m3&&b.m3.userData; if(!u) return;
     const op=isOpen(b);
+    /* How far this building sits from the camera-to-subject line, and whether it is
+       actually BETWEEN them rather than behind either end. */
+    let want=1;
+    if(cutOn){
+      const bx=b.x+b.w/2-cam.x, bz=b.y+b.d/2-cam.z;
+      const t=(bx*cutX+bz*cutZ)/(cutLen*cutLen);
+      if(t>0.04 && t<0.97){
+        const px2=bx-cutX*t, pz2=bz-cutZ*t;
+        const off=Math.hypot(px2,pz2);
+        const r=Math.max(b.w,b.d)*0.5+0.9;      // its own footprint, plus a margin
+        if(off<r) want=CUTFADE;
+      }
+    }
+    u.fade = u.fade===undefined ? 1 : u.fade + (want-u.fade)*cutK;
+    if(Math.abs(u.fade-1)>0.004 || u.faded){
+      const o2=u.fade, clear=o2>0.985;
+      u.faded=!clear;
+      (u.model||b.m3).traverse(o=>{ if(!o.isMesh&&!o.isSkinnedMesh) return;
+        const m2=o.material; if(!m2) return;
+        m2.transparent=!clear; m2.opacity=o2; m2.depthWrite=clear; });
+    }
     if(u.model){
       // a real model stands in for the whole building; opening it puts the model away
       // and shows the furniture, the same gesture as lifting a procedural roof
@@ -4060,6 +4111,10 @@ function swapBuilding(S,kind,proto){
   buildings.filter(b=>b.kind===kind).forEach(b=>{
     const u=b.m3&&b.m3.userData; if(!u||u.model) return;
     const m=proto.clone(true);
+    /* `clone(true)` shares materials, so one faded house would fade every house of
+       its kind across the town. A few dozen buildings is a cheap price for each
+       being able to step out of the way on its own. */
+    m.traverse(o=>{ if(o.isMesh||o.isSkinnedMesh) o.material=o.material.clone(); });
     fitBuilding(m,b);
     m.position.x+=b.x+b.w/2; m.position.z+=b.y+b.d/2; m.position.y+=u.base;
     b.m3.add(m); u.model=m;
@@ -4968,6 +5023,17 @@ window.__ash={
      one costs what. */
   buildLayer(v){ const S=R3; if(!S||!S.bG) return null;
     S.bG.visible=!!v; return S.bG.visible; },
+  /* The cutaway only runs while somebody is being followed, so a probe that
+     clears the follow to hold the frame still would measure the feature switched
+     off and report no change. Hold the follow, toggle THIS. */
+  cutaway(v){ if(typeof v==='boolean') cutAllow=v; return cutAllow; },
+  /* A direct count, so "does the cutaway do anything" is answerable without a
+     pixel diff. Pixel diffs need a still camera, and holding a follow is the one
+     thing that keeps the camera moving. */
+  cutStat(){ let faded=0, total=0;
+    for(const b of buildings){ const u=b.m3&&b.m3.userData; if(!u||!u.model) continue;
+      total++; if(u.fade!==undefined&&u.fade<0.9) faded++; }
+    return {faded, total, on:cutAllow, following:!!follow}; },
   pitch(v){ const S=R3; if(!S) return null;
     if(typeof v==='number') S.ph=Math.max(0.2,Math.min(1.45,v));
     return S.ph; },
