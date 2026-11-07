@@ -164,5 +164,28 @@
   "paving2_n": "tex/paving2_n.webp",
   "rock2": "tex/rock2.webp",
   "rock2_n": "tex/rock2_n.webp"
+ },
+ "charvar": {
+  "villager_m": {
+   "tint": 13218179,
+   "hide": [
+    "Knife_Offhand",
+    "1H_Crossbow"
+   ]
+  },
+  "villager_f": {
+   "tint": 10467016,
+   "hide": [
+    "Spellbook",
+    "1H_Wand"
+   ]
+  },
+  "villager_c": {
+   "tint": 11060350,
+   "hide": [
+    "Knife_Offhand",
+    "1H_Crossbow"
+   ]
+  }
  }
 }

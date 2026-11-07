@@ -7938,7 +7938,7 @@ function wire3D(){
 const ASSETS={ base:'models/', on:false, buildings:{}, chars:{}, mobs:{}, props:{},
   weapons:{}, dung:{}, furn:{},
   shared:[], slots:{},
-  named:null, roles:{}, cap:20, tried:false };
+  named:null, roles:{}, charvar:null, cap:20, tried:false };
 /* Every adventurer fights a particular way, and it decides both what they look like
    and which clips they move with. Stable per person, so nobody changes mid-delve. */
 const STYLES=['sword','bow','axe'];
@@ -8044,6 +8044,7 @@ function loadAssets(S){
     .then(m=>{
       if(!m) return;
       man=m; ASSETS.roles=m.roles||{}; ASSETS.named=m.clips||null;
+      ASSETS.charvar=m.charvar||null;
       if(typeof m.cap==='number') ASSETS.cap=m.cap;
       const L=new THREE.GLTFLoader();
       const get=f=>new Promise(res=>L.load(ASSETS.base+f,g=>res(g),undefined,()=>res(null)));
@@ -8060,6 +8061,11 @@ function loadAssets(S){
                which is the kind of error that looks like "the art is a bit off"
                rather than like a bug. */
             t.encoding = /_n$|^n_/.test(key) ? THREE.LinearEncoding : THREE.sRGBEncoding;
+            /* glTF UVs have their origin at the TOP left; a TextureLoader image
+               defaults to the bottom. A character atlas loaded the web way lands
+               upside down, which on a palette grid means every surface wears the
+               wrong swatch rather than looking obviously flipped. */
+            if(/^villager_/.test(key)){ t.flipY=false; t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; }
             R3TEX[key]=t;
             // the town's ground material is already on screen; the rest are read when a
             // Keep floor is built, so they only need to be in the cache
@@ -8194,12 +8200,52 @@ function swapBuilding(S,kind,proto){
 /* --- animated characters, capped to the nearest few so the frame rate survives --- */
 const SKINS=new Map();                                // person -> {grp,mixer,actions,cur}
 let skinTick=0;
+/* c53. The town had three bodies: every man a rogue, every woman a mage, every
+   guard a knight, and every child a hooded rogue - sixty-nine people and four
+   GLBs, all of them armoured adventurers.
+
+   It turns out no modelling was needed. A KayKit character is nine separate mesh
+   nodes sharing ONE material, and that material's texture is a palette atlas: a
+   grid of vertical gradient swatches that the UVs point into. So an outfit is a
+   few swatches, the cape and the weapons are their own nodes, and a villager is
+   the same body with the leather re-hued and the adventuring gear switched off.
+
+   The gradient inside a swatch IS the shading, so a recolour may move hue and
+   saturation and must leave each pixel's lightness alone. Shift the lightness and
+   the model goes flat. */
+/* Re-hueing the ATLAS was the wrong instrument. KayKit packs hair into the same
+   brown swatches as the leather, so shifting them turned hair into scalp - the
+   town came back with bald tan heads - and the blue dress variant would have given
+   every woman blue hair. The palette does not separate clothing from the person
+   wearing it.
+   The MESHES do. A character is nine named nodes, so tint the body, the arms, the
+   legs and the cape, and never touch Head. Then hair and skin are safe by
+   construction rather than by me guessing which swatch is which, and it needs no
+   extra texture at all. */
+const VARBODY=/_(Body|Arm|Leg|Cape|Hat)/i;
+function varFor(p){
+  const V=ASSETS.charvar; if(!V) return null;
+  if(p.adventurer||p.guard||p.noble) return null;   // these have earned their armour
+  const k = p.age<ADULT ? 'villager_c' : (p.sex==='f' ? 'villager_f' : 'villager_m');
+  return V[k]||null;
+}
 function makeSkin(p){
   const C=charFor(p); if(!C) return null;
   const inner=THREE.skeletonClone(C.scene);
+  const vr=varFor(p);
   inner.traverse(o=>{ if(o.isMesh||o.isSkinnedMesh){ o.castShadow=true; o.receiveShadow=true;
     o.frustumCulled=false;
     o.material=o.material.clone();   // so a flash is this body's alone
+    if(vr){
+      const nm=o.name||(o.parent&&o.parent.name)||'';
+      if(vr.hide&&vr.hide.some(h=>nm.indexOf(h)>=0)){ o.visible=false; return; }
+      if(vr.tint&&VARBODY.test(nm)){
+        /* A multiply, so the atlas keeps doing the shading and only the hue moves.
+           Kept pale: a strong tint on an already-dark leather goes to mud. */
+        o.material.color.setHex(vr.tint);
+        o.material.needsUpdate=true;
+      }
+    }
   } });
   const want=p.age<ADULT?1.05:1.45;
   // Both measures fail, in opposite directions. A skinned mesh's Box3 is computed in bind
@@ -9055,6 +9101,21 @@ window.__ash={
     return out; },
   /* What is actually playing, on people who are actually drawn. A clip counted on
      somebody inside a closed building is a clip nobody saw. */
+  /* "Three bodies" was an impression until it was a number. A person's appearance
+     is the GLB they were given plus the tint their role earns, so count the
+     distinct pairs across people who are actually drawn. */
+  bodies(){ const S=R3; if(!S||typeof SKINS==='undefined') return null;
+    const seen={}, byName={};
+    for(const [p,sk] of SKINS){
+      if(!sk.grp.visible) continue;
+      let glb='?'; const C=charFor(p);
+      for(const k in ASSETS.chars) if(ASSETS.chars[k]===C){ glb=k; break; }
+      const v=varFor(p);
+      const key=glb+(v?'+'+(v.tint||0).toString(16):'');
+      seen[key]=(seen[key]||0)+1;
+      byName[key]=byName[key]||p.name;
+    }
+    return {kinds:Object.keys(seen).length, seen, byName}; },
   clips(){ const S=R3; if(!S||typeof SKINS==='undefined') return null;
     const out={};
     for(const [p,sk] of SKINS){

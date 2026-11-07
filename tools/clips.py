@@ -53,3 +53,31 @@ try:
 finally:
     srv.terminate()
 print("errors:", "clean" if not err else err[:4])
+
+# --- c53: how many distinct appearances does the town actually field? ---
+import subprocess as _sp, sys as _sys, time as _t
+_srv=_sp.Popen([_sys.executable,"-m","http.server","8163","-d",str(root)],
+               stdout=_sp.DEVNULL,stderr=_sp.DEVNULL)
+_t.sleep(1.5)
+try:
+    with sync_playwright() as _p:
+        _b=_p.chromium.launch(args=["--use-gl=swiftshader","--enable-unsafe-swiftshader","--no-proxy-server"])
+        _pg=_b.new_page(viewport={"width":1340,"height":860})
+        _pg.goto("http://127.0.0.1:8163/index.html"); _pg.wait_for_timeout(1500)
+        if not _pg.evaluate("()=>document.getElementById('view3d').style.display==='block'"):
+            _pg.click("#sc3D")
+        _pg.wait_for_timeout(11000)
+        _pg.evaluate("()=>window.__ash.fast(25)")
+        _best={"kinds":0}
+        for _ in range(14):
+            _pg.wait_for_timeout(2200)
+            _r=_pg.evaluate("()=>window.__ash.bodies()")
+            if _r and _r["kinds"]>_best["kinds"]: _best=_r
+        print("distinct appearances among visible people: %d" % _best["kinds"])
+        for _k,_n in sorted(_best.get("seen",{}).items(), key=lambda kv:-kv[1]):
+            print("   %-18s %3d  e.g. %s" % (_k,_n,_best["byName"].get(_k,"")))
+        # Before c53 this was three: man->rogue, woman->mage, guard/noble->knight,
+        # with children taking the man body. Derived this cycle, not copied.
+        assert _best["kinds"]>=5, ("the town still fields only a handful of appearances", _best)
+finally:
+    _srv.terminate()
