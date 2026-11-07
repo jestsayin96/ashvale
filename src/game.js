@@ -726,7 +726,12 @@ function nearSpot(p){
     const c=sp[(rnd()*sp.length)|0];
     if(occ[I(c[0],c[1])]) continue;
     const d=Math.hypot(c[0]-p.x,c[1]-p.y)/c[2];
-    if(d<bd&&d<9){ bd=d; best=c; }     // a walker covers 4.6 tiles a game-hour
+    /* c52: this was 9 tiles, and at 4.6 tiles a game-hour that is a four-hour
+       round trip for a stay of twenty minutes. The census said it plainly - 97.5%
+       of every frame on a visible person was WALKING. An outing whose walk
+       dominates its stay is not somebody out in the street, it is somebody
+       commuting. Close enough that standing there is the point. */
+    if(d<bd&&d<4.5){ bd=d; best=c; }
   }
   return best?{x:best[0],y:best[1]}:null;
 }
@@ -744,15 +749,25 @@ function outing(p){
      other way - six of sixty-nine indoors at four in the afternoon - because at
      4.6 tiles a game-hour the walk dominates: an eighteen-tile spot is a three-hour
      round trip, so a single outing kept someone out most of the afternoon. */
+  /* c52: and far more often. Shortening the walk and lengthening the stay moved
+     the census barely at all - 97.5% of frames on a visible person were walking
+     before, 96.3% after - because the ratio was never the binding constraint.
+     THREE people were out at a time, out of sixty-nine. Everyone else visible was
+     in transit between a door and a door, and transit is walking by definition.
+     A town looks inhabited when a dozen people are standing about in it, not when
+     three are. */
   let chance;
-  if(p.child)        chance = (h>=15&&h<19) ? 0.13 : 0.035;  // out after school
-  else if(!p.work)   chance = (h>=8 &&h<19) ? 0.10 : 0.03;   // nothing to do indoors
-  else               chance = (h===12||h===13||(h>=17&&h<19)) ? 0.085 : 0.025;
+  if(p.child)        chance = (h>=15&&h<19) ? 0.34 : 0.10;   // out after school
+  else if(!p.work)   chance = (h>=8 &&h<19) ? 0.28 : 0.09;   // nothing to do indoors
+  else               chance = (h===12||h===13||(h>=17&&h<19)) ? 0.24 : 0.07;
   if(needsOf(p).rest>0.80) chance*=0.3;              // too tired to loiter
   STREET.rolled++;
   if(rnd()>chance) return null;
   const s=nearSpot(p); if(!s){ STREET.nospot++; return null; }
-  p.out=s; p.outT=ri(1,4);                            // twenty minutes to an hour and a half
+  /* And long enough to be worth the walk. One dt-unit is 22 game-minutes, so this
+     is an hour and a half to nearly four hours - against a round trip now under
+     two. The stay dominates, which is the whole point of going out. */
+  p.out=s; p.outT=ri(4,10);
   p.why = p.child ? 'playing out' : (p.work ? 'taking the air' : 'out in the street');
   STREET.started++;
   return s;
@@ -4135,10 +4150,32 @@ function makeMobSkin(mo){
   return {grp, root:inner, own:C.clips, mixamo:!!C.mixamo,
           mixer:new THREE.AnimationMixer(inner), actions:{}, cur:null};
 }
+/* c52. The rigs carry 32 clips and every one the manifest asks for exists -
+   sitting, lying, praying, picking up, cheering, greeting. The town used four of
+   them. Every clip that makes a place look INHABITED was behind `p.inside`, and
+   `updateSkins` hides anyone inside a building that is not opened. So all of it
+   played, faithfully, on people nobody could see.
+
+   The fix is not more animation. It is giving the clips somewhere to happen
+   outdoors, and c45 already built that: people take themselves off to a plaza or
+   a lane and stand there for twenty minutes to an hour and a half. They just had
+   nothing to do once they arrived. */
+function outClip(p){
+  const i=I(p.x|0,p.y|0);
+  if(!inB(p.x|0,p.y|0)) return null;
+  const t=ty[i];
+  const r=(p.id*2654435761)>>>0;          // stable per person, so nobody flickers
+  if(p.errandTo) return 'gather';         // stopped out in the country: foraging
+  if(!p.out) return null;
+  if(p.age<ADULT) return (r%5===0)?'cheer':((r%3===0)?'sit_ground':'talk');
+  if(t===PLAZA)   return (r%3===0)?'talk':'sit_ground';
+  return (r%4===0)?'sit_ground':'talk';
+}
 function clipFor(p){
   const f = p.sex==='f';
   if(p.dead) return 'die';
   if(p.moving) return f?'walk_f':'walk';
+  if(!p.inside&&!p.away){ const o=outClip(p); if(o) return o; }
   const b=p.inside;
   if(b){
     const night = hour>=22||hour<6;
@@ -4884,6 +4921,15 @@ window.__ash={
     for(let y=0;y<(n||6);y++){ const row=[];
       for(let x=0;x<(n||6);x++) row.push(h2(x,y)%3);
       out.push(row.join('')); }
+    return out; },
+  /* What is actually playing, on people who are actually drawn. A clip counted on
+     somebody inside a closed building is a clip nobody saw. */
+  clips(){ const S=R3; if(!S||typeof SKINS==='undefined') return null;
+    const out={};
+    for(const [p,sk] of SKINS){
+      if(!sk.grp.visible) continue;
+      const k=clipFor(p); out[k]=(out[k]||0)+1;
+    }
     return out; },
   folkSize(k){ if(typeof k==='number') folkScale=Math.max(0.2,Math.min(6,k));
     return folkScale; },

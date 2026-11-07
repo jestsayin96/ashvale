@@ -104,7 +104,10 @@
   "bow_die": "Death_A",
   "staff_idle": "Idle",
   "staff_attack": "Spellcast_Shoot",
-  "staff_cast": "Spellcast_Shoot"
+  "staff_cast": "Spellcast_Shoot",
+  "sit_ground": "Sit_Floor_Idle",
+  "cheer": "Cheer",
+  "gather": "PickUp"
  },
  "dungeon": {
   "chest": "kay/dungeon/chest.glb",
