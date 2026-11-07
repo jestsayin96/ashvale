@@ -10,6 +10,22 @@ whether the thing is good; `npm test` only measures whether it does what the las
 cycle claimed. The 0.25%-of-the-frame finding was invisible to ten green probes and
 obvious in one screenshot.
 
+## A probe must not change the thing it measures
+
+Said three ways now, because it keeps arriving in new clothes:
+
+- c52 measured its noise floor with the people **visible**, so the "noise" was
+  their own animated limbs, which grow with them.
+- c54 found `__ash.look()` forcing `S.ph=0.62` when the game's default is 0.78 —
+  so every occlusion figure from c50 to c53 described a camera angle nobody sees.
+- `grove.py` reported "the canopy hides 78%" while measuring the canopy's share of
+  a frame where the **buildings** had already hidden everyone.
+
+And its corollary, which cost two failures in one cycle: **change the
+configuration and every number taken under the old one is void**, however
+carefully it was derived. All of `seen.py`'s floors went stale the moment the
+pitch was freed.
+
 ## Looking on real hardware
 
 This container has no GPU: every probe drives a browser through software rendering
@@ -113,7 +129,8 @@ including `.float`; diff the selector lists before applying anything.
 
 | # | Defect | Where | First seen |
 |---|---|---|---|
-| 18 | **78.4% of outdoor people are behind trees at dist 16** (c53), up from 71.8% a cycle earlier and 9.9% before people went outside. The tripwire is at 80 and this is now one bad cycle from tripping it. Chasing the occluder is a treadmill — trees, buildings, trees again. Change where the camera sees FROM. | town, dist 16–26 | c52 |
+| 18 | **Buildings hide the town, not trees.** Measured at the game's real pitch with each layer hidden in turn: trees cost 1,853 px, buildings 26,285 — fourteen to one — and together 31,262, far more than the sum, so the occlusion is **layered** and moving either alone reveals almost nothing. 62% of outdoor people are hidden at dist 16. The fix is a cutaway between camera and subject, not thinning anything. | town, dist 16 | c54 |
+| 18y | 78.4% of outdoor people are behind trees at dist 16 (c53), up from 71.8% a cycle earlier and 9.9% before people went outside. The tripwire is at 80 and this is now one bad cycle from tripping it. Chasing the occluder is a treadmill — trees, buildings, trees again. Change where the camera sees FROM. | town, dist 16–26 | c52 |
 | 18x | 71.8% of outdoor people are behind trees at dist 16 (c52 measurement, with a dozen people outdoors). Was 9.9% in c51 — the trees did not change; there are finally people outside for them to hide. Chasing the occluder is a treadmill: trees, then buildings, now trees again. Change where the camera sees FROM, not what stands in front of it. | town, dist 16–26 | c52 |
 | 18a | Occlusion moved rather than went away: people-pixels at dist 20 fell 17,359 → 6,578 after the buildings grew, while the canopy's share of hiding dropped 43.8% → 12.6%. The **buildings** now hide the town. Do not book this as a win. | town, dist 20–26 | c51 |
 | ~~16~~ | ~~The canopy hides 42.7%~~ of the town's visible people at dist 26 (12.8% at dist 16). Measured c50; this is defect 1's cause. Needs clearings, thinning near the town, or shorter trees on the town edge. | town, dist 26 | c50 |

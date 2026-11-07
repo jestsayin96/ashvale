@@ -2155,3 +2155,49 @@ trees have not changed since c50. Each cycle put more people outdoors, and the
 trees hide whoever is there. The tripwire sits at 80. Defect 18 is now the most
 urgent thing in the register and chasing the occluder has failed twice — the camera
 needs somewhere better to see **from**.
+
+
+---
+
+## c54 — the probe was looking from somewhere the game never looks
+
+`__ash.look(x,y,d)` forced `S.ph=0.62`. The game's default pitch is 0.78. **Every
+occlusion figure from c50 to c53 — 43.8%, 71.8%, 78.4% — described a camera angle
+the game never uses, and a measurably worse one.**
+
+```
+                   probe's 0.62      game's 0.78
+visible               13,071 px        19,477 px
+hidden                      78%              62%
+trees cost             2,529 px         1,853 px
+buildings cost        19,787 px        26,285 px
+```
+
+### And the trees were never the problem
+Hiding each layer in turn: trees cost under 2,000 px, buildings fourteen times
+that, and **both together cost far more than the sum of their parts**. The
+occlusion is layered — most hidden people stand behind a building *and* a tree, so
+removing either alone reveals almost nothing. That is why c50's thinning did
+nothing and why c51 looked like it traded one occluder for the other.
+
+`grove.py` saying "the canopy hides 78%" was measuring the canopy's share of a
+frame where the buildings had already hidden everybody. A control that contains
+the other occluder is not a control — c52's lesson in different clothes.
+
+`tools/sightline.py` attributes it properly now. It samples dist 16 only: eight
+screenshots per sample at ~1.3 fps overran 280 s at two distances.
+
+### Not changed: the pitch
+Two sweeps disagreed — one found 0.80 best and 1.10 worse, the other the reverse —
+because the probe parks somewhere different each run. One noisy sweep is not
+grounds for moving a default already near optimal in both. Both agree 0.62 is
+worse than 0.78, which is the bug above.
+
+### Two assertions that went stale in the same cycle
+Freeing the pitch broke `seen.py` twice, neither a regression. A "four readable
+figures" gate failed on three blobs of 32,980 / 10,543 / 472 px — close in, people
+stand near enough that their pixels touch and a connected-region count merges a
+crowd into one region. Then the 20,000 px floor at dist 7 failed, because the
+steeper real camera frames a smaller patch of ground and dist 7 now reads *lower*
+than dist 20. **Change the configuration and every number under the old one is
+void.** That rule is written in three places here and still took two failures.
