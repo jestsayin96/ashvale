@@ -606,7 +606,16 @@ function bereave(v,how){
 }
 
 /* ===================== the day ===================== */
-let day=1, hour=6, minute=0, speed=1;
+/* c57. This was 06:00, and at six in the morning every one of the town's
+   sixty-nine people is still behind a door: measured at boot, indoors 69,
+   outdoors 0, shown 0. The first thing anybody ever saw of Ashvale - the
+   opening frame of a stream - was an empty town, and it stayed that way for
+   an hour of game time before the second person stepped out.
+
+   Three cycles went into why people could not be SEEN. Nobody checked whether
+   anyone was out there to see. The town wakes at nine now, with the morning
+   already under way. */
+let day=1, hour=9, minute=0, speed=1;
 /* People used to re-decide where to be every time their goal cleared, which with a
    jittered evening choice meant they stepped into a building and straight back out,
    over and over. Sampling showed `p.inside` was null in ten samples out of ten — nobody
@@ -3580,7 +3589,14 @@ function init3D(){
   R3={renderer,scene:S3,cam,sun,hemi,water,bG,pG,keepGlow,
       gGroup, chunks:new Map(),
       trunks:R3TMP.trunks, leaves:R3TMP.leaves,
-      th:-2.25,ph:0.78,dist:40,tx:tx0(26),ty:0.6,tz:ty0(23),folk:0};
+      /* c57. Waking the town at nine put 65 people outdoors, and the opening
+         frame still read as empty: at dist 40 a person 1.8 m tall is about
+         twenty-five pixels, and most of them stand behind something. The
+         counter said 45 shown. The picture showed three.
+
+         So open ON the plaza, close enough to see who is in it, rather than
+         forty units up over the town's edge looking at roofs. */
+      th:-2.25,ph:0.78,dist:22,tx:tx0(26),ty:0.6,tz:ty0(26),folk:0};
   /* The town's sixteen chunks were made at module load, not through ensureChunk,
      so nothing dirtied them. Seed every chunk that exists. */
   for(let k=0;k<CN*CN;k++) if(CHGEN[k]) chunkDirty.add(k);
@@ -3708,11 +3724,18 @@ function render3D(){
   const cutDt=Math.max(0,Math.min(0.1, tnow-(S.cutLast===undefined?tnow:S.cutLast)));
   S.cutLast=tnow;
   const cutK=Math.min(1, cutDt*CUTRATE);
-  const cutOn = cutAllow && !!follow && S.dist<32 && scene!=='keep';
+  /* c57. This required a follow, and that gate was arbitrary: the watcher is
+     looking at wherever the camera points, whether or not they have clicked
+     somebody. Measured at the opening frame - 80% of the town's people hidden,
+     and the cutaway switched off because nobody was being followed.
+     The subject is the followed person when there is one, and otherwise the
+     camera's own target. */
+  const cutOn = cutAllow && S.dist<32 && scene!=='keep';
   const cam=S.cam.position;
   let cutX=0, cutZ=0, cutLen=0;
   if(cutOn){
-    cutX=follow.x-cam.x; cutZ=follow.y-cam.z;
+    const sx = follow?follow.x:S.tx, sz = follow?follow.y:S.tz;
+    cutX=sx-cam.x; cutZ=sz-cam.z;
     cutLen=Math.hypot(cutX,cutZ)||1;
   }
   buildings.forEach(b=>{ const u=b.m3&&b.m3.userData; if(!u) return;
