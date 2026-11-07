@@ -2111,3 +2111,47 @@ And defect 19, which may matter more than either: **the town has three bodies.**
 `man → rogue.glb`, `woman → mage.glb`, `guard/noble → knight.glb`,
 `child → man → rogue.glb`. Sixty-nine people, four GLBs, every one an armoured
 adventurer, and the children are hooded rogues.
+
+
+---
+
+## c53 — tint the clothes, not the palette
+
+The town had three bodies: `man → rogue.glb`, `woman → mage.glb`,
+`guard/noble → knight.glb`, `child → man → rogue`. Sixty-nine people, four GLBs,
+every one an armoured adventurer.
+
+No modelling was needed — the second cycle running where checking first saved
+building the wrong thing. A KayKit character is nine named mesh nodes sharing one
+material, whose texture is a palette atlas of gradient swatches.
+
+**Three attempts; the first two were wrong in useful ways.**
+1. Re-hue the swatches. I wrote a comment saying the gradient *is* the shading so
+   lightness must be left alone, then passed `l_add` of +0.10 to +0.22 anyway.
+   Pale, flat villagers. *Writing the rule down does not execute it.*
+2. Fix the lightness, hide `Rogue_Cape` to lose the adventurer silhouette. KayKit's
+   rogue has **no separate hair mesh — the hood is the hair**. Half the town came
+   back bald with oversized tan heads.
+3. The fault under both: **hair lives in the same brown swatches as the leather.**
+   Re-hueing them turns hair into scalp, and the blue variant would have given every
+   woman blue hair. A palette does not separate clothing from the person in it.
+
+The meshes do. Tint Body, Arms, Legs, Cape and Hat; never Head. Hair and skin are
+then safe *by construction* rather than by guessing which swatch is which, and it
+needs no extra texture at all — the three generated atlases were deleted.
+
+```
+distinct appearances among visible people: 6   (was 3)
+  man          man+c9b183 oatmeal     guard
+  woman        man+a8c47e green       woman+9fb6c8 faded blue
+```
+
+Measured with a new `bodies()` hook, because "three bodies" was an impression until
+it was a number.
+
+### The number that did not improve
+Canopy occlusion at dist 16: **9.9% → 71.8% → 78.4%** across c51, c52, c53. The
+trees have not changed since c50. Each cycle put more people outdoors, and the
+trees hide whoever is there. The tripwire sits at 80. Defect 18 is now the most
+urgent thing in the register and chasing the occluder has failed twice — the camera
+needs somewhere better to see **from**.
