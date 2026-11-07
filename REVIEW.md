@@ -113,7 +113,8 @@ including `.float`; diff the selector lists before applying anything.
 
 | # | Defect | Where | First seen |
 |---|---|---|---|
-| 18 | Occlusion moved rather than went away: people-pixels at dist 20 fell 17,359 → 6,578 after the buildings grew, while the canopy's share of hiding dropped 43.8% → 12.6%. The **buildings** now hide the town. Do not book this as a win. | town, dist 20–26 | c51 |
+| 18 | **71.8% of outdoor people are behind trees at dist 16** (c52 measurement, with a dozen people outdoors). Was 9.9% in c51 — the trees did not change; there are finally people outside for them to hide. Chasing the occluder is a treadmill: trees, then buildings, now trees again. Change where the camera sees FROM, not what stands in front of it. | town, dist 16–26 | c52 |
+| 18a | Occlusion moved rather than went away: people-pixels at dist 20 fell 17,359 → 6,578 after the buildings grew, while the canopy's share of hiding dropped 43.8% → 12.6%. The **buildings** now hide the town. Do not book this as a win. | town, dist 20–26 | c51 |
 | ~~16~~ | ~~The canopy hides 42.7%~~ of the town's visible people at dist 26 (12.8% at dist 16). Measured c50; this is defect 1's cause. Needs clearings, thinning near the town, or shorter trees on the town edge. | town, dist 26 | c50 |
 | ~~10~~ | ~~Trees are identical cones~~ — one shape, one green, one size, scattered evenly across the whole map. The single loudest "this is a prototype" signal in any frame. | everywhere, all distances | c49 review |
 | ~~11~~ | ~~The ground is a visible checkerboard~~ — struck c52 | | |
@@ -124,6 +125,7 @@ including `.float`; diff the selector lists before applying anything.
 | 15 | The Ashvale badge, bottom left, is an empty diamond placeholder. | footer | c49 review |
 | ~~17~~ | ~~People are too big close in and too small far out~~ — see struck; the buildings were the problem. Distance-dependent scaling may still be wanted for stream downscaling, but it is no longer urgent. | | |
 | 17b | People are too big close in and too small far out — one global `folkScale` cannot serve both. At 1.6 an adult was 2.3 units against a 4–5 unit house. Cut to 1.35 as a compromise, which is right at neither end. Needs distance-dependent scaling, the way the ground disc already does it. **Check first whether the HOUSES are the ones out of scale**: `fitModel` fits each building to its plot, so a KayKit house may be inflated well past the scale its own characters were drawn for. | town, dist 12–16 | c50 review |
+| 19 | The town has **three bodies**. `man → rogue.glb`, `woman → mage.glb`, `guard/noble → knight.glb`, and `child → man → rogue.glb`. Sixty-nine people, four GLBs, every one an armoured adventurer; the children are hooded rogues. Blender is live and variants built on the same KayKit skeleton keep all 32 clips working. | everywhere | c52 |
 | 1 | Only 6 of 58 outdoor people are in frame at all; size fixed legibility, not presence. Canopy is the untested suspect. | town, dist 20, any hour | c49 |
 | 2 | The conga line: whole town walks single file to one spot, strands out there after dark, chasing a frontier that recedes as it is approached. | open country, 17:00 onward | c49 |
 | 4 | Left rail clips its own last line; no scroll at 860px viewport height. | left rail, short viewports | c48 |
