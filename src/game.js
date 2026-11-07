@@ -1503,6 +1503,7 @@ let camX=0,camY=0,zoom=1.1,CW=0,CH=0,dpr=1,rot=0,follow=null,selected=null,tnow=
    code further down has run. */
 let director=true, dirSeen=-1, dirUntil=0, dirAt=null;
 let cutAllow=true;   // c55: off only for an A/B in the probes
+let sceneHold=false; // c57: probes only - stop new events entering the queue
 let scene='town', GS=N;
 let v3d=false, R3=null, cv3=null;
 const camSave={town:null,keep:null};                                   // grid size of whatever scene is on screen
@@ -5074,6 +5075,13 @@ window.__ash={
      clears the follow to hold the frame still would measure the feature switched
      off and report no change. Hold the follow, toggle THIS. */
   cutaway(v){ if(typeof v==='boolean') cutAllow=v; return cutAllow; },
+  /* c57. Test plumbing. "Does the view go and look at a thing that happened" is
+     only answerable if nothing ELSE happens meanwhile, and a town with
+     sixty-five people outdoors produces events constantly - the director kept
+     being called away to a newer one, correctly, and the probe read that as a
+     failure to arrive. Pausing is not an alternative: the ease runs on dt, and
+     a paused sim has none. So the queue can be held instead. */
+  holdScenes(v){ if(typeof v==='boolean') sceneHold=v; return sceneHold; },
   /* A direct count, so "does the cutaway do anything" is answerable without a
      pixel diff. Pixel diffs need a still camera, and holding a follow is the one
      thing that keeps the camera moving. */
@@ -5186,7 +5194,14 @@ window.__ash={
     dist:+S.dist.toFixed(1),th:+S.th.toFixed(3),follow:follow?follow.id:null}:null; },
   jump(k){ camJump(k); return this.cam(); },
   /* Force the event itself, not the probability in front of it. */
-  stage(x,y){ logMsg('<b>A thing happened</b> here.','g',[tx0(x),ty0(y)]);
+  /* Exempt from `holdScenes`, and it must be: the probe holds the queue so that
+     nothing can supersede its event, and the event it is testing is this one.
+     Staging before the hold left a frame's gap in which a real event slipped in
+     and became the newest - so the director went to THAT, steadily away from the
+     staged one, and the probe read a working director as a broken one. */
+  stage(x,y){ const h=sceneHold; sceneHold=false;
+    logMsg('<b>A thing happened</b> here.','g',[tx0(x),ty0(y)]);
+    sceneHold=h;
     return {x:tx0(x), y:ty0(y), scenes:SCENES.length}; },
   director(v){ if(v!==undefined){ director=!!v; if(director){ userPanned=false; follow=null; } }
     return {on:director, at:dirAt?dirAt.slice():null, scenes:SCENES.length}; },
