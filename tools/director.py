@@ -39,6 +39,24 @@ try:
         # latest event and the probe was reading it as never arriving.
         pg.evaluate("()=>window.__ash.holdScenes(true)")
         ev = pg.evaluate("()=>window.__ash.stage(45,40)")
+        # c57, the real cause. The director was never broken and was never stood
+        # down: it was correctly chasing a DIFFERENT event. The instrumented run
+        # showed `at: [60.5, 41]` - the guild - while the probe measured its
+        # distance to a staged event at (71, 66) and called the result a failure.
+        # It converged on the guild perfectly, 54.3,46.8 -> 60.1,41.4.
+        #
+        # A real event won the race in the gap between arming the director and
+        # holding the queue. So: confirm the director actually TOOK the staged
+        # event before measuring anything. The queue is held, so re-staging wins.
+        took=None
+        for _ in range(12):
+            d=pg.evaluate("()=>window.__ash.director()")
+            if d["at"] and abs(d["at"][0]-ev["x"])<1 and abs(d["at"][1]-ev["y"])<1:
+                took=d; break
+            pg.evaluate("()=>window.__ash.stage(45,40)")
+            pg.wait_for_timeout(700)
+        assert took, ("the director never took the staged event - it was on %s" %
+                      (d.get("at"),), d)
         gaps=[]
         # c57: 6 x 700 ms was four seconds, which was plenty when the town had
         # three people outdoors and is not plenty now that it has sixty-five and
