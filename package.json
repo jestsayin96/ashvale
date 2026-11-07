@@ -7,7 +7,7 @@
   "scripts": {
     "build": "node tools/build.mjs",
     "check": "node --check src/game.js",
-    "test": "node --check src/game.js && node tools/build.mjs && python3 -I tools/shot.py && python3 -I tools/shot3d.py && python3 -I tools/world.py && python3 -I tools/ground.py && python3 -I tools/render.py after && python3 -I tools/paths.py 30 && python3 -I tools/folk.py && python3 -I tools/cam.py && python3 -I tools/director.py && python3 -I tools/seen.py && python3 -I tools/grove.py && python3 -I tools/clips.py && python3 -I tools/sightline.py",
+    "test": "node --check src/game.js && node tools/build.mjs && python3 -I tools/shot.py && python3 -I tools/shot3d.py && python3 -I tools/world.py && python3 -I tools/ground.py && python3 -I tools/render.py after && python3 -I tools/paths.py 30 && python3 -I tools/folk.py && python3 -I tools/cam.py && python3 -I tools/director.py && python3 -I tools/seen.py && python3 -I tools/grove.py && python3 -I tools/clips.py && python3 -I tools/sightline.py && python3 -I tools/conga.py",
     "serve": "python3 -m http.server 8080",
     "build:music": "esbuild vendor/music-studio/entry.ts --bundle --format=iife --global-name=MUSIC --minify --external:node:fs/promises --external:node:path --outfile=vendor/music.bundle.js"
   },
