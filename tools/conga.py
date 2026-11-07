@@ -26,20 +26,22 @@ try:
         best={"places":0,"walkers":0,"biggest":0}
         stranded=0; nights=0; seen=set()
         day0=pg.evaluate("()=>window.__ash.clock().mins")
-        while True:
-            pg.wait_for_timeout(2500)
+        # Bounded by SAMPLES, not by game-days. Two earlier runs were killed at
+        # their budget having printed nothing at all, because the loop waited on a
+        # day count that arrived slower than estimated - and a probe that reports
+        # nothing when it runs out of time teaches nothing. This one always gets
+        # to its findings, and says how far it got.
+        for i in range(85):
+            pg.wait_for_timeout(2300)
             c=pg.evaluate("()=>window.__ash.conga()")
             if not c: continue
             if c["walkers"]>best["walkers"]: best=c
             if c["hour"]>=21 or c["hour"]<5:
                 nights+=1; stranded=max(stranded,c["strandedAfterDark"])
                 if c["who"]: seen.update(w["who"] for w in c["who"])
-            days=(pg.evaluate("()=>window.__ash.clock().mins")-day0)/1440.0
-            # 2.5 game-days, which crosses two nights. At fast(45) under software
-            # rendering a game-day costs about 83 real seconds, so five days
-            # overran a 400 s budget and the probe was killed mid-run.
-            if days>2.5 and nights>0: break
-            if days>3.2: break
+            if nights>=6 and i>30: break
+        days=(pg.evaluate("()=>window.__ash.clock().mins")-day0)/1440.0
+        print("ran %.1f game-days, %d samples after dark" % (days, nights))
         print("busiest moment: %d foragers walking to %d distinct places, "
               "most-shared place had %d of them"
               % (best["walkers"], best["places"], best["biggest"]))
