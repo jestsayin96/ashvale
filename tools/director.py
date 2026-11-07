@@ -48,9 +48,14 @@ try:
         for _ in range(14):
             pg.wait_for_timeout(900)
             c = pg.evaluate("()=>window.__ash.cam()")
-            st.append(pg.evaluate("()=>window.__ash.director()"))
+            st.append(pg.evaluate("""()=>{try{
+                const d=window.__ash.director(), c=window.__ash.cam();
+                return {at:d.at, scenes:d.scenes, on:d.on, follow:c.follow,
+                        tx:+c.tx.toFixed(1), tz:+c.tz.toFixed(1), dist:c.dist};
+              }catch(e){ return 'threw: '+e.message; }}"""))
             gaps.append(round(((c["tx"]-ev["x"])**2 + (c["tz"]-ev["y"])**2) ** 0.5, 2))
-        print("director state:", st[0], "->", st[-1])
+        print("director state first:", st[0])
+        print("director state last :", st[-1])
         start = ((c0["tx"]-ev["x"])**2 + (c0["tz"]-ev["y"])**2) ** 0.5
         print("event at", ev["x"], ev["y"], "start %.1f" % start, "gaps", gaps)
         # eased per frame, so assert convergence rather than a distance by a wall clock
