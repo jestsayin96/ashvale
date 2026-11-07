@@ -9092,6 +9092,16 @@ window.__ash={
          med:hs[hs.length>>1]||0, spread:+((hs[hs.length-1]||0)-(hs[0]||0)).toFixed(2)}}; },
   groveLayer(v){ const S=R3; if(!S||!S.grove) return null;
     S.grove.visible=!!v; return S.grove.visible; },
+  /* c54. Three cycles have been spent moving whatever was in the way, and twice
+     the wrong thing was moved, because "the canopy hides N%" never said what the
+     REST was hiding. With both layers switchable the probe can attribute it:
+     hide the trees, hide the buildings, hide both, and the differences say which
+     one costs what. */
+  buildLayer(v){ const S=R3; if(!S||!S.bG) return null;
+    S.bG.visible=!!v; return S.bG.visible; },
+  pitch(v){ const S=R3; if(!S) return null;
+    if(typeof v==='number') S.ph=Math.max(0.2,Math.min(1.45,v));
+    return S.ph; },
   /* Which prototype each cell WOULD take, straight from the selection
      expression, so a lattice shows up as a lattice instead of as a vibe. */
   groveRows(n){ const out=[];
@@ -9286,7 +9296,14 @@ window.__ash={
     amb:(()=>{let v=null; S.scene.traverse(q=>{if(q.isAmbientLight)v=q.intensity;}); return v;})()
     }:null; },
   look(x,y,d){ const S=R3; if(!S) return null;
-    S.tx=tx0(x); S.tz=ty0(y); S.dist=d; S.ph=0.62; userPanned=true; return [S.tx,S.tz,S.dist]; },
+    /* c54: this forced ph=0.62, and the game's own default is 0.78. So every
+       occlusion figure from c50 onward - 43.8%, 71.8%, 78.4% - was measured at a
+       camera angle the game never uses, and a measurably worse one: a sweep found
+       0.62 recovers 29% FEWER people-pixels than 0.80. A test helper that quietly
+       changes the configuration under test reports on a build nobody ships.
+       It leaves the pitch alone now; `pitch()` sets it when a probe means to. */
+    S.tx=tx0(x); S.tz=ty0(y); S.dist=d; userPanned=true;
+    return [S.tx,S.tz,S.dist,S.ph]; },
   faceVerts(){ let q=0;
     const lev=(x,y)=>{ if(!isMade(x,y)) return -0.6;
       const i=I(x,y); return ty[i]===WATER?-0.34:hh[i]*HU; };
