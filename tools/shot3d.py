@@ -54,7 +54,16 @@ try:
             errs.append("mob/creature models never requested: " + ", ".join(sorted(missing)))
         # Surfaces. A texture that never loads leaves the flat vertex colour behind and
         # the scene still renders, so nothing on screen says it is missing.
-        wanttex = {"ground.webp", "rock.webp", "paving.webp", "lava.webp"}
+        #
+        # c52: this was a hardcoded {"ground.webp", "rock.webp", "paving.webp",
+        # "lava.webp"} and it failed the moment the manifest pointed `ground` at a
+        # new file. A list of filenames copied from an older cycle is the same trap
+        # as a figure copied from an older cycle - it stops meaning what it meant
+        # and nobody notices until it is wrong. Read what the manifest ACTUALLY
+        # declares, so the assertion follows the repo instead of remembering it.
+        import json as _json, pathlib as _pl
+        _man = _json.loads((_pl.Path(root) / "models" / "manifest.json").read_text())
+        wanttex = {v.rsplit("/", 1)[-1] for v in (_man.get("textures") or {}).values()}
         gone = wanttex - set(texs)
         if gone:
             errs.append("surface textures never requested: " + ", ".join(sorted(gone)))
