@@ -4797,14 +4797,30 @@ function wildSpot(p){
     if(Math.hypot(x-p.x,y-p.y)>budget) continue;
     cand.push([out,x,y]);
   }
-  cand.sort((a,b2)=>b2[0]-a[0]);
+  /* c56. This sorted by `out` descending and took the first reachable, so every
+     forager in town walked to the same corner - one destination, one flow field,
+     one identical path at one identical speed, and the owner's screenshot of two
+     perfect columns of people standing in the dark. Beads on a string.
+
+     Worse, "furthest outside the town" is a target that RECEDES: the made world
+     grows because people walk into it, so the far edge moves away as they
+     approach. Nobody could ever arrive.
+
+     So prefer a band - properly out of town, but a place that exists and stays
+     put - and then pick among the candidates at random rather than taking the
+     best. Two foragers should not be able to agree on where the best spot is. */
+  const WANTOUT=7;
+  cand.sort((a,b2)=>Math.abs(a[0]-WANTOUT)-Math.abs(b2[0]-WANTOUT));
   /* Walkable is not the same as reachable. The strip west of the river is good
      grass that no path from the town can cross, and two foragers in a row set
      out for it, stood still with no flow value under them, and gave up at dusk.
      Build the field for the candidate and check it actually comes back here. */
-  for(let i=0;i<Math.min(4,cand.length);i++){
-    const f=fieldTo(cand[i][1],cand[i][2]);
-    if(f[here]>=0) return {x:cand[i][1],y:cand[i][2]};
+  const pool=cand.slice(0,24);
+  for(let k=pool.length-1;k>0;k--){ const j=(rnd()*(k+1))|0;
+    const t=pool[k]; pool[k]=pool[j]; pool[j]=t; }      // shuffle, then take the first that works
+  for(let i=0;i<Math.min(6,pool.length);i++){
+    const f=fieldTo(pool[i][1],pool[i][2]);
+    if(f[here]>=0) return {x:pool[i][1],y:pool[i][2]};
   }
   return null;
 }
@@ -6280,6 +6296,14 @@ function tick(ts){
           const d=dest.door;
           p.goal={x:d[0],y:d[1],b:dest}; p.fld=fieldTo(d[0],d[1]);
         }
+      }
+      /* `errand()` only runs when there is no goal, so its "give up at dusk" branch
+         could never fire while somebody was actually walking - they kept going
+         whatever the hour, which is why they were still out there at midnight.
+         The check belongs where the walking happens. */
+      if(p.goal&&p.goal.forage&&(hour>=19||hour<6)){
+        p.goal=null; p.fld=null; p.errandTo=null; p.moving=false;
+        ERR.gaveup++; p.why='heading home before dark';
       }
       if(p.goal){
         const gx=p.goal.x+0.5, gy=p.goal.y+0.5;
@@ -9384,6 +9408,21 @@ window.__ash={
     for(const [k,m] of S.chunks){ const n=m.geometry.getAttribute('position').count;
       verts+=n; per[k]=n; }
     return {meshes:S.chunks.size, verts, builds:geoBuilds, recolours:geoRecolours, per}; },
+  /* c56. The conga line was visible in a screenshot long before it was a number.
+     This is the number: how many DISTINCT places the town's foragers are walking
+     to, and how many of them are still outside the town after dark. One
+     destination for everybody is the line; anybody out at midnight is stranded. */
+  conga(){ const out={}, late=[];
+    for(const p of people){
+      if(p.dead||p.away) continue;
+      if(p.errandTo){ const k=p.errandTo.x+','+p.errandTo.y; out[k]=(out[k]||0)+1; }
+      const o=Math.max(0,OFF-p.x,p.x-(OFF+TOWN-1),OFF-p.y,p.y-(OFF+TOWN-1));
+      if(o>2&&(hour>=21||hour<5)) late.push({who:p.name,out:Math.round(o),why:p.why});
+    }
+    const n=Object.values(out);
+    return {walkers:n.reduce((a,b)=>a+b,0), places:Object.keys(out).length,
+      biggest:n.length?Math.max(...n):0, hour, strandedAfterDark:late.length,
+      who:late.slice(0,4)}; },
   trips(){ return people.filter(p=>!p.away&&p.errandTo).map(p=>({
     at:[p.x|0,p.y|0], to:[p.errandTo.x,p.errandTo.y],
     aim:Math.max(0,OFF-p.errandTo.x,p.errandTo.x-(OFF+TOWN-1),OFF-p.errandTo.y,p.errandTo.y-(OFF+TOWN-1)),

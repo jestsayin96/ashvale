@@ -114,12 +114,16 @@ try:
             # counted a building that was still on its way to clear, and the
             # "off" state looked identical to the "on" one.
             pg.wait_for_timeout(5000)
-            peak=0
+            peak=0; last=0
             for _ in range(10):
                 pg.wait_for_timeout(1200)
                 st=pg.evaluate("()=>window.__ash.cutStat()")
-                peak=max(peak, st["faded"])
-            best['on' if on else 'off']=peak
+                peak=max(peak, st["faded"]); last=st["faded"]
+            # Peak for ON, because which buildings are in the way changes as the
+            # person walks and any one of them proves the feature. SETTLED for OFF,
+            # because a peak taken while a fade is still clearing counts a building
+            # on its way out - which is how "off" once read identically to "on".
+            best['on' if on else 'off']= peak if on else last
             print("     cutaway %-5s  up to %d of %d buildings stepped aside"
                   % (str(on).lower(), peak, st["total"]))
         assert best['on'] >= 1, ("the cutaway never fired while following", best)
