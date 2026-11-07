@@ -2047,3 +2047,67 @@ People-pixels at dist 20 fell 17,359 → 6,578 and the canopy's share of hiding 
 43.8% → 12.6%. The trees did not stop hiding anyone; **the buildings took over the
 job**. Defect 16 struck with that caveat attached, defect 18 opened for the
 successor. Occlusion moved. It did not go away.
+
+---
+
+## c52 — thirty-two animations, four in use, on people nobody could see
+
+Mr. E asked whether we could author our own animations in Blender. We can — 5.2.3
+is live on his machine with glTF both ways, and the viewport renders to a PNG I can
+read, so it would be a real author-render-look loop. But checking first was the
+right order, because we did not need it.
+
+**Every KayKit rig carries 32 clips and every one the manifest asks for exists.**
+Sit_Chair_Idle, Sit_Floor_Idle, Lie_Idle, PickUp, Cheer, Interact, three walks.
+Nothing missing. The problem was where they were allowed to happen:
+```js
+const b = p.inside;
+if(b){ if(night && b===p.home) return 'sleep';
+       if(b.kind==='altar')    return 'pray'; ... }
+```
+Every clip that makes a place look inhabited sat behind `p.inside`, and
+`updateSkins` hides anyone inside a building that is not opened. It all played,
+faithfully, forever, on people who were not drawn. Outdoors: walk, run, idle, die.
+
+`tools/clips.py` counts clips on people **actually on screen**, the only population
+that matters. First census: `walk_f 60.3% · walk 37.2% · talk 2.2% · idle 0.3%` —
+97.5% of every visible frame was somebody walking.
+
+Two fixes that looked obviously right and barely moved it:
+- `outClip`, giving the clips somewhere outdoors to happen → 97.5% to 96.3%.
+- Spots within 4.5 tiles instead of 9, stays of 1.5–4 hours instead of 20–90
+  minutes, so standing dominates the walk → barely registered.
+
+Neither was the binding constraint. **Three people were out at a time, out of
+sixty-nine.** Everyone else visible was in transit between a door and a door, and
+transit is walking by definition. Outing chances roughly tripled:
+```
+walking          97.5%  ->  82.4%
+inhabited clips   2.3%  ->  17.7%     talk 14.2%, sit_ground 3.5%
+```
+
+### Also this cycle
+- **ambientCG maps**, supplied by Mr. E on his machine since this container's egress
+  reaches GitHub and npm and nothing else. Eight maps, 610 KB, ground and rock and
+  paving with normals. A normal map is **data**: decoded as sRGB every vector in it
+  bends and the lighting is quietly wrong everywhere.
+- **The ground was a lattice too** — `((x*7+y*13)^(x*3+y*11))%7`, an XOR of two
+  linear forms mod 7, three discrete greens. Same h2 hash as the trees. The
+  checkerboard is gone, confirmed by eye on his GPU.
+- **Looked at it on real hardware for the first time.** `__ash` is live in the
+  published page, so the camera can be driven from JavaScript on a machine that
+  actually has a graphics card.
+- **`shot3d.py` asserted a hardcoded list of texture filenames** and failed the
+  moment the manifest pointed `ground` at a new file. A list of names from an older
+  cycle is a stale figure in disguise; it reads the manifest now.
+
+### Recorded, not blessed
+Putting a dozen people outdoors sent canopy occlusion from 9.9% to **71.8%** at
+dist 16. The trees did not change — there are finally people outside for them to
+hide. Gate raised to 80 as a tripwire against it getting worse, with the real
+number in REVIEW.md as defect 18.
+
+And defect 19, which may matter more than either: **the town has three bodies.**
+`man → rogue.glb`, `woman → mage.glb`, `guard/noble → knight.glb`,
+`child → man → rogue.glb`. Sixty-nine people, four GLBs, every one an armoured
+adventurer, and the children are hooded rogues.
